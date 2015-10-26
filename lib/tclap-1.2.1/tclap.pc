@@ -1,0 +1,7 @@
+prefix=/usr/local
+includedir=${prefix}/include
+
+Name: tclap
+Description: Templatized C++ Command Line Parser
+Version: 1.2.1
+Cflags: -I${includedir}

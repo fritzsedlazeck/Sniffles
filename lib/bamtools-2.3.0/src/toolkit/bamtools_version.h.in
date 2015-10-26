@@ -1,0 +1,20 @@
+// ***************************************************************************
+// bamtools_version.h.in (c) 2010 Derek Barnett
+// Marth Lab, Department of Biology, Boston College
+// ---------------------------------------------------------------------------
+// Last modified: 19 November 2010 (DB)
+// ---------------------------------------------------------------------------
+// Provides version information for the BamTools toolkit.
+// ***************************************************************************
+
+#ifndef BAMTOOLS_VERSION_H
+#define BAMTOOLS_VERSION_H
+
+// CMake uses this file as a template to generate "bamtools_version.h".
+// These constants are defined to match the variables set in the build system. 
+#define BAMTOOLS_VERSION_MAJOR @BamTools_VERSION_MAJOR@
+#define BAMTOOLS_VERSION_MINOR @BamTools_VERSION_MINOR@
+#define BAMTOOLS_VERSION_BUILD @BamTools_VERSION_BUILD@
+
+#endif // BAMTOOLS_VERSION_H
+
