@@ -1,7 +1,5 @@
 # Sniffles
-Structural variation caller using third generation sequencing.
-Please note current version of Sniffles requires output from BWA-MEM!
-If you experience problems or have suggestions please contact: fritz.sedlazeck@gmail.com
+Sniffles is a structural variation caller using third generation sequencing (PacBio or Oxford Nanopore). It detects all types of SVs using evidence from split-read alignments, high-mismatch regions, and coverage analysis. Please note the current version of Sniffles requires output from BWA-MEM with the optional SAM attributes enabled! If you experience problems or have suggestions please contact: fritz.sedlazeck@gmail.com
 
 **************************************
 
