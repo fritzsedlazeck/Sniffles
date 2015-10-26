@@ -1,6 +1,7 @@
 # Sniffles
 Structural variation caller using third generation sequencing.
 Please note current version of Sniffles requires output from BWA-MEM!
+If you experience problems or have suggestions please contact: fritz.sedlazeck@gmail.com
 
 **************************************
 
