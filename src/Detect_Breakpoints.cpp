@@ -107,13 +107,13 @@ std::vector<Breakpoint *> detect_breakpoints(std::string read_filename) {
 					{
 						{
 							//if (Parameter::Instance()->useMD_CIGAR) {
-							cigar_event = tmp_aln->get_events_CIGAR();
+							//cigar_event = tmp_aln->get_events_CIGAR();
 							//}
 						}
 #pragma omp section
 						{
 							//if (Parameter::Instance()->useMD_CIGAR) {
-							md_event = tmp_aln->get_events_MD(20);
+							//md_event = tmp_aln->get_events_MD(20);
 							//}
 						}
 #pragma omp section
@@ -445,16 +445,16 @@ void estimate_parameters(std::string read_filename) {
 			} else {
 				avg_score += avg_score / num;
 			}
-			cout<<"Para:\t"<<score;
+			//cout<<"Para:\t"<<score;
 			//get avg mismatches
 			std::string md = tmp_aln->get_md();
 			if (!md.empty()) {
 				avg_mis += tmp_aln->get_num_mismatches(md);
-				cout<<"\t"<<tmp_aln->get_num_mismatches(md);
+				//cout<<"\t"<<tmp_aln->get_num_mismatches(md);
 			}
 			//cigar threshold: (without 1!)
 			avg_indel += tmp_aln->get_avg_indel_length_Cigar();
-			cout<<"\t"<<tmp_aln->get_avg_indel_length_Cigar()<<endl;
+			//cout<<"\t"<<tmp_aln->get_avg_indel_length_Cigar()<<endl;
 			num++;
 		}
 		mapped_file->parseReadFast(Parameter::Instance()->min_mq, tmp_aln);

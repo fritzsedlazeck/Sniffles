@@ -44,42 +44,44 @@ void read_parameters(int argc, char *argv[]) {
 
 	TCLAP::ValueArg<std::string> arg_bamfile("m", "mapped_reads", "Bam File", true, "", "string");
 	TCLAP::ValueArg<std::string> arg_vcf("v", "vcf", "VCF output file name", false, "", "string");
-	TCLAP::ValueArg<std::string> arg_bede("b", "bede", "Bede output file name", false, "", "string");
-	TCLAP::ValueArg<std::string> arg_maria("", "maria_format", "Simplified format of bede Format.", false, "", "string");
-	TCLAP::ValueArg<std::string> arg_ref("r", "reference", "Reference fasta sequence for realign step", false, "", "string");
-	TCLAP::ValueArg<std::string> arg_region("", "regions", "List of regions CHR:start-stop; to check", false, "", "string");
+	//TCLAP::ValueArg<std::string> arg_bede("b", "bede", "Bede output file name", false, "", "string");
+	TCLAP::ValueArg<std::string> arg_maria("", "bede", "Simplified format of bede Format.", false, "", "string");
+	//TCLAP::ValueArg<std::string> arg_ref("r", "reference", "Reference fasta sequence for realign step", false, "", "string");
+	//TCLAP::ValueArg<std::string> arg_region("", "regions", "List of regions CHR:start-stop; to check", false, "", "string");
 
 	TCLAP::ValueArg<int> arg_support("s", "min_support", "Minimum number of reads that support a SV. Default: 10", false, 10, "int");
 	TCLAP::ValueArg<int> arg_splits("", "max_num_splits", "Maximum number of splits per read to be still taken into account. Default: 4", false, 4, "int");
 	TCLAP::ValueArg<int> arg_dist("d", "max_distance", "Maximum distance to group SV together. Default: 1kb", false, 1000, "int");
 	TCLAP::ValueArg<int> arg_threads("t", "threads", "Number of threads to use. Default: 3", false, 3, "int");
-	TCLAP::ValueArg<int> arg_corridor("", "corridor", "Maximum size of corridor for realignment. Default: 2000", false, 2000, "int");
+	//TCLAP::ValueArg<int> arg_corridor("", "corridor", "Maximum size of corridor for realignment. Default: 2000", false, 2000, "int");
 	TCLAP::ValueArg<int> arg_minlength("l", "min_length", "Minimum length of SV to be reported. Default:0", false, 0, "int");
 	TCLAP::ValueArg<int> arg_mq("q", "minmapping_qual", "Minimum Mapping Quality. Default: 20", false, 20, "int");
 	TCLAP::ValueArg<int> arg_cigar("c", "min_cigar_event", "Minimum Cigar Event (e.g. Insertion, deletion) to take into account. Default:50 ", false, 50, "int");
 	TCLAP::ValueArg<int> arg_numreads("n", "num_reads_report", "Report up to N reads that support the SV. Default: 0", false, 0, "int");
-	TCLAP::ValueArg<int> arg_phase_minreads("", "min_reads_phase", "Minimum reads overlapping two SV to phase them together. Default: 1", false, 1, "int");
+//	TCLAP::ValueArg<int> arg_phase_minreads("", "min_reads_phase", "Minimum reads overlapping two SV to phase them together. Default: 1", false, 1, "int");
 
-	TCLAP::SwitchArg arg_realign("", "re-align", "Enables the realignment of reads at predicted SV sites. Leads to more accurate breakpoint predictions.", cmd, false);
-	TCLAP::SwitchArg arg_MD_cigar("", "use_MD_Cigar", "Enables Sniffles to use the alignemtn information to screen for susbicious regions.", cmd, false);
+	//TCLAP::SwitchArg arg_realign("", "re-align", "Enables the realignment of reads at predicted SV sites. Leads to more accurate breakpoint predictions.", cmd, false);
+	TCLAP::SwitchArg arg_MD_cigar("", "use_MD_Cigar", "Enables Sniffles to use the alignment information to screen for suspicious regions.", cmd, false);
 
-	cmd.add(arg_bamfile);
-	cmd.add(arg_mq);
-	cmd.add(arg_vcf);
-	cmd.add(arg_cigar);
+
+
+
 	cmd.add(arg_numreads);
-	cmd.add(arg_support);
-	cmd.add(arg_splits);
 	cmd.add(arg_dist);
-	cmd.add(arg_bede);
+	//cmd.add(arg_bede);
 	cmd.add(arg_threads);
-	cmd.add(arg_ref);
-	cmd.add(arg_corridor);
-	cmd.add(arg_region);
-	cmd.add(arg_minlength);
-	cmd.add(arg_phase_minreads);
+	cmd.add(arg_cigar);
 	cmd.add(arg_maria);
-
+	cmd.add(arg_vcf);
+	//cmd.add(arg_ref);
+	//cmd.add(arg_corridor);
+	//cmd.add(arg_region);
+	cmd.add(arg_minlength);
+	//cmd.add(arg_phase_minreads);
+	cmd.add(arg_mq);
+	cmd.add(arg_splits);
+	cmd.add(arg_support);
+	cmd.add(arg_bamfile);
 	//parse cmd:
 	cmd.parse(argc, argv);
 
@@ -92,12 +94,12 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->min_support = arg_support.getValue();
 	Parameter::Instance()->max_splits = arg_splits.getValue();
 	Parameter::Instance()->max_dist = arg_dist.getValue();
-	Parameter::Instance()->ref_seq = arg_ref.getValue();
-	Parameter::Instance()->realign = arg_realign.getValue();
-	Parameter::Instance()->corridor = arg_corridor.getValue();
-	Parameter::Instance()->output_bede = arg_bede.getValue();
+	//Parameter::Instance()->ref_seq = arg_ref.getValue();
+	//Parameter::Instance()->realign = arg_realign.getValue();
+	//Parameter::Instance()->corridor = arg_corridor.getValue();
+//	Parameter::Instance()->output_bede = arg_bede.getValue();
 	Parameter::Instance()->min_length = arg_minlength.getValue();
-	Parameter::Instance()->min_reads_phase = arg_phase_minreads.getValue();
+	//Parameter::Instance()->min_reads_phase = arg_phase_minreads.getValue();
 	Parameter::Instance()->useMD_CIGAR = arg_MD_cigar.getValue();
 	Parameter::Instance()->num_threads=arg_threads.getValue();
 	Parameter::Instance()->output_maria=arg_maria.getValue();
