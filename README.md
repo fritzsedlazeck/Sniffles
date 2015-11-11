@@ -32,73 +32,52 @@ USAGE:
 
 Options:
 
-  ./sniffles  [--maria_format <string>] [--min_reads_phase <int>] [-l
-               <int>] [--regions <string>] [--corridor <int>] [-r <string>]
-               [-t <int>] [-b <string>] [-d <int>] [--max_num_splits <int>]
-               [-s <int>] [-n <int>] [-c <int>] [-v <string>] [-q <int>] -m
-               <string> [--use_MD_Cigar] [--re-align] [--] [--version]
-               [-h]
+     ./sniffles  -m <string> [-s <int>] [--max_num_splits <int>] [-q <int>]
+               [-l <int>] [-v <string>] [--bede <string>] [-c <int>] [-t
+               <int>] [-d <int>] [-n <int>] [--use_MD_Cigar] [--]
+               [--version] [-h]
 
 
 Where: 
 
-   --maria_format <string>
-     Simplified format of bede Format.
+   -m <string>,  --mapped_reads <string>
+     (required)  Bam File
 
-   --min_reads_phase <int>
-     Minimum reads overlapping two SV to phase them together. Default: 1
-
-   -l <int>,  --min_length <int>
-     Minimum length of SV to be reported. Default:0
-
-   --regions <string>
-     List of regions CHR:start-stop; to check
-
-   --corridor <int>
-     Maximum size of corridor for realignment. Default: 2000
-
-   -r <string>,  --reference <string>
-     Reference fasta sequence for realign step
-
-   -t <int>,  --threads <int>
-     Number of threads to use. Default: 3
-
-   -b <string>,  --bede <string>
-     Bede output file name
-
-   -d <int>,  --max_distance <int>
-     Maximum distance to group SV together. Default: 1kb
+   -s <int>,  --min_support <int>
+     Minimum number of reads that support a SV. Default: 10
 
    --max_num_splits <int>
      Maximum number of splits per read to be still taken into account.
      Default: 4
 
-   -s <int>,  --min_support <int>
-     Minimum number of reads that support a SV. Default: 10
+   -q <int>,  --minmapping_qual <int>
+     Minimum Mapping Quality. Default: 20
 
-   -n <int>,  --num_reads_report <int>
-     Report up to N reads that support the SV. Default: 0
+   -l <int>,  --min_length <int>
+     Minimum length of SV to be reported. Default:0
+
+   -v <string>,  --vcf <string>
+     VCF output file name
+
+   --bede <string>
+     Simplified format of bede Format.
 
    -c <int>,  --min_cigar_event <int>
      Minimum Cigar Event (e.g. Insertion, deletion) to take into account.
      Default:50 
 
-   -v <string>,  --vcf <string>
-     VCF output file name
+   -t <int>,  --threads <int>
+     Number of threads to use. Default: 3
 
-   -q <int>,  --minmapping_qual <int>
-     Minimum Mapping Quality. Default: 20
+   -d <int>,  --max_distance <int>
+     Maximum distance to group SV together. Default: 1kb
 
-   -m <string>,  --mapped_reads <string>
-     (required)  Bam File
+   -n <int>,  --num_reads_report <int>
+     Report up to N reads that support the SV. Default: 0
 
    --use_MD_Cigar
-     Enables Sniffles to use the alignemtn information to screen for
-     susbicious regions.
-
-   --re-align
-     Enables the realignment of reads at predicted SV sites. Leads to more
-     accurate breakpoint predictions.
+     Enables Sniffles to use the alignment information to screen for
+     suspicious regions.
 
    --,  --ignore_rest
      Ignores the rest of the labeled arguments following this flag.
