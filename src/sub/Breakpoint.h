@@ -100,7 +100,7 @@ public:
 
 	}
 	long size() {
-		return positions.stop.max_pos - positions.start.min_pos;
+		return positions.stop.most_support - positions.start.most_support;
 	}
 	int get_support();
 	long overlap(Breakpoint * tmp);
@@ -141,7 +141,10 @@ public:
 		}
 	}*/
 	long get_length(){
-		return this->positions.stop.max_pos-this->positions.start.min_pos;
+		if(this->sv_type & INV){
+			return this->positions.read_stop-this->positions.read_start;
+		}
+		return this->positions.stop.most_support-this->positions.start.most_support;
 	}
 	std::string get_supporting_types(){
 		return this->supporting_types;

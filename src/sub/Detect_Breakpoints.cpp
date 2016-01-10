@@ -107,13 +107,13 @@ std::vector<Breakpoint *> detect_breakpoints(std::string read_filename) {
 					{
 						{
 							//if (Parameter::Instance()->useMD_CIGAR) {
-							//cigar_event = tmp_aln->get_events_CIGAR();
+							cigar_event = tmp_aln->get_events_CIGAR();
 							//}
 						}
 #pragma omp section
 						{
 							//if (Parameter::Instance()->useMD_CIGAR) {
-							//md_event = tmp_aln->get_events_MD(20);
+							md_event = tmp_aln->get_events_MD(20);
 							//}
 						}
 #pragma omp section
@@ -294,16 +294,16 @@ void add_splits(Alignment * tmp, std::vector<aln_str> events, short type, RefVec
 		if (events[i].RefID == events[i - 1].RefID) {
 
 			//TODO: changed because of test:
-
-
 			if (events[i - 1].strand == events[i].strand) {
-				if (events[i - 1].strand) { // this might be a problem for INV??
+				if (events[i - 1].strand) {
 					read.strand.first = events[i - 1].strand;
 					read.strand.second = !events[i].strand;
 				} else {
 					read.strand.first = !events[i - 1].strand;
 					read.strand.second = events[i].strand;
 				}
+
+
 				svs.read_start = events[i - 1].read_pos_start + events[i - 1].length;
 				svs.read_stop = events[i].read_pos_start;
 				if (events[i - 1].strand) {
@@ -323,12 +323,12 @@ void add_splits(Alignment * tmp, std::vector<aln_str> events, short type, RefVec
 				} else {
 					read.SV = 'n';
 				}
-			} else {					// if first part of read is in a different direction as the second part
+			} else {					// if first part of read is in a different direction as the second part-> INV
 				read.strand.first = events[i - 1].strand;
 				read.strand.second = !events[i].strand;
 				read.SV |= INV;
 				if (events[i - 1].strand) {
-
+					//std::cout<<events[i].pos<<"\t"<<events[i].RefID<<"\t"<<get_ref_lengths(events[i].RefID, ref)<<endl;
 					svs.start.min_pos = events[i - 1].pos + events[i - 1].length + get_ref_lengths(events[i - 1].RefID, ref);
 					svs.stop.max_pos = events[i].pos + events[i].length + get_ref_lengths(events[i].RefID, ref);
 				} else {

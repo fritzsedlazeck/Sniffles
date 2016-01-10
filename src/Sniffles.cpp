@@ -63,9 +63,6 @@ void read_parameters(int argc, char *argv[]) {
 	//TCLAP::SwitchArg arg_realign("", "re-align", "Enables the realignment of reads at predicted SV sites. Leads to more accurate breakpoint predictions.", cmd, false);
 	TCLAP::SwitchArg arg_MD_cigar("", "use_MD_Cigar", "Enables Sniffles to use the alignment information to screen for suspicious regions.", cmd, false);
 
-
-
-
 	cmd.add(arg_numreads);
 	cmd.add(arg_dist);
 	//cmd.add(arg_bede);

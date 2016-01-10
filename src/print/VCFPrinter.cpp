@@ -63,8 +63,6 @@ void VCFPrinter::print_body(std::vector<Breakpoint *> &SV, RefVector ref) {
 		int pos = IPrinter::calc_pos(SV[i]->get_coordinates().start.most_support, ref,chr);
 		fprintf(file, "%s", chr.c_str());
 		fprintf(file, "%c", '\t');
-
-
 		fprintf(file, "%i", pos);
 		fprintf(file, "%c", '\t');
 		fprintf(file, "%i", SV[i]->get_id());

@@ -209,10 +209,13 @@ void Breakpoint::predict_SV() {
 	int maxim = 0;
 	long coord = 0;
 	for (map<long, int>::iterator i = starts.begin(); i != starts.end(); i++) {
+		//cout<<"start:\t"<<(*i).first<<" "<<(*i).second<<endl;
 		if ((*i).second > maxim) {
 			coord = (*i).first;
+			maxim=(*i).second;
 		}
 	}
+	//std::cout<<coord<<"\t"<<maxim<<endl;
 	this->positions.start.most_support = coord;
 
 	maxim = 0;
@@ -220,6 +223,7 @@ void Breakpoint::predict_SV() {
 	for (map<long, int>::iterator i = stops.begin(); i != stops.end(); i++) {
 		if ((*i).second > maxim) {
 			coord = (*i).first;
+			maxim=(*i).second;
 		}
 	}
 	this->positions.stop.most_support = coord;
