@@ -60,7 +60,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<int> arg_numreads("n", "num_reads_report", "Report up to N reads that support the SV. Default: 0", false, 0, "int");
 //	TCLAP::ValueArg<int> arg_phase_minreads("", "min_reads_phase", "Minimum reads overlapping two SV to phase them together. Default: 1", false, 1, "int");
 
-	//TCLAP::SwitchArg arg_realign("", "re-align", "Enables the realignment of reads at predicted SV sites. Leads to more accurate breakpoint predictions.", cmd, false);
+//	TCLAP::SwitchArg arg_realign("", "re-align", "Enables the realignment of reads at predicted SV sites. Leads to more accurate breakpoint predictions.", cmd, false);
 	TCLAP::SwitchArg arg_MD_cigar("", "use_MD_Cigar", "Enables Sniffles to use the alignment information to screen for suspicious regions.", cmd, false);
 
 	cmd.add(arg_numreads);
@@ -92,7 +92,7 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->max_splits = arg_splits.getValue();
 	Parameter::Instance()->max_dist = arg_dist.getValue();
 	//Parameter::Instance()->ref_seq = arg_ref.getValue();
-	//Parameter::Instance()->realign = arg_realign.getValue();
+	Parameter::Instance()->realign = false; //arg_realign.getValue();
 	//Parameter::Instance()->corridor = arg_corridor.getValue();
 //	Parameter::Instance()->output_bede = arg_bede.getValue();
 	Parameter::Instance()->min_length = arg_minlength.getValue();
