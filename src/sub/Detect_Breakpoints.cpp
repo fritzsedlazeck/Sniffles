@@ -106,15 +106,15 @@ std::vector<Breakpoint *> detect_breakpoints(std::string read_filename) {
 #pragma omp sections
 					{
 						{
-							//if (Parameter::Instance()->useMD_CIGAR) {
-							cigar_event = tmp_aln->get_events_CIGAR();
-							//}
+							if (Parameter::Instance()->useMD_CIGAR) {
+								cigar_event = tmp_aln->get_events_CIGAR();
+							}
 						}
 #pragma omp section
 						{
-							//if (Parameter::Instance()->useMD_CIGAR) {
-							md_event = tmp_aln->get_events_MD(20);
-							//}
+							if (Parameter::Instance()->useMD_CIGAR) {
+								md_event = tmp_aln->get_events_MD(20);
+							}
 						}
 #pragma omp section
 						{
