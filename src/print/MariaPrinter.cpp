@@ -8,7 +8,7 @@
 #include "MariaPrinter.h"
 
 void MariaPrinter::print_header() {
-	fprintf(file, "%s", "Chrom\tstart\tstop\tchrom2\tstart2\tstop2\tvariant_name/ID\tscore (smaller is better)\tstrand1\tstrand2\ttype\tnumber_of_split_reads\tbest_chrom\tbest_pos\tbest_chrom2\tbest_pos2\n");
+	fprintf(file, "%s", "Chrom\tstart\tstop\tchrom2\tstart2\tstop2\tvariant_name/ID\tscore (smaller is better)\tstrand1\tstrand2\ttype\tnumber_of_split_reads\tbest_chrom\tbest_pos\tbest_chrom2\tbest_pos2\tpredicted_length\n");
 }
 void MariaPrinter::print_body(Breakpoint *& SV, RefVector ref) {
 	//"Chrom\tstart\tstop\tchrom2\tstart2\tstop2\tvariant_name/ID\tscore (smaller is better)\tstrand1\tstrand2\ttype\tnumber_of_split_reads\n"
@@ -51,6 +51,8 @@ void MariaPrinter::print_body(Breakpoint *& SV, RefVector ref) {
 		fprintf(file, "%s", chr.c_str());
 		fprintf(file, "%c", '\t');
 		fprintf(file, "%i", pos);
+		fprintf(file, "%c", '\t');
+		fprintf(file, "%i", SV->get_length());
 		fprintf(file, "%c", '\n');
 	}
 }
