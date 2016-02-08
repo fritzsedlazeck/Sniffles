@@ -11,6 +11,8 @@ add_executable(sniffles
 					BamParser.cpp
 					Parser.cpp
 					Sniffles.cpp
+					Ignore_Regions.cpp
+					tree/Intervall_bed.cpp
 					sub/Detect_Breakpoints.cpp
 					sub/Breakpoint.cpp
 					tree/IntervallTree.cpp
@@ -34,6 +36,8 @@ add_executable(sniffles-debug
 					BamParser.cpp
 					Parser.cpp
 					Sniffles.cpp
+					Ignore_Regions.cpp
+					tree/Intervall_bed.cpp
 					sub/Detect_Breakpoints.cpp
 					sub/Breakpoint.cpp
 					tree/IntervallTree.cpp

@@ -75,7 +75,7 @@ private:
 	//for phasing:
 	BinTree grouped;
 	tree_node * grouped_node;
-	int id;
+	long length;
 
 	void summarize_support(short type);
 	//void summarize_strand(pair<bool, bool> strand, std::vector<short>& array);
@@ -86,7 +86,7 @@ private:
 	bool is_in(short id);
 	std::string translate_strand(pair<bool, bool> strand);
 public:
-	Breakpoint(position_str sv, int cov) {
+	Breakpoint(position_str sv, int cov,long len) {
 		sv_type=' ';
 		type_support=-1;
 		this->positions = sv;
@@ -95,13 +95,12 @@ public:
 		//std::cout << "Break2: " << positions.start << " " << positions.stop<< std::endl;
 		this->cov = cov;
 		this->grouped_node=NULL;
+		this->set_length(len);
 	}
 	~Breakpoint() {
 
 	}
-	long size() {
-		return positions.stop.most_support - positions.start.most_support;
-	}
+
 	int get_support();
 	long overlap(Breakpoint * tmp);
 	position_str get_coordinates() {
@@ -125,36 +124,17 @@ public:
 	void set_ref_seq(std::string seq) {
 		this->ref_seq = seq;
 	}
-	/*void add_ref_coord(region_ref_str region){
-		this->ref_coords.push_back(region);
-	}
-	std::vector<region_ref_str> get_ref_coord(){
-		return this->ref_coords;
-	}
-	void set_ref_seq(short id,std::string seq){
-		if(id<ref_coords.size()){
-			if(this->ref_coords[id].direction){
-				this->ref_coords[id].ref=seq;
-			}else{
-				this->ref_coords[id].ref=rev_complement(seq);
-			}
-		}
-	}*/
 	long get_length(){
-		if(this->sv_type & INV){
-			return this->positions.read_stop-this->positions.read_start;
-		}
-		return this->positions.stop.most_support-this->positions.start.most_support;
+		return length;
+	}
+
+	void set_length(long len){
+		this->length=len;
 	}
 	std::string get_supporting_types(){
 		return this->supporting_types;
 	}
-	int get_id(){
-		return id;
-	}
-	void set_id(int id){
-		this->id=id;
-	}
+
 	void add_grouped(int id){
 		this->grouped.insert(this->grouped_node, id);
 	}

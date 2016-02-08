@@ -13,7 +13,7 @@ class NGMPrinter:public IPrinter{
 
 private:
 	void print_header();
- 	void print_body(std::vector<Breakpoint *> &SV, RefVector ref);
+ 	void print_body(Breakpoint * &SV, RefVector ref);
 public:
  	NGMPrinter(){
 

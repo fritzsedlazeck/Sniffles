@@ -9,8 +9,10 @@
 #define PARAMER_H_
 
 #include <string.h>
+#include <string>
 #include <vector>
 #include <stdlib.h>
+#include <iostream>
 struct region_str {
 	std::string chr;
 	int start;
@@ -34,6 +36,7 @@ public:
 	std::string ref_seq;
 	std::string read_name;
 	std::string output_maria;
+	std::string ignore_regions_bed;
 
 	std::vector<std::string> bam_files;
 	short min_mq;

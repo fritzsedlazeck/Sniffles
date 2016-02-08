@@ -56,26 +56,10 @@ void Breakpoint::summarize_type(char SV, std::vector<short>& array) {
 	}
 	//return ss;
 }
-/*std::string Breakpoint::translate_strand(short id) {
- switch (id) {
- case 0:
- return "++";
- break;
- case 1:
- return "+-";
- break;
- case 2:
- return "-+";
- break;
- case 3:
- return "--";
- break;
- }
- return "";
- }*/
+
 char Breakpoint::get_SVtype() {
 	if (sv_type == ' ') {
-		//	std::cout<<"was not set"<<std::endl;
+		std::cout << "was not set" << std::endl;
 		calc_support();
 		predict_SV();
 	}
@@ -87,9 +71,11 @@ void Breakpoint::calc_support() {
 	for (size_t i = 0; i < 5; i++) {
 		SV.push_back(0);
 	}
+	//run over all supports and check the majority type:
 	for (std::map<std::string, read_str>::iterator i = positions.support.begin(); i != positions.support.end(); i++) {
 		summarize_type((*i).second.SV, SV);
 	}
+	//given the majority type get the stats:
 	this->sv_type = eval_type(SV);
 }
 char Breakpoint::eval_type(std::vector<short> SV) {
@@ -155,9 +141,21 @@ char Breakpoint::eval_type(std::vector<short> SV) {
 }
 
 long Breakpoint::overlap(Breakpoint * tmp) {
+	/*if ((*this->positions.support.begin()).second.SV & INS) {
+		std::cout << "\tCurr: " << this->positions.start.min_pos << " " << this->positions.stop.max_pos << endl;
+		std::cout << "\tNEW: " << tmp->get_coordinates().start.min_pos << " " << tmp->get_coordinates().stop.max_pos << endl;
+	}*/
 	if (abs(tmp->get_coordinates().start.min_pos - positions.start.min_pos) < Parameter::Instance()->max_dist && abs(tmp->get_coordinates().stop.max_pos - positions.stop.max_pos) < Parameter::Instance()->max_dist) {
+		/*if ((*this->positions.support.begin()).second.SV & INS) {
+			std::cout << "\tSAME" << std::endl;
+		}*/
 		return 0;
 	}
+	/*else {
+		if ((*this->positions.support.begin()).second.SV & INS) {
+			std::cout << "\tDiff" << std::endl;
+		}
+	}*/
 //as abstraction lets try the start+stop coordinate!
 	return (tmp->get_coordinates().start.min_pos - positions.start.min_pos) + (tmp->get_coordinates().stop.max_pos - positions.stop.max_pos);
 }
@@ -212,10 +210,13 @@ void Breakpoint::predict_SV() {
 		//cout<<"start:\t"<<(*i).first<<" "<<(*i).second<<endl;
 		if ((*i).second > maxim) {
 			coord = (*i).first;
-			maxim=(*i).second;
+			maxim = (*i).second;
 		}
 	}
 	//std::cout<<coord<<"\t"<<maxim<<endl;
+	//if(this->sv_type & INV){
+	//	std::cout<<"Break: INV: "<<coord;
+	//}
 	this->positions.start.most_support = coord;
 
 	maxim = 0;
@@ -223,10 +224,17 @@ void Breakpoint::predict_SV() {
 	for (map<long, int>::iterator i = stops.begin(); i != stops.end(); i++) {
 		if ((*i).second > maxim) {
 			coord = (*i).first;
-			maxim=(*i).second;
+			maxim = (*i).second;
 		}
 	}
 	this->positions.stop.most_support = coord;
+
+	if (!(this->get_SVtype() & INS)) {
+		if (this->get_SVtype() & INS) {
+			std::cout << " ERROR " << std::endl;
+		}
+		this->length = this->positions.stop.most_support - this->positions.start.most_support;
+	}
 	starts.clear();
 	stops.clear();
 
@@ -309,18 +317,22 @@ std::string Breakpoint::to_string(RefVector ref) {
 
 void Breakpoint::add_read(Breakpoint * point) {
 	if (point != NULL) {
+
 		this->positions.start.min_pos = min(this->positions.start.min_pos, point->get_coordinates().start.min_pos);
 		this->positions.start.max_pos = max(this->positions.start.max_pos, point->get_coordinates().start.max_pos);
 
 		this->positions.stop.min_pos = min(this->positions.stop.min_pos, point->get_coordinates().stop.min_pos);
 		this->positions.stop.max_pos = max(this->positions.stop.max_pos, point->get_coordinates().stop.max_pos);
-
-		//this->start.start = (double)(this->start.start+point->get_coordinates().start)/2;
-		//this->start.stop = (double)(this->start.stop+point->get_coordinates().stop)/2;
-
+		bool flag = false;
 		std::map<std::string, read_str> support = point->get_coordinates().support;
 		for (std::map<std::string, read_str>::iterator i = support.begin(); i != support.end(); i++) {
+			if (this->positions.support[(*i).first].SV & INS) {
+				flag = true;
+			}
 			this->positions.support[(*i).first] = (*i).second;
+		}
+		if (flag) {
+			this->length = (this->length + point->get_length()) / 2;
 		}
 	}
 }

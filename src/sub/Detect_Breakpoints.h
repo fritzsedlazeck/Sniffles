@@ -15,11 +15,12 @@
 #include "../tree/IntervallTree.h"
 #include "../tree/TNode.h"
 #include "../Paramer.h"
+#include "../print/IPrinter.h"
 #include <iostream>
 #include <omp.h>
 
 void clarify(std::vector<Breakpoint *> & points);
-std::vector<Breakpoint *> detect_breakpoints(std::string filename);
+void detect_breakpoints(std::string filename, IPrinter *& printer);
 //void screen_for_events(Node * list,IntervallTree & bst ,TNode *&root, int cov, int lowMQ_cov,RefVector ref);
 bool screen_for_events(Alignment * tmp, IntervallTree & bst, TNode *&root, RefVector ref, int cov);
 void add_events(Alignment * tmp, std::vector<str_event> events, short type, long ref_space, IntervallTree & bst, TNode *&root, int cov,std::string read_seq);

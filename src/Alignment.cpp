@@ -424,6 +424,7 @@ vector<str_event> Alignment::get_events_CIGAR() {
 			events.push_back(ev);
 		}
 		if (al->CigarData[i].Type == 'I' && al->CigarData[i].Length > Parameter::Instance()->min_cigar_event) {
+		//	std::cout<<"CIGAR: "<<al->CigarData[i].Length<<" "<<this->getName()<<std::endl;
 			str_event ev;
 			ev.length = al->CigarData[i].Length * -1; //insertion;
 			ev.pos = pos;
@@ -469,6 +470,7 @@ double Alignment::get_num_mismatches(std::string md) {
 				deletion = false;
 			}
 		}
+
 		if (strcmp(getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0) {
 			std::cout << (mis / len) << std::endl;
 		}
@@ -476,7 +478,6 @@ double Alignment::get_num_mismatches(std::string md) {
 			maxim = (mis / len);
 		}
 	}
-
 	return maxim; // 0.03);
 }
 std::string Alignment::get_md() {
@@ -506,7 +507,7 @@ vector<str_event> Alignment::get_events_MD(int min_mis) {
 			int pos = getPosition();
 
 			for (size_t i = 0; i < al->CigarData.size(); i++) {
-				if (al->CigarData[i].Type == 'I') {
+				if (al->CigarData[i].Type == 'I') { //TODO check
 				}
 				if (al->CigarData[i].Type == 'D') {
 					pos += al->CigarData[i].Length;

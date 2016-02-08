@@ -8,8 +8,6 @@
 #include "VCFPrinter.h"
 
 void VCFPrinter::print_header() {
-	FILE *file;
-	file = fopen(Parameter::Instance()->output_vcf.c_str(), "w");
 	fprintf(file, "%s", "##fileformat=VCFv4.1\n");
 	fprintf(file, "%s", "##fileDate=20150221\n"); //TODO change!
 	fprintf(file, "%s", "##ALT=<ID=DEL,Description=\"Deletion\">\n");
@@ -52,39 +50,35 @@ void VCFPrinter::print_header() {
 		fprintf(file, "%s", Parameter::Instance()->bam_files[i].c_str());
 	}
 	fprintf(file, "%c", '\n');
-	fclose(file);
 }
-void VCFPrinter::print_body(std::vector<Breakpoint *> &SV, RefVector ref) {
-	FILE *file;
-	file = fopen(Parameter::Instance()->output_vcf.c_str(), "a");
-	//MT      5289    DEL.MT:5289..6499       N       <DEL>   .       LowQual IMPRECISE;CIEND=0,0;CIPOS=0,0;SVTYPE=DEL;SVMETHOD=EMBL.DELLYv0.5.9;CHR2=MT;END=6499;SVLEN=1210;CT=3to5;PE=26;MAPQ=0     GT:GL:GQ:FT:RC:DR:DV:RR:RV      0/0:0,-1710.68,-34129.3:17107:PASS:0:5721:2:314:0
-	std::string chr;
-	for (size_t i = 0; i < SV.size(); i++) {
-		int pos = IPrinter::calc_pos(SV[i]->get_coordinates().start.most_support, ref,chr);
+void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
+	if (!this->bed_tree.is_in(SV->get_coordinates().start.most_support, this->root) && !this->bed_tree.is_in(SV->get_coordinates().stop.most_support, this->root)) {
+		std::string chr;
+		int pos = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr);
 		fprintf(file, "%s", chr.c_str());
 		fprintf(file, "%c", '\t');
 		fprintf(file, "%i", pos);
 		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", SV[i]->get_id());
+		fprintf(file, "%i", id);
+		id++;
 		fprintf(file, "%s", "\tN\t<");
-		fprintf(file, "%s", IPrinter::get_type(SV[i]->get_SVtype()).c_str());
+		fprintf(file, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());
 		fprintf(file, "%s", ">\t.\tPASS\tIMPRECISE;SVMETHOD=Snifflesv0.0.1;CHR2=");
-		pos = IPrinter::calc_pos(SV[i]->get_coordinates().stop.most_support, ref,chr);
+		pos = IPrinter::calc_pos(SV->get_coordinates().stop.most_support, ref, chr);
 		fprintf(file, "%s", chr.c_str());
 		fprintf(file, "%s", ";END=");
 		fprintf(file, "%i", pos);
 		fprintf(file, "%s", ";SUPTYPE=");
-		fprintf(file, "%s", SV[i]->get_supporting_types().c_str());
+		fprintf(file, "%s", SV->get_supporting_types().c_str());
 		fprintf(file, "%s", ";SVLEN=");
-		fprintf(file, "%i", SV[i]->get_length());
+		fprintf(file, "%i", SV->get_length());
 		fprintf(file, "%s", ";STRANDS=");
-		fprintf(file, "%s", SV[i]->get_strand(2).c_str());
+		fprintf(file, "%s", SV->get_strand(1).c_str());
 		fprintf(file, "%s", ";RE=");
-		fprintf(file, "%i", SV[i]->get_support());
+		fprintf(file, "%i", SV->get_support());
 		fprintf(file, "%s", "\tGT:DV\t./.:");
-		fprintf(file, "%i", SV[i]->get_support());
+		fprintf(file, "%i", SV->get_support());
 		fprintf(file, "%c", '\n');
 	}
-	fclose(file);
 }
 

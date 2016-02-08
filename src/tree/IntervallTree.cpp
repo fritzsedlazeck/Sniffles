@@ -38,7 +38,6 @@ void IntervallTree::insert(Breakpoint * new_break, TNode *&p) {
 				}
 			}
 		} else { //overlaps!
-
 			p->get_data()->add_read(new_break);
 			delete new_break;
 			//std::cout << "Breakpoint was detected\n" << std::endl;

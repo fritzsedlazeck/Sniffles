@@ -19,6 +19,7 @@
 #include "print/MariaPrinter.h"
 #include "phasing/PhaserSV.h"
 #include "print/NGMPrinter.h"
+#include "Ignore_Regions.h"
 
 Parameter* Parameter::m_pInstance = NULL;
 //cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
@@ -38,17 +39,16 @@ Parameter* Parameter::m_pInstance = NULL;
 
 //TODO: look into the gene fusions.
 
-
 void read_parameters(int argc, char *argv[]) {
 	TCLAP::CmdLine cmd("Sniffles version 0.0.1", ' ', "0.0.1");
 
 	TCLAP::ValueArg<std::string> arg_bamfile("m", "mapped_reads", "Bam File", true, "", "string");
 	TCLAP::ValueArg<std::string> arg_vcf("v", "vcf", "VCF output file name", false, "", "string");
 	//TCLAP::ValueArg<std::string> arg_bede("b", "bede", "Bede output file name", false, "", "string");
-	TCLAP::ValueArg<std::string> arg_maria("", "bede", "Simplified format of bede Format.", false, "", "string");
-	//TCLAP::ValueArg<std::string> arg_ref("r", "reference", "Reference fasta sequence for realign step", false, "", "string");
+	TCLAP::ValueArg<std::string> arg_maria("b", "bede", "Simplified format of bede Format.", false, "", "string");
+	//TCLAP::ValueArg<std::string> arg_noregions("", "bed", "Ignore SV overlapping with those regions.", false, "", "string");
+//	TCLAP::ValueArg<std::string> arg_ref("r", "reference", "Reference fasta sequence. Activates realignment step", false, "", "string");
 	//TCLAP::ValueArg<std::string> arg_region("", "regions", "List of regions CHR:start-stop; to check", false, "", "string");
-
 	TCLAP::ValueArg<int> arg_support("s", "min_support", "Minimum number of reads that support a SV. Default: 10", false, 10, "int");
 	TCLAP::ValueArg<int> arg_splits("", "max_num_splits", "Maximum number of splits per read to be still taken into account. Default: 4", false, 4, "int");
 	TCLAP::ValueArg<int> arg_dist("d", "max_distance", "Maximum distance to group SV together. Default: 1kb", false, 1000, "int");
@@ -66,11 +66,12 @@ void read_parameters(int argc, char *argv[]) {
 	cmd.add(arg_numreads);
 	cmd.add(arg_dist);
 	//cmd.add(arg_bede);
+//	cmd.add(arg_noregions);
 	cmd.add(arg_threads);
 	cmd.add(arg_cigar);
 	cmd.add(arg_maria);
 	cmd.add(arg_vcf);
-	//cmd.add(arg_ref);
+//	cmd.add(arg_ref);
 	//cmd.add(arg_corridor);
 	//cmd.add(arg_region);
 	cmd.add(arg_minlength);
@@ -82,7 +83,7 @@ void read_parameters(int argc, char *argv[]) {
 	//parse cmd:
 	cmd.parse(argc, argv);
 
-	Parameter::Instance()->read_name = " " ;//"m141129_192924_00118_c100715122550000001823152704301506_s1_p0/69574/0_17658"; //TODO: just for debuging reasons!
+	Parameter::Instance()->read_name = " ";	//m150118_093731_00118_c100767352550000001823169407221590_s1_p0/27613/0_15682" ;//TODO: just for debuging reasons!
 	Parameter::Instance()->bam_files.push_back(arg_bamfile.getValue());
 	Parameter::Instance()->min_mq = arg_mq.getValue();
 	Parameter::Instance()->output_vcf = arg_vcf.getValue();
@@ -98,15 +99,16 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->min_length = arg_minlength.getValue();
 	//Parameter::Instance()->min_reads_phase = arg_phase_minreads.getValue();
 	Parameter::Instance()->useMD_CIGAR = arg_MD_cigar.getValue();
-	Parameter::Instance()->num_threads=arg_threads.getValue();
-	Parameter::Instance()->output_maria=arg_maria.getValue();
+	Parameter::Instance()->num_threads = arg_threads.getValue();
+	Parameter::Instance()->output_maria = arg_maria.getValue();
+	//Parameter::Instance()->ignore_regions_bed = arg_noregions.getValue();
 }
 
 int main(int argc, char *argv[]) {
 
 	try {
 		//init parameter and reads user defined parameter from command line.
-		read_parameters(argc,argv);
+		read_parameters(argc, argv);
 
 		//init openmp:
 		omp_set_dynamic(0);
@@ -114,34 +116,35 @@ int main(int argc, char *argv[]) {
 
 		//init printer:
 		IPrinter * printer;
-		if(Parameter::Instance()->realign){
+		if (!Parameter::Instance()->ref_seq.empty()) {
 			printer = new NGMPrinter();
-		}else if (!Parameter::Instance()->output_vcf.empty()) {
+		} else if (!Parameter::Instance()->output_vcf.empty()) {
 			printer = new VCFPrinter();
-			std::cout<<"VCF parser"<<std::endl;
-		} else if (!Parameter::Instance()->output_bede.empty() ) {
+			std::cout << "VCF parser" << std::endl;
+		} else if (!Parameter::Instance()->output_bede.empty()) {
 			printer = new BedePrinter();
-		}else if (!Parameter::Instance()->output_maria.empty()){
-			printer =new MariaPrinter();
+		} else if (!Parameter::Instance()->output_maria.empty()) {
+			printer = new MariaPrinter();
 		} else {
 			std::cerr << "Please specify an output file using -v or -b" << std::endl;
 			return -1;
 		}
 
-		//TODO add support of multiple files!
-		std::vector<Breakpoint *> final_SV;
-		final_SV = detect_breakpoints(Parameter::Instance()->bam_files[0]);
+		printer->init();
 
+		//TODO add support of multiple files!
+		for (size_t i = 0; i < Parameter::Instance()->bam_files.size(); i++) {
+			detect_breakpoints(Parameter::Instance()->bam_files[i], printer);
+		}
 
 		//realignment: Using NGM???
-	/*if (Parameter::Instance()->realign) {
-			if (!Parameter::Instance()->ref_seq.empty()) {
-				Realigner * re = new Realigner();
-				re->align(final_SV);
-			} else {
-				std::cerr << "You need to specify the reference sequence that was used." << std::endl;
-			}
-		}*/
+		if (!Parameter::Instance()->ref_seq.empty()) {
+			std::cout<<"Realignment step activated:"<<std::endl;
+			//1. parse in output file(s)
+			//2. extract reads from bam files (read groups?) //shellscript: picard/samtools??
+			//3. realign
+			//4. call Sniffles
+		}
 
 		//grouping SV together:
 		//PhaserSV * phaser= new PhaserSV();
@@ -149,8 +152,6 @@ int main(int argc, char *argv[]) {
 		//delete phaser;
 
 		//printing results:
-		printer->init();
-		printer->printSV(final_SV);
 
 	} catch (TCLAP::ArgException &e)  // catch any exceptions
 	{
