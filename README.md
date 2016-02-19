@@ -1,5 +1,5 @@
 # Sniffles
-Sniffles is a structural variation caller using third generation sequencing (PacBio or Oxford Nanopore). It detects all types of SVs using evidence from split-read alignments, high-mismatch regions, and coverage analysis. Please note the current version of Sniffles requires output from BWA-MEM with the optional SAM attributes enabled! If you experience problems or have suggestions please contact: fritz.sedlazeck@gmail.com
+Sniffles is a structural variation caller using third generation sequencing (PacBio or Oxford Nanopore). It detects all types of SVs using evidence from split-read alignments, high-mismatch regions, and coverage analysis. Please note the current version of Sniffles requires output from BWA-MEM! If you experience problems or have suggestions please contact: fritz.sedlazeck@gmail.com
 
 **************************************
 
@@ -21,6 +21,10 @@ git clone https://github.com/fritzsedlazeck/Sniffles
   make
  
   cd ../bin/
+  
+  
+  FOR MAC use:
+  cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
   
   
 **************************************
