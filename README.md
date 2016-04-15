@@ -59,7 +59,7 @@ Where:
      VCF output file name
 
    --bede <string>
-     Simplified format of bede Format.
+     Simplified format of bedpe Format.
 
    -c <int>,  --min_cigar_event <int>
      Minimum Cigar Event (e.g. Insertion, deletion) to take into account.
