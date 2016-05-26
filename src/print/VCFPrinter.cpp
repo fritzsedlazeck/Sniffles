@@ -29,10 +29,10 @@ void VCFPrinter::print_header() {
 	fprintf(file, "%s", "##INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description=\"Imprecise structural variation\">\n");
 	fprintf(file, "%s", "##INFO=<ID=PRECISE,Number=0,Type=Flag,Description=\"Precise structural variation\">\n");
 	fprintf(file, "%s", "##INFO=<ID=SVLEN,Number=1,Type=Integer,Description=\"Length of the SV\">\n");
-	fprintf(file, "%s", "##INFO=<ID=SUPTYPE,Number=1,Type=String,Description=\"What supports the SV.\">\n");
-	fprintf(file, "%s", "##INFO=<SUPTYPE=SP,Description=\"SV supported by split reads\">\n");
-	fprintf(file, "%s", "##INFO=<SUPTYPE=MD,Description=\"SV supported by MD string\">\n");
-	fprintf(file, "%s", "##INFO=<SUPTYPE=CI,Description=\"SV supported by Cigar string\">\n");
+//	fprintf(file, "%s", "##INFO=<ID=SUPTYPE,Number=1,Type=String,Description=\"What supports the SV.\">\n");
+//	fprintf(file, "%s", "##INFO=<SUPTYPE=SP,Description=\"SV supported by split reads\">\n");
+//	fprintf(file, "%s", "##INFO=<SUPTYPE=MD,Description=\"SV supported by MD string\">\n");
+//	fprintf(file, "%s", "##INFO=<SUPTYPE=CI,Description=\"SV supported by Cigar string\">\n");
 	//fprintf(file, "%s", "##INFO=<ID=SVTYPE,Number=1,Type=String,Description=\"Type of structural variant\">\n");
 	fprintf(file, "%s", "##INFO=<ID=SVMETHOD,Number=1,Type=String,Description=\"Type of approach used to detect SV\">\n");
 	fprintf(file, "%s", "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n");
@@ -40,7 +40,7 @@ void VCFPrinter::print_header() {
 	//fprintf(file, "%s", "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">\n");
 	//fprintf(file, "%s", "##FORMAT=<ID=FT,Number=1,Type=String,Description=\"Per-sample genotype filter\">\n");
 //	fprintf(file, "%s", "##FORMAT=<ID=RC,Number=1,Type=Integer,Description=\"Normalized high-quality read count for the SV\">\n");
-	//fprintf(file, "%s", "##FORMAT=<ID=DR,Number=1,Type=Integer,Description=\"# high-quality reference pairs\">\n");
+	fprintf(file, "%s", "##FORMAT=<ID=DR,Number=1,Type=Integer,Description=\"# high-quality reference pairs\">\n");
 	fprintf(file, "%s", "##FORMAT=<ID=DV,Number=1,Type=Integer,Description=\"# high-quality variant pairs\">\n");
 	//fprintf(file, "%s", "##FORMAT=<ID=RR,Number=1,Type=Integer,Description=\"# high-quality reference junction reads\">\n");
 	//fprintf(file, "%s", "##FORMAT=<ID=RV,Number=1,Type=Integer,Description=\"# high-quality variant junction reads\">\n");
