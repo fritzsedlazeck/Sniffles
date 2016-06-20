@@ -26,7 +26,9 @@ git clone https://github.com/fritzsedlazeck/Sniffles
 
 USAGE:
 
-Please use BWA-MEM to align the reads using the parameters: “–M  –x pacbio” . The reads do not need to be error corrected.
+Please use BWA-MEM to align the reads using the parameters: “–M  –x pacbio” . Reads do not need to be error corrected.
+
+Sniffles requires a sorted bam file. 
  
 
 ```
