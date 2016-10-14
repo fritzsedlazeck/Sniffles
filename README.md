@@ -75,10 +75,6 @@ Where:
    -n <int>,  --num_reads_report <int>
      Report up to N reads that support the SV. Default: 0
 
-   --use_MD_Cigar
-     Enables Sniffles to use the alignment information to screen for
-     suspicious regions.
-
    --,  --ignore_rest
      Ignores the rest of the labeled arguments following this flag.
 
@@ -89,4 +85,4 @@ Where:
      Displays usage information and exits.
 
 
-   Sniffles version 0.0.1
+   Sniffles version 1.0.0
