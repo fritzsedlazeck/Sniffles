@@ -9,15 +9,17 @@
 #define PRINT_IPRINTER_H_
 #include <vector>
 #include <iostream>
-
+#include <time.h>
 #include "../tree/Intervall_bed.h"
 #include "api/BamReader.h"
 #include "../Ignore_Regions.h"
 #include "../sub/Breakpoint.h"
+#include "../cluster/Cluster_SVs.h"
 
 class IPrinter {
 protected:
 	FILE *file;
+	FILE *tmp_file;
 	uint id;
 	RefVector ref;
 	BamParser *mapped_file;
@@ -38,17 +40,21 @@ public:
 	}
 	virtual ~IPrinter() {
 		delete mapped_file;
-		fclose(this->file);
+
 	}
-	;
+
 	void printSV(Breakpoint * SV) {
 		print_body(SV, ref);
 	}
 	void init() {
-		if(!Parameter::Instance()->output_vcf.empty()){
-			file = fopen(Parameter::Instance()->output_vcf.c_str(), "w");
-		}else if(!Parameter::Instance()->output_maria.empty()){
-			file = fopen(Parameter::Instance()->output_maria.c_str(), "w");
+		try {
+			if(!Parameter::Instance()->output_vcf.empty()) {
+				file = fopen(Parameter::Instance()->output_vcf.c_str(), "w");
+			} else if(!Parameter::Instance()->output_bedpe.empty()) {
+				file = fopen(Parameter::Instance()->output_bedpe.c_str(), "w");
+			}
+		} catch(int e) {
+			std::cout << "Unable to open file connection. Please check the path and the permissions! Error: " << e <<std::endl;
 		}
 		print_header();
 		BamParser *mapped_file = new BamParser(Parameter::Instance()->bam_files[0]);
@@ -58,8 +64,15 @@ public:
 			std::cout << "Cross checking..." << std::endl;
 			initialize_bed(bed_tree, root, ref);
 		}
-
+		string tmp_name_file = Parameter::Instance()->tmp_file;
+		tmp_name_file += "Names";
+		tmp_file = fopen(tmp_name_file.c_str(), "wb");
 	}
+	void store_readnames(std::vector<int> names, int id);
+	void close_file() {
+		fclose(this->file);
+	}
+	const std::string currentDateTime();
 };
 
 #endif /* PRINT_IPRINTER_H_ */

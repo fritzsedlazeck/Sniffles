@@ -7,9 +7,10 @@ include_directories(../lib/tclap-1.2.1/include)
 configure_file( Version.h.in ${CMAKE_SOURCE_DIR}/src/Version.h )
 
 add_executable(sniffles 	
+                    tree/Breakpoint_Tree.cpp
+                    Genotyper/Genotyper.cpp
 					Alignment.cpp
 					BamParser.cpp
-					Parser.cpp
 					Sniffles.cpp
 					Ignore_Regions.cpp
 					tree/Intervall_bed.cpp
@@ -19,12 +20,12 @@ add_executable(sniffles
 					realign/SWCPU.cpp
 					realign/Realign.cpp
 					print/VCFPrinter.cpp
-					print/BedePrinter.cpp
-					print/MariaPrinter.cpp
+					print/BedpePrinter.cpp
 					print/IPrinter.cpp
-					phasing/PhaserSV.cpp
 					tree/BinTree.cpp
 					print/NGMPrinter.cpp
+					plane-sweep/PlaneSweep_slim.cpp
+					cluster/Cluster_SVs.cpp
 					)										
 					
 #target_link_libraries(ngm-core pthread)	
@@ -32,9 +33,10 @@ TARGET_LINK_LIBRARIES(sniffles BamTools-static)
 TARGET_LINK_LIBRARIES(sniffles zlibstatic)
 	
 add_executable(sniffles-debug 	
+                    tree/Breakpoint_Tree.cpp
+                    Genotyper/Genotyper.cpp
 					Alignment.cpp
 					BamParser.cpp
-					Parser.cpp
 					Sniffles.cpp
 					Ignore_Regions.cpp
 					tree/Intervall_bed.cpp
@@ -44,12 +46,12 @@ add_executable(sniffles-debug
 					realign/SWCPU.cpp
 					realign/Realign.cpp
 					print/VCFPrinter.cpp
-					print/BedePrinter.cpp
-					print/MariaPrinter.cpp
+					print/BedpePrinter.cpp
 					print/IPrinter.cpp
-					phasing/PhaserSV.cpp
 					tree/BinTree.cpp
 					print/NGMPrinter.cpp
+					plane-sweep/PlaneSweep_slim.cpp
+					cluster/Cluster_SVs.cpp
 					)	
 
 SET_TARGET_PROPERTIES(sniffles-debug PROPERTIES COMPILE_FLAGS "-g3 -O0")

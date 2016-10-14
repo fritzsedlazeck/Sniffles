@@ -10,8 +10,14 @@
 
 #include "Alignment.h"
 
-class Parser {
+struct str_read{
+	string chr;
+	uint start;
+	ushort length;
+	bool SV_support;
+};
 
+class Parser {
 public:
 	virtual ~Parser(){};
 	virtual Alignment * parseRead(uint16_t mappingQv) = 0;

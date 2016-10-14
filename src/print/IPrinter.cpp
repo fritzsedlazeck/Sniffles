@@ -19,6 +19,15 @@ std::string IPrinter::get_chr(long pos, RefVector ref) {
 	return ref[id - 1].RefName;
 }
 
+void IPrinter::store_readnames(std::vector<int> names, int id) {
+	name_str tmp;
+	tmp.svs_id = id; //stays the same
+	for (size_t i = 0; i < names.size(); i++) {
+		tmp.read_name = names[i];
+		fwrite(&tmp, sizeof(struct name_str), 1, this->tmp_file);
+	}
+}
+
 long IPrinter::calc_pos(long pos, RefVector ref, std::string &chr) {
 	size_t i = 0;
 	pos -= (ref[i].RefLength + Parameter::Instance()->max_dist);
@@ -32,20 +41,45 @@ long IPrinter::calc_pos(long pos, RefVector ref, std::string &chr) {
 }
 
 std::string IPrinter::get_type(char type) {
+	string tmp;
 	if (type & DEL) {
-		return "DEL";
+		tmp += "DEL";
 	}
 	if (type & INV) {
-		return "INV";
+		if (!tmp.empty()) {
+			tmp += '/';
+		}
+		tmp += "INV";
 	}
 	if (type & DUP) {
-		return "DUP";
+		if (!tmp.empty()) {
+			tmp += '/';
+		}
+		tmp += "DUP";
 	}
 	if (type & INS) {
-		return "INS";
+		if (!tmp.empty()) {
+			tmp += '/';
+		}
+		tmp += "INS";
 	}
 	if (type & TRA) {
-		return "TRA";
+		if (!tmp.empty()) {
+			tmp += '/';
+		}
+		tmp += "TRA";
 	}
-	return "WTF"; // should not occur!
+
+	return tmp; // should not occur!
+}
+// Get current date/time, format is YYYY-MM-DD.HH:mm:ss
+const std::string IPrinter::currentDateTime() {
+	time_t now = time(0);
+	struct tm tstruct;
+	char buf[80];
+	tstruct = *localtime(&now);
+	// Visit http://en.cppreference.com/w/cpp/chrono/c/strftime
+	// for more information about date/time format
+	strftime(buf, sizeof(buf), "%Y%m%d", &tstruct);
+	return buf;
 }

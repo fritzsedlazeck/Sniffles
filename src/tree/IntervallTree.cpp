@@ -9,13 +9,14 @@
 
 // Inserting a node
 void IntervallTree::insert(Breakpoint * new_break, TNode *&p) {
+
 	if (p == NULL) {
 		p = new TNode(new_break); //TODO: this is going to be a problem!
 		if (p == NULL) {
 			std::cout << "Out of Space\n" << std::endl;
 		}
 	} else {
-		long score = p->get_data()->overlap(new_break);
+		long score = p->get_data()->overlap(new_break); //comparison function
 
 		if (score > 0) {
 			insert(new_break, p->left);
@@ -173,23 +174,18 @@ void IntervallTree::preorder(TNode * p) {
 }
 void IntervallTree::get_breakpoints(TNode *p, std::vector<Breakpoint *> & points) {
 	if (p != NULL) {
-		get_breakpoints(p->left, points);
-		points.push_back(p->get_data());
 		get_breakpoints(p->right, points);
+		points.push_back(p->get_data());
+		get_breakpoints(p->left, points);
 	}
 }
 
 // Inorder Printing
-void IntervallTree::inorder(TNode * p, TNode * root) {
+void IntervallTree::inorder(TNode * p) {
 	if (p != NULL) {
-		inorder(p->left, root);
-		//std::cout << p->get_data()->to_string();
-		if (p == root) {
-			std::cout << "*\t";
-		} else {
-			std::cout << "\t";
-		}
-		inorder(p->right, root);
+		inorder(p->left);
+		std::cout << p->get_data()->to_string()<<endl;
+		inorder(p->right);
 	}
 }
 

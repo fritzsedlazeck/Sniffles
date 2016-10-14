@@ -15,74 +15,286 @@ void Alignment::initAlignment() {
 }
 void Alignment::setAlignment(BamAlignment * align) {
 	al = align;
-	alignment.first.clear();
-	alignment.second.clear();
-	is_computed = false;
+	/*
+	 //comment from here:
+	 //todo: why does this influence the INV detection???
+	 alignment.first.clear();
+	 alignment.second.clear();
+	 is_computed = false;
 
-	orig_length = al->QueryBases.size();
-	for (size_t i = 0; i < al->QueryBases.size(); i++) {
-		alignment.first += toupper(al->QueryBases[i]);
+	 orig_length = al->QueryBases.size();
+
+	 for (size_t i = 0; i < al->QueryBases.size(); i++) {
+	 alignment.first += toupper(al->QueryBases[i]);
+	 alignment.second += 'X';
+	 }
+
+
+	 stop = this->getPosition() + this->getRefLength();*/
+}
+
+void update_aln(std::string & alignment, int & i, int pos_to_modify) {
+	int ref_pos = 0;
+	while (i < alignment.size() && ref_pos != pos_to_modify) {
+		if (alignment[i] != '-') {
+			ref_pos++;
+		}
+		i++;
 	}
-	stop = this->getPosition() + this->getRefLength();
+	alignment[i] = 'Y';
+}
+
+void add_event(int pos, list<differences_str>::iterator & i, list<differences_str> & events) {
+	//insert sorted into vector:
+	while (i != events.end() && pos > (*i).position) {
+		i++;
+	}
+	differences_str ev;
+	ev.position = pos;
+	ev.type = 0; //mismatch
+	events.insert(i, ev);
+}
+
+void add_event(int pos, size_t & i, vector<differences_str> & events) {
+	//insert sorted into vector:
+	while (i < events.size() && pos > events[i].position) {
+		i++;
+	}
+	differences_str ev;
+	ev.position = pos;
+	ev.type = 0; //mismatch
+	events.insert(events.begin() + i, ev);
+}
+//todo: check if list changes things
+
+vector<differences_str> Alignment::summarizeAlignment() {
+	//clock_t comp_aln = clock();
+	vector<differences_str> events;
+	int pos = this->getPosition();
+	differences_str ev;
+	bool flag = false; // (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+
+	for (size_t i = 0; i < al->CigarData.size(); i++) {
+		if (al->CigarData[i].Type == 'D') {
+			ev.position = pos;
+			ev.type = al->CigarData[i].Length; //deletion
+			events.push_back(ev);
+			pos += al->CigarData[i].Length;
+		} else if (al->CigarData[i].Type == 'I') {
+			ev.position = pos;
+			ev.type = al->CigarData[i].Length * -1; //insertion
+			events.push_back(ev);
+		} else if (al->CigarData[i].Type == 'M') {
+			pos += al->CigarData[i].Length;
+		} else if (al->CigarData[i].Type == 'N') {
+			pos += al->CigarData[i].Length;
+		} else if (al->CigarData[i].Type == 'S' && al->CigarData[i].Length > 4000) {
+			string sa;
+			al->GetTag("SA", sa);
+			if (sa.empty()) { // == no split reads!
+				if (flag) {
+					std::cout << "Chop: " << pos << " Rname: " << this->getName() << std::endl;
+				}
+				if (pos == this->getPosition()) {
+					ev.position = pos - Parameter::Instance()->huge_ins;
+				} else {
+					ev.position = pos;
+				}
+				ev.type = Parameter::Instance()->huge_ins * -1; //insertion: WE have to fix the length since we cannot estimate it!]
+				events.push_back(ev);
+			}
+		}
+	}
+
+	if (flag) {
+		for (size_t i = 0; i < events.size(); i++) {
+			if (abs(events[i].type) > 3000) {
+				cout << events[i].position << " " << events[i].type << endl;
+			}
+		}
+		cout << endl;
+	}
+
+	//set ref length requ. later on:
+	this->ref_len = pos - getPosition(); //TODO compare to get_length!
+
+			//cout<<" comp len: "<<this->ref_len<<" "<<pos<<" "<<this->getPosition()<<endl;
+//	Parameter::Instance()->meassure_time(comp_aln, "\t\tCigar: ");
+
+	string md = this->get_md();
+	pos = this->getPosition();
+	int corr = 0;
+	bool match = false;
+	bool gap;
+	int ref_pos = 0;
+	size_t pos_events = 0;
+	int max_size = (this->getRefLength() * 0.9) + getPosition();
+	//comp_aln = clock();
+	for (size_t i = 0; i < md.size() && pos < max_size; i++) {
+		if (md[i] == '^') {
+			gap = true;
+		}
+		if ((atoi(&md[i]) == 0 && md[i] != '0')) { //is not a number
+			if (!gap) { // only mismatches are stored. We should have the rest from CIGAR
+				//correct for shift in position with respect to the ref:
+				while (ref_pos < events.size() && pos > events[ref_pos].position) {
+					if (events[ref_pos].type > 0) {
+						pos += events[ref_pos].type;
+					}
+					ref_pos++;
+				}
+				//store in sorted order:
+				add_event(pos, pos_events, events);
+
+				pos++; //just the pos on ref!
+			}
+			match = false;
+		} else if (!match) {
+			match = true;
+			pos += atoi(&md[i]);
+			gap = false;
+		}
+	}
+
+	if (flag) {
+		for (size_t i = 0; i < events.size(); i++) {
+			if (abs(events[i].type) > 3000) {
+				cout << events[i].position << " " << events[i].type << endl;
+			}
+		}
+		cout << endl;
+	}
+
+	//Parameter::Instance()->meassure_time(comp_aln, "\t\tMD string: ");
+//	comp_aln = clock();
+	size_t i = 0;
+	//to erase stretches of consecutive mismatches == N in the ref
+	int break_point = 0;
+	while (i < events.size()) {
+		if (events[i].position > max_size) {
+			while (i < events.size()) {
+				if (abs(events[events.size() - 1].type) == Parameter::Instance()->huge_ins) {
+					i++;
+				} else {
+					events.erase(events.begin() + i, events.begin() + i + 1);
+				}
+			}
+			break;
+		}
+		if (events[i].type == 0) {
+			size_t j = 1;
+			while (i + j < events.size() && ((events[i + j].position - events[i + (j - 1)].position) == 1 && events[i + j].type == 0)) {
+				j++;
+			}
+			if (j > 10) { //if stetch is at least 3 consecutive mismatches
+				events.erase(events.begin() + i, events.begin() + i + j);
+			} else {
+				i += j;
+			}
+		} else {
+			i++;
+		}
+	}
+//	Parameter::Instance()->meassure_time(comp_aln, "\t\terrase N: ");
+	if (flag) {
+		cout << "LAST:" << endl;
+		for (size_t i = 0; i < events.size(); i++) {
+			if (abs(events[i].type) > 3000) {
+				cout << events[i].position << " " << events[i].type << endl;
+			}
+		}
+		cout << endl;
+	}
+
+	return events;
 }
 void Alignment::computeAlignment() {
+	cout << "COMP ALN!" << endl;
+
+	clock_t comp_aln = clock();
+	int to_del = 0;
 	int pos = 0;
+
 	for (size_t i = 0; i < al->CigarData.size(); i++) {
 		if (al->CigarData[i].Type == 'I') {
-			for (uint32_t t = 0; t < al->CigarData[i].Length; t++) {
-				alignment.second.insert(pos, "-");
-				alignment.second.erase(alignment.second.size() - 1, 1);
-				pos++;
-			}
+			to_del += al->CigarData[i].Length;
+			alignment.second.insert(pos, al->CigarData[i].Length, '-');
+			pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'D') {
-			for (uint32_t t = 0; t < al->CigarData[i].Length; t++) {
-				alignment.first.insert(pos, "-");
-				pos++;
-			}
-		} else if (al->CigarData[i].Type == 'S') {
 
+			alignment.first.insert(pos, al->CigarData[i].Length, '-');
+			alignment.second.insert(pos, al->CigarData[i].Length, 'X');
+			pos += al->CigarData[i].Length;
+			/*for (uint32_t t = 0; t < al->CigarData[i].Length; t++) {
+			 alignment.first.insert(pos, "-");
+			 alignment.second.insert(pos, "X");
+			 pos++;
+			 }*/
+		} else if (al->CigarData[i].Type == 'S') {
 			if (pos == 0) { //front side
 				alignment.second.erase(((int) alignment.second.size()) - al->CigarData[i].Length, al->CigarData[i].Length);
 			} else { //backside
 				alignment.second.erase(pos, al->CigarData[i].Length);
 			}
 			alignment.first.erase(pos, al->CigarData[i].Length);
-
 		} else if (al->CigarData[i].Type == 'M') {
 			pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'H') {
-
+			//nothing todo
 		} else if (al->CigarData[i].Type == 'N') {
 			alignment.second.erase(pos, al->CigarData[i].Length);
 		}
 	}
-	for (size_t i = 0; i < alignment.first.size(); i++) {
-		if (alignment.first[i] == '=') {
-			alignment.first[i] = alignment.second[i];
+	if (to_del > 0) {
+		alignment.second = alignment.second.substr(0, alignment.second.size() - to_del);
+		//alignment.second.erase(alignment.second.size() - to_del, to_del);
+	}
+	Parameter::Instance()->meassure_time(comp_aln, "\t\tCIGAR opterations ");
+	comp_aln = clock();
+	//Apply MD string:
+	string md = this->get_md();
+	pos = 0;
+	int corr = 0;
+	bool match = false;
+	int last_pos_string = 0;
+	int last_pos_ref = 0;
+
+	for (size_t i = 0; i < md.size(); i++) {
+		if (atoi(&md[i]) == 0 && md[i] != '0') { //is not a number!
+			if (md[i] != '^') {
+				update_aln(alignment.second, last_pos_string, pos - last_pos_ref);
+				last_pos_ref = pos;
+				pos++;
+			}
+			match = false;
+		} else if (!match) {
+			match = true;
+			pos += atoi(&md[i]);
 		}
 	}
+	Parameter::Instance()->meassure_time(comp_aln, "\t\tMD opterations ");
 
-	is_computed = true;
+	if (alignment.first.size() != alignment.second.size()) { // || strcmp(this->getName().c_str(),"IIIIII_10892000")==0) {
+			//if(al->CigarData[0].Length!=100){
+		cout << "Error alignment has different length" << endl;
+		cout << " ignoring alignment " << al->Name << endl;
+		cout << al->Position << endl;
 
-	if (alignment.first.size() != alignment.second.size()) {
-		cerr << "Error alignment has different length" << endl;
-		cerr << " ignoring alignment " << al->Name << endl;
-		cerr << al->Position << endl;
-
-		cerr << endl;
-		cerr << "read: " << alignment.first << endl;
-		cerr << endl;
-		cerr << " ref: " << alignment.second << endl;
-		cerr << endl;
-		cerr << orig_length << endl;
+		cout << endl;
+		cout << "read: " << alignment.first << endl;
+		cout << " ref: " << alignment.second << endl;
+		cout << endl;
+		cout << orig_length << endl;
 		vector<CigarOp> cig = getCigar();
-
 		for (size_t i = 0; i < cig.size(); i++) {
-			cerr << cig[i].Length << cig[i].Type << " ";
+			cout << cig[i].Length << cig[i].Type << " ";
 		}
-		cerr << endl;
-		exit(0);
-		return;
+		cout << endl;
+
+		cout << this->get_md() << endl;
+
+		//	exit(0);
+		//	return;
 	}
 }
 int32_t Alignment::getPosition() {
@@ -104,14 +316,14 @@ size_t Alignment::get_length(std::vector<CigarOp> CigarData) {
 	size_t len = 0; //orig_length;
 	for (size_t i = 0; i < CigarData.size(); i++) {
 		if (CigarData[i].Type == 'D' || CigarData[i].Type == 'M' || CigarData[i].Type == 'N') {
-
 			len += CigarData[i].Length;
 		}
 	}
 	return len;
 }
 size_t Alignment::getRefLength() {
-	return get_length(this->al->CigarData);
+	return this->ref_len;
+//	return get_length(this->al->CigarData);
 }
 size_t Alignment::getOrigLen() {
 	return orig_length;
@@ -128,18 +340,19 @@ string Alignment::getName() {
 uint16_t Alignment::getMappingQual() {
 	return al->MapQuality;
 }
-float Alignment::getIdentity() {
-	if (is_computed) {
-		float match = 0;
-		for (size_t i = 0; i < alignment.first.size(); i++) {
-			if (alignment.first[i] == alignment.second[i]) {
-				match++;
-			}
-		}
-		return match / (float) alignment.first.size();
-	}
-	return -1;
-}
+
+/*float Alignment::getIdentity() {
+ if (is_computed) {
+ float match = 0;
+ for (size_t i = 0; i < alignment.first.size(); i++) {
+ if (alignment.first[i] == alignment.second[i]) {
+ match++;
+ }
+ }
+ return match / (float) alignment.first.size();
+ }
+ return -1;
+ }*/
 int Alignment::getAlignmentFlag() {
 	return al->AlignmentFlag;
 }
@@ -213,43 +426,120 @@ int Alignment::get_id(RefVector ref, std::string chr) {
 	}
 	return -1; //should not happen!
 }
+
+int get_readlen(std::vector<CigarOp> cigar) {
+	int pos = 0;
+	for (size_t i = 0; i < cigar.size(); i++) {
+		if (cigar[i].Type == 'I') {
+			pos += cigar[i].Length;
+		} else if (cigar[i].Type == 'D') {
+			//pos += cigar[i].Length;
+		} else if (cigar[i].Type == 'M') {
+			pos += cigar[i].Length;
+		}
+	}
+	return pos;
+}
 void Alignment::get_coords(aln_str tmp, int & start, int &stop) {
 
-	if (tmp.cigar[0].Type == 'S' || tmp.cigar[0].Type == 'H') {
-		start = tmp.cigar[0].Length;
+	size_t index = 0;
+	if (!tmp.strand) {
+		index = tmp.cigar.size() - 1;
+	}
+	if (tmp.cigar[index].Type == 'S' || tmp.cigar[index].Type == 'H') {
+		start = tmp.cigar[index].Length;
 	} else {
 		start = 0;
 	}
-
-	size_t index = tmp.cigar.size() - 1;
-	if (tmp.cigar[index].Type == 'S' || tmp.cigar[index].Type == 'H') {
-		stop = tmp.cigar[index].Length;
-	} else {
-		stop = 0;
-	}
-
-	if (!tmp.strand) {
-		int h = start;
-		start = stop;
-		stop = h;
-	}
-
-	/*start = 0;
-	 stop = 0;
-	 for (size_t i = 0; i < cigar.size(); i++) {
-	 if (start == 0 && (cigar[i].Type == 'H' || cigar[i].Type == 'S')) {
-	 start += cigar[i].Length;
-	 stop += cigar[i].Length;
-	 }
-	 if (cigar[i].Type == 'I' || cigar[i].Type == 'M') {
-	 stop += cigar[i].Length;
-	 }
-	 }*/
+	stop = get_readlen(tmp.cigar) + start;
 }
-void sort_insert(aln_str tmp, vector<aln_str> &entries) {
+
+void Alignment::check_entries(vector<aln_str> &entries) {
+	bool flag = strcmp(getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0;
+//Given that we start outside of the INV:
+	if (flag) {
+		cout << "Check:" << endl;
+		for (size_t i = 0; i < entries.size(); i++) {
+			cout << "ENT: " << entries[i].pos << " " << entries[i].pos + entries[i].length << " Read: " << entries[i].read_pos_start << " " << entries[i].read_pos_stop << " ";
+			if (entries[i].strand) {
+				cout << "+" << endl;
+			} else {
+				cout << "-" << endl;
+			}
+		}
+	}
+	bool left_of = true;
+	vector<aln_str> new_entries = entries;
+	for (size_t i = 1; i < entries.size(); i++) {
+		if (entries[i].strand != entries[i - 1].strand && entries[i].RefID == entries[i - 1].RefID) {
+			int ref_dist = 0;
+			int read_dist = 0;
+			if (entries[0].strand) {
+				ref_dist = abs((entries[i - 1].pos + entries[i - 1].length) - entries[i].pos);
+				read_dist = abs(entries[i - 1].read_pos_stop - entries[i].read_pos_start);
+			} else {
+				ref_dist = abs((entries[i - 1].pos) - (entries[i].pos + entries[i].length));
+				read_dist = abs(entries[i - 1].read_pos_stop - entries[i].read_pos_start);
+
+			}
+			if (flag) {
+				cout << "ref dist: " << ref_dist << " Read: " << read_dist << endl;
+			}
+			//ref_dist > 30 &&
+			if (read_dist < 20 && ref_dist / (read_dist + 1) > 3) { //+1 because otherwise there could be a division by 0!
+				if (flag) {
+					cout << "DEL? " << ref_dist << " " << read_dist << endl;
+				}
+				aln_str tmp;
+				tmp.RefID = entries[i].RefID;
+				if (left_of) {
+					tmp.strand = entries[i - 1].strand;
+					if (tmp.strand) {
+						tmp.pos = entries[i].pos - 1;
+					} else {
+						tmp.pos = entries[i].pos + entries[i].length - 1;
+					}
+					left_of = false;
+				} else {
+					tmp.strand = entries[i].strand;
+					if (tmp.strand) {
+						tmp.pos = entries[i - 1].pos + entries[i - 1].length - 1;
+					} else {
+						tmp.pos = entries[i - 1].pos - 1;
+					}
+					left_of = true;
+				}
+				tmp.length = 1;
+				tmp.read_pos_start = entries[i].read_pos_start - 1;
+				tmp.read_pos_stop = tmp.read_pos_start + 1;
+				tmp.mq = 60;
+				sort_insert(tmp, new_entries);
+			} else if (read_dist > 30 && ref_dist < 10) {
+				//	cout << "INS? " << this->getName() << endl;
+			}
+		} else {
+			left_of = true; //??
+		}
+	}
+	if (entries.size() < new_entries.size()) {
+		entries = new_entries;
+	}
+}
+void Alignment::sort_insert(aln_str tmp, vector<aln_str> &entries) {
+	//TODO detect abnormal distances + directions -> introduce a pseudo base to detect these things later?
 
 	for (vector<aln_str>::iterator i = entries.begin(); i != entries.end(); i++) {
-		if (tmp.read_pos_start < (*i).read_pos_start) {
+		if ((tmp.read_pos_start == (*i).read_pos_start) && (tmp.pos == (*i).pos) && (tmp.strand == (*i).strand)) { //is the same! should not happen
+			return;
+		}
+		if (!tmp.cigar.empty() && ((*i).read_pos_start <= tmp.read_pos_start && (*i).read_pos_stop >= tmp.read_pos_stop)) { //check for the additional introducded entries
+			return;
+		}
+		if (!tmp.cigar.empty() && ((*i).read_pos_start >= tmp.read_pos_start && (*i).read_pos_stop <= tmp.read_pos_stop)) { //check for the additional introducded entries
+			(*i) = tmp;
+			return;
+		}
+		if ((tmp.read_pos_start < (*i).read_pos_start)) { //insert before
 			entries.insert(i, tmp);
 			return;
 		}
@@ -258,38 +548,35 @@ void sort_insert(aln_str tmp, vector<aln_str> &entries) {
 }
 vector<aln_str> Alignment::getSA(RefVector ref) {
 	string sa;
-
 	vector<aln_str> entries;
 	if (al->GetTag("SA", sa) && !sa.empty()) {
-
 		//store the main aln:
 		aln_str tmp;
 		tmp.RefID = this->getRefID();
 		tmp.cigar = this->getCigar();
-		tmp.length = this->getRefLength();
+		tmp.length = (long) get_length(tmp.cigar);
 		tmp.mq = this->getMappingQual();
-		tmp.pos = this->getPosition(); //+get_ref_lengths(tmp.RefID, ref);
+		tmp.pos = (long) this->getPosition(); //+get_ref_lengths(tmp.RefID, ref);
 		tmp.strand = getStrand();
 		bool flag = strcmp(getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0;
 
 		get_coords(tmp, tmp.read_pos_start, tmp.read_pos_stop);
 		entries.push_back(tmp);
 		if (flag) {
-			std::cout << "Main Read: " << tmp.read_pos_start << " REF: " << tmp.pos << " " << tmp.RefID << std::endl;
+			std::cout << "Main Read: read start:" << tmp.read_pos_start << " REF: " << tmp.pos << " RefID: " << tmp.RefID << std::endl;
 		}
-
-		//parse the rest:
 		size_t i = 0;
 		int count = 0;
 
 		std::string cigar;
 		std::string chr;
+		bool nested = true;
 		while (i < sa.size()) {
 			if (count == 0 && sa[i] != ',') {
 				chr += sa[i];
 			}
 			if (count == 1 && sa[i - 1] == ',') {
-				tmp.pos = atoi(&sa[i]);
+				tmp.pos = (long) atoi(&sa[i]);
 			}
 			if (count == 2 && sa[i - 1] == ',') {
 				tmp.strand = (bool) (sa[i] == '+');
@@ -309,24 +596,29 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 			}
 			if (sa[i] == ';') {
 				if (tmp.mq > Parameter::Instance()->min_mq && entries.size() <= Parameter::Instance()->max_splits) {
-					//check this!
+					//TODO: check this!
 					tmp.cigar = translate_cigar(cigar); //translates the cigar (string) to a type vector
 					get_coords(tmp, tmp.read_pos_start, tmp.read_pos_stop); //get the coords on the read.
-					tmp.length = get_length(tmp.cigar); //gives the length on the reference.
+					tmp.length = (long) get_length(tmp.cigar); //gives the length on the reference.
 					tmp.RefID = get_id(ref, chr); //translates back the chr to the id of the chr;
 					//TODO: should we do something about the MD string?
 					if (flag) {
-						std::cout << "Read: " << tmp.read_pos_start << " REF: " << tmp.pos << " " << tmp.RefID;
+						std::cout << "Read: " << tmp.read_pos_start << " " << tmp.read_pos_stop << " REF: " << tmp.pos << " " << tmp.RefID;
 						if (tmp.strand) {
 							std::cout << "+" << std::endl;
 						} else {
-							std::cout << "+" << std::endl;
+							std::cout << "-" << std::endl;
 						}
 					}
 					//tmp.pos+=get_ref_lengths(tmp.RefID, ref);
 					//insert sorted:
 					includes_SV = true;
 					sort_insert(tmp, entries);
+				} else if (tmp.mq < Parameter::Instance()->min_mq) {
+					nested = false;
+				} else {					//Ignore read due to too many splits
+					entries.clear();
+					return entries;
 				}
 				chr.clear();
 				cigar.clear();
@@ -336,24 +628,35 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 			}
 			i++;
 		}
+		if (nested && entries.size() > 2) {
+			check_entries(entries);
+		}
+		if (flag) {
+			for (size_t i = 0; i < entries.size(); i++) {
+				cout << "ENT: " << entries[i].pos << " " << entries[i].pos + entries[i].length << " Read: " << entries[i].read_pos_start << " " << entries[i].read_pos_stop << " ";
+				if (entries[i].strand) {
+					cout << "+" << endl;
+				} else {
+					cout << "-" << endl;
+				}
+			}
+		}
 	}
 	return entries;
 }
 
 //returns -1 if flags are not set!
 double Alignment::get_scrore_ratio() {
-	uint score = 0;
-	uint subscore = 0;
+	uint score = -1;
+	uint subscore = -1;
 	if (al->GetTag("AS", score) && al->GetTag("XS", subscore)) {
-		if(subscore==0){
-			return 40;// -1;
+		if (subscore == 0) {
+			subscore = 1;
 		}
-		if (strcmp(getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0) {
-			std::cout << getName()<<" score: "<<(double) score / (double) subscore << std::endl;
-		}
+		//cout<<'\t'<<score<<" "<<subscore<<endl;
 		return (double) score / (double) subscore;
 	}
-	return 100; //TODO: -1
+	return -1;
 }
 bool Alignment::get_is_save() {
 	string sa;
@@ -361,13 +664,13 @@ bool Alignment::get_is_save() {
 	double score = get_scrore_ratio();
 
 	/*if((al->GetTag("XA", sa) && !sa.empty())){
-		std::cout<<this->getName()<<"XA"<<std::endl;
-	}
-	if( (al->GetTag("XT", sa) && !sa.empty()) ){
-		std::cout<<this->getName()<<"XT"<<std::endl;
-	}*/
+	 std::cout<<this->getName()<<"XA"<<std::endl;
+	 }
+	 if( (al->GetTag("XT", sa) && !sa.empty()) ){
+	 std::cout<<this->getName()<<"XT"<<std::endl;
+	 }*/
 
-	return !((al->GetTag("XA", sa) && !sa.empty()) || (al->GetTag("XT", sa) && !sa.empty()) || (score == -1 || score< Parameter::Instance()->score_treshold)); //TODO: 7.5
+	return !((al->GetTag("XA", sa) && !sa.empty()) || (al->GetTag("XT", sa) && !sa.empty()));					//|| (score == -1 || score < Parameter::Instance()->score_treshold)); //TODO: 7.5
 }
 
 std::vector<CigarOp> Alignment::translate_cigar(std::string cigar) {
@@ -394,16 +697,16 @@ std::vector<CigarOp> Alignment::translate_cigar(std::string cigar) {
 }
 
 double Alignment::get_avg_indel_length_Cigar() {
-	double len=0;
-	double num=0;
+	double len = 0;
+	double num = 0;
 	for (size_t i = 0; i < al->CigarData.size(); i++) {
-		if ((al->CigarData[i].Type == 'I'||al->CigarData[i].Type == 'D') && al->CigarData[i].Length > 1) {
-			len+= al->CigarData[i].Length;
+		if ((al->CigarData[i].Type == 'I' || al->CigarData[i].Type == 'D') && al->CigarData[i].Length > 1) {
+			len += al->CigarData[i].Length;
 			num++;
 		}
 	}
 
-	return len/num;
+	return len / num;
 }
 
 vector<str_event> Alignment::get_events_CIGAR() {
@@ -424,7 +727,7 @@ vector<str_event> Alignment::get_events_CIGAR() {
 			events.push_back(ev);
 		}
 		if (al->CigarData[i].Type == 'I' && al->CigarData[i].Length > Parameter::Instance()->min_cigar_event) {
-		//	std::cout<<"CIGAR: "<<al->CigarData[i].Length<<" "<<this->getName()<<std::endl;
+			//	std::cout<<"CIGAR: "<<al->CigarData[i].Length<<" "<<this->getName()<<std::endl;
 			str_event ev;
 			ev.length = al->CigarData[i].Length * -1; //insertion;
 			ev.pos = pos;
@@ -489,119 +792,339 @@ std::string Alignment::get_md() {
 }
 vector<str_event> Alignment::get_events_MD(int min_mis) {
 	vector<str_event> events;
-	std::string md;
-	if (al->GetTag("MD", md)) {
-		//TODO: remove:
-		bool flag = strcmp(getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0;
+	/*std::string md;
+	 if (al->GetTag("MD", md)) {
+	 //TODO: remove:
+	 bool flag = strcmp(getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0;
 
-		if (flag) {
-			std::cout << "found!" << std::endl;
+	 if (flag) {
+	 std::cout << "found!" << std::endl;
+	 }
+	 //TODO think of a good threshold!
+	 if (get_num_mismatches(md) > Parameter::Instance()->min_num_mismatches) {
+	 if (flag) {
+	 std::cout << "is_strange!" << std::endl;
+	 }
+	 //generate a vector that holds the positions of the read
+	 std::vector<int> aln;
+	 int pos = getPosition();
+
+	 for (size_t i = 0; i < al->CigarData.size(); i++) {
+	 if (al->CigarData[i].Type == 'I') { //TODO check
+	 }
+	 if (al->CigarData[i].Type == 'D') {
+	 pos += al->CigarData[i].Length;
+	 }
+	 if (al->CigarData[i].Type == 'M') {
+	 for (size_t j = 0; j < al->CigarData[i].Length; j++) {
+	 aln.push_back(pos);
+	 pos++;
+	 //aln += "=";
+	 }
+	 }
+	 }
+	 //fill in the mismatches:
+	 bool deletion = false;
+	 bool match = false;
+	 double mis = 0;
+	 double len = 0;
+	 for (size_t i = 0; i < md.size(); i++) {
+	 if ((atoi(&md[i]) == 0 && md[i] != '0')) { //is not a number:
+	 if (md[i] == '^') {
+	 deletion = true;
+	 }
+	 if (!deletion) {
+	 //mistmatch!!
+	 mis++;
+	 aln[len] = aln[len] * -1;
+	 len++;
+	 }
+	 match = false;
+	 } else if (!match) {
+	 len += atoi(&md[i]);
+	 match = true;
+	 deletion = false;
+	 }
+	 }
+
+
+	 int runlength = 100;
+	 str_event ev;
+	 ev.pos = -1;
+	 ev.length = -1;
+	 ev.read_pos = 0;
+	 int start = 0;
+	 int last = 0;
+	 for (size_t i = 0; i < aln.size(); i += 50) { //+=runlength/2 ??
+	 //std::cout<<aln[i]<<";";
+	 int mis = 0;
+	 int first = 0;
+
+	 for (size_t j = 0; (j + i) < aln.size() && j < runlength; j++) {
+	 if (aln[(i + j)] < 0) {
+	 if (first == 0) {
+	 first = abs(aln[(i + j)]);
+	 }
+	 last = abs(aln[(i + j)]);
+	 mis++;
+	 }
+	 }
+	 if (mis > min_mis) { //TOOD ratio?
+	 if (ev.pos == -1) {
+	 start = i;
+	 ev.pos = first;
+	 ev.read_pos = ev.pos - getPosition();
+	 }
+	 } else {
+	 if ((start > 20 && abs((int) (i + runlength) - (int) aln.size()) > 20) && ev.pos != -1) {
+	 if (flag) {
+	 std::cout << i << " " << (i + runlength) << " " << aln.size() << std::endl;
+	 std::cout << ev.pos << " " << last << " " << std::endl;
+	 }
+	 includes_SV = true;
+	 ev.length = last - ev.pos;
+	 if (flag) {
+	 std::cout << ev.pos << " " << ev.length << std::endl;
+	 }
+	 if (ev.length > runlength) {
+	 events.push_back(ev);
+	 }
+	 last = 0;
+	 ev.pos = -1;
+	 } else {
+	 ev.pos = -1;
+	 }
+	 }
+	 }
+	 }
+
+	 }*/
+	return events;
+}
+
+vector<int> Alignment::get_avg_diff(double &avg_dist) {
+
+	//computeAlignment();
+	//cout<<alignment.first<<endl;
+	//cout<<alignment.second<<endl;
+
+	vector<differences_str> event_aln = summarizeAlignment();
+	vector<int> mis_per_window;
+	PlaneSweep_slim * plane = new PlaneSweep_slim();
+	int min_tresh = 5; //reflects a 10% error rate.
+	//compute the profile of differences:
+	avg_dist=0;
+	double avg_diff=0;
+	//std::cout<<this->getName()<<" "<<this->getPosition()<<std::endl;
+	//std::cout<<" READ: ";
+	for (size_t i = 0; i < event_aln.size(); i++) {
+		//std::cout<<event_aln[i].position<<"\t";
+		if(i>0){
+			avg_dist+=event_aln[i].position-(event_aln[i-1].position+abs(event_aln[i-1].type));
 		}
-		//TODO think of a good threshold!
-		if (get_num_mismatches(md) > Parameter::Instance()->min_num_mismatches) {
+		pair_str tmp;
+		tmp.position = -1;
+		if (event_aln[i].type == 0) {
+			tmp = plane->add_mut(event_aln[i].position, 1, min_tresh);
+		} else {
+			tmp = plane->add_mut(event_aln[i].position, abs(event_aln[i].type), min_tresh);
+		}
+		if (tmp.position != -1) { //check that its not the prev event!
+			mis_per_window.push_back(tmp.coverage); //store #mismatch per window each time it exceeds. (which might be every event position!)
+		}
+	}
+	//std::cout<<std::endl;
+	avg_dist=avg_dist/(double)event_aln.size();
+
+	plane->finalyze();
+	return mis_per_window;	//total_num /num;
+}
+
+vector<str_event> Alignment::get_events_Aln() {
+
+	//clock_t comp_aln = clock();
+	vector<differences_str> event_aln = summarizeAlignment();
+	//double time2 = Parameter::Instance()->meassure_time(comp_aln, "\tcompAln Events: ");
+
+	vector<str_event> events;
+	PlaneSweep_slim * plane = new PlaneSweep_slim();
+	vector<pair_str> profile;
+//	comp_aln = clock();
+	//Parameter::Instance()->read_name = "21_30705246";
+	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+	//cout<<" IDENT: "<<(double)event_aln.size()/(double)this->al->Length << " "<<this->getName().c_str()<<endl;
+	if (flag) {
+		cout<<"event: "<<event_aln.size()<<" "<<this->al->Length<<endl;
+		cout << "SCORE: " << get_scrore_ratio() << " IDENT: " << (double) event_aln.size() / (double) this->al->Length << endl;
+	}
+	int diffs = 0;
+	//compute the profile of differences:
+	for (size_t i = 0; i < event_aln.size(); i++) {
+		diffs += abs(event_aln[i].type);
+		pair_str tmp;
+		tmp.position = -1;
+		if (event_aln[i].type == 0) {
+			tmp = plane->add_mut(event_aln[i].position, 1, Parameter::Instance()->window_thresh);
+		} else {
+			tmp = plane->add_mut(event_aln[i].position, abs(event_aln[i].type), Parameter::Instance()->window_thresh);
+		}
+		if (tmp.position != -1 && (profile.empty() || (tmp.position - profile[profile.size() - 1].position) > 100)) {
+			profile.push_back(tmp);
 			if (flag) {
-				std::cout << "is_strange!" << std::endl;
-			}
-			//generate a vector that holds the positions of the read
-			std::vector<int> aln;
-			int pos = getPosition();
-
-			for (size_t i = 0; i < al->CigarData.size(); i++) {
-				if (al->CigarData[i].Type == 'I') { //TODO check
-				}
-				if (al->CigarData[i].Type == 'D') {
-					pos += al->CigarData[i].Length;
-				}
-				if (al->CigarData[i].Type == 'M') {
-					for (size_t j = 0; j < al->CigarData[i].Length; j++) {
-						aln.push_back(pos);
-						pos++;
-						//aln += "=";
-					}
-				}
-			}
-			//fill in the mismatches:
-			bool deletion = false;
-			bool match = false;
-			double mis = 0;
-			double len = 0;
-			//MD:Z:106G48^C33C41T0G5^G15G0C52^T15^C5^GC16G0A48^T3^C9^G3^G17^G23^G3^C2^G40C0G6
-			for (size_t i = 0; i < md.size(); i++) {
-				if ((atoi(&md[i]) == 0 && md[i] != '0')) { //is not a number:
-					if (md[i] == '^') {
-						deletion = true;
-					}
-					if (!deletion) {
-						//mistmatch!!
-						mis++;
-						aln[len] = aln[len] * -1;
-						len++;
-					}
-					match = false;
-				} else if (!match) {
-					len += atoi(&md[i]);
-					match = true;
-					deletion = false;
-				}
-			}
-
-		/*	if (flag) {
-				for (size_t i = 0; i < aln.size(); i++) {
-					std::cout << aln[i] << " ";
-				}
-				std::cout << endl;
-			}
-*/
-			int runlength = 100;
-			str_event ev;
-			ev.pos = -1;
-			ev.length = -1;
-			ev.read_pos = 0;
-			int start = 0;
-			int last = 0;
-			for (size_t i = 0; i < aln.size(); i += 50) { //+=runlength/2 ??
-				//std::cout<<aln[i]<<";";
-				int mis = 0;
-				int first = 0;
-
-				for (size_t j = 0; (j + i) < aln.size() && j < runlength; j++) {
-					if (aln[(i + j)] < 0) {
-						if (first == 0) {
-							first = abs(aln[(i + j)]);
-						}
-						last = abs(aln[(i + j)]);
-						mis++;
-					}
-				}
-				if (mis > min_mis) { //TOOD ratio?
-					if (ev.pos == -1) {
-						start = i;
-						ev.pos = first;
-						ev.read_pos = ev.pos - getPosition();
-					}
-				} else {
-					if ((start > 20 && abs((int) (i + runlength) - (int) aln.size()) > 20) && ev.pos != -1) {
-						if (flag) {
-							std::cout << i << " " << (i + runlength) << " " << aln.size() << std::endl;
-							std::cout << ev.pos << " " << last << " " << std::endl;
-						}
-						includes_SV = true;
-						ev.length = last - ev.pos;
-						if (flag) {
-							std::cout << ev.pos << " " << ev.length << std::endl;
-						}
-						if (ev.length > runlength) {
-							events.push_back(ev);
-						}
-						last = 0;
-						ev.pos = -1;
-					} else {
-						ev.pos = -1;
-					}
-				}
+				cout << "HIT: " << event_aln[i].position << " " << tmp.coverage << endl;
 			}
 		}
+	}
+	//Parameter::Instance()->meassure_time(comp_aln, "\tcompProfile: ");
+	/*if (strcmp(getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0) {
+	 int prev = 0;
+	 prev = getPosition();
+	 for (size_t i = 0; i < event_aln.size(); i++) {
+	 cout << event_aln[i].position - prev << " " << event_aln[i].type << endl;
 
+	 }
+	 }*/
+
+	//comp_aln = clock();
+	size_t stop = 0;
+	size_t start = 0;
+	int tot_len = 0;
+	for (size_t i = 0; i < profile.size(); i++) {
+		if (profile[i].position > event_aln[stop].position) {
+
+			//find the postion:
+			size_t pos = 0;
+			while (pos < event_aln.size() && event_aln[pos].position != profile[i].position) {
+				pos++;
+			}
+
+			//run back to find the start:
+			start = pos;
+			int prev = event_aln[pos].position;
+			start = pos;
+			int prev_type = 1;
+			//todo it is actually pos + type and not *type
+			while (start > 0 && (prev - event_aln[start].position) < (Parameter::Instance()->avg_distance)) {		//13	//} * abs(event_aln[start].type) + 1)) { //TODO I  dont like 13!??
+				prev = event_aln[start].position;
+				prev_type = abs(event_aln[start].type);
+				start--;
+
+				if (prev_type == 0) {
+					prev_type = 1;
+				}
+				prev += prev_type;
+			}
+			start++; //we are running one too far!
+
+			//run forward to identify the stop:
+			prev = event_aln[pos].position;
+			stop = pos;
+			prev_type = 1;
+
+			while (stop < event_aln.size() && (event_aln[stop].position - prev) < (Parameter::Instance()->avg_distance)) {		// * abs(event_aln[stop].type) + 1)) {
+				prev = event_aln[stop].position;
+
+				prev_type = abs(event_aln[stop].type);
+				stop++;
+				if (prev_type == 0) {
+					prev_type = 1;
+				}
+				prev += prev_type;
+			}
+			stop--;
+
+			int insert_max_pos = 0;
+			int insert_max = 0;
+			if (event_aln[start].type < 0) {
+				insert_max_pos = event_aln[start].position;
+				insert_max = abs(event_aln[start].type);
+			}
+
+			int del_max = 0;
+			int del_max_pos = 0;
+
+			double insert = 0;
+			double del = 0;
+			double mismatch = 0;
+
+			for (size_t k = start; k < stop; k++) {
+				if (flag) {
+					//		cout << event_aln[k].position << " " << event_aln[k].type << endl;
+				}
+				if (event_aln[k].type == 0) {
+					mismatch++;
+				} else if (event_aln[k].type > 0) {
+					del += abs(event_aln[k].type);
+					if (del_max < abs(event_aln[k].type)) {
+						del_max = abs(event_aln[k].type);
+						del_max_pos = event_aln[k].position;
+					}
+				} else if (event_aln[k].type < 0) {
+					insert += abs(event_aln[k].type);
+					if (insert_max < abs(event_aln[k].type)) {
+						insert_max = abs(event_aln[k].type);
+						insert_max_pos = event_aln[k].position;
+					}
+				}
+			}
+			str_event tmp;
+			tmp.pos = event_aln[start].position;
+
+			tmp.length = event_aln[stop].position;
+			if (event_aln[stop].type > 1) {		//because of the way we summarize mutations to one location
+				tmp.length += event_aln[stop].type;
+			}
+			tmp.length = (tmp.length - event_aln[start].position);
+
+			tmp.type = 0;
+			//TODO constance used!
+			if (insert_max > Parameter::Instance()->min_length && insert > (del + del)) { //we have an insertion! //todo check || vs. &&
+				if (flag) {
+					cout << "store INS" << endl;
+				}
+				tmp.length = insert_max; //TODO not sure!
+				tmp.pos = insert_max_pos;
+				tmp.type |= INS;
+			} else if (del_max > Parameter::Instance()->min_length && (mismatch < 2 && (insert + insert) < del)) { //deletion
+				if (flag) {
+					cout << "store DEL" << endl;
+				}
+				tmp.type |= DEL;
+			} else { //something:
+				if (flag) {
+					cout << "store Noise" << endl;
+				}
+				tmp.type |= DEL;
+				tmp.type |= INV;
+			}
+
+			if (flag) {
+				cout << "Read: " << (double) diffs << " " << (double) this->getRefLength() << " events: " << event_aln.size() << " " << this->al->Name << std::endl;
+				cout << "INS max " << insert_max << " del_max " << del_max << std::endl;
+				cout << "INS:" << insert << " DEL: " << del << " MIS: " << mismatch << endl;
+				cout << event_aln[start].position << " " << event_aln[stop].position << endl;
+				cout << tot_len << " " << this->getRefLength() << endl;
+				cout << "store: " << tmp.pos << " " << tmp.pos + abs(tmp.length) << " " << tmp.length << endl;
+				cout << endl;
+			}
+
+			tot_len += tmp.length;
+
+			if (tot_len > this->getRefLength() * 0.77) { // if the read is just noisy as hell:
+				events.clear();
+				return events;
+			} else {
+				if (flag) {
+					cout << "STORE" << endl;
+				}
+				events.push_back(tmp);
+			}
+		}
+	}
+//	Parameter::Instance()->meassure_time(comp_aln, "\tcompPosition: ");
+	if (events.size() > 4) { //TODO very arbitrary! test?
+		events.clear();
 	}
 	return events;
 }
+

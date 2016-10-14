@@ -17,7 +17,7 @@ void IntervallTree_bed::insert(long start, long stop, Leaf *&p) {
 		}
 	} else {
 
-		long score = p->overlap(start, stop);
+		long score = p->overlap(start, stop); //comparison function
 
 		if (score > 0) {
 			insert(start, stop, p->left);

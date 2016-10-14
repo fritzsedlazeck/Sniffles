@@ -5,22 +5,22 @@
  *      Author: fsedlaze
  */
 
-#ifndef PRINT_BEDEPRINTER_H_
-#define PRINT_BEDEPRINTER_H_
+#ifndef PRINT_BEDPEPRINTER_H_
+#define PRINT_BEDPEPRINTER_H_
 #include "IPrinter.h"
-class BedePrinter:public IPrinter{
+class BedpePrinter:public IPrinter{
 private:
 	void print_header();
 	void print_body(Breakpoint *& SV, RefVector ref);
 public:
-	BedePrinter(){
+	BedpePrinter(){
 
 	}
-	~BedePrinter(){
+	~BedpePrinter(){
 
 	}
 };
 
 
 
-#endif /* PRINT_BEDEPRINTER_H_ */
+#endif /* PRINT_BEDPEPRINTER_H_ */

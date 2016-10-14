@@ -37,9 +37,10 @@ void BamParser::parseReadFast(uint16_t mappingQv,Alignment*& align){
 //	Alignment *align = new Alignment();
 	BamAlignment* al = align->getAlignment();
 //	getSequence().first
-	align->initSequence();
-
+//	align->initSequence();
+	align->getQueryBases().clear();
 	while(reader.GetNextAlignmentCore(al[0])){
+
 		if( al->IsMapped() && al->MapQuality > mappingQv){
 			al->BuildCharData();
 			align->setAlignment(al);

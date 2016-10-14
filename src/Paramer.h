@@ -13,6 +13,7 @@
 #include <vector>
 #include <stdlib.h>
 #include <iostream>
+#include <ctime>
 struct region_str {
 	std::string chr;
 	int start;
@@ -22,8 +23,7 @@ struct region_str {
 class Parameter {
 private:
 	Parameter() {
-		score_treshold = 0;
-		min_num_mismatches = 0.3;
+		window_thresh=10;//TODO check!
 	}
 	~Parameter() {
 
@@ -32,11 +32,11 @@ private:
 	std::vector<region_str> regions;
 public:
 	std::string output_vcf;
-	std::string output_bede;
+	std::string output_bedpe;
 	std::string ref_seq;
 	std::string read_name;
-	std::string output_maria;
 	std::string ignore_regions_bed;
+	std::string tmp_file;
 
 	std::vector<std::string> bam_files;
 	short min_mq;
@@ -46,17 +46,26 @@ public:
 
 	double error_rate;
 	double score_treshold;
-	double min_num_mismatches;
+	double avg_distance;
+	//double min_num_mismatches;
 
+	int window_thresh;
 	int min_support;
 	int max_splits;
 	int max_dist;
 	int min_length;
 	int min_reads_phase;
 	int num_threads;
+	int max_readlength;
+	int min_grouping_support; //min num reads supporting the overlap of two SVs
+	int huge_ins;
 
 	bool realign;
+	bool splitthreader_output;
 	bool useMD_CIGAR;
+	bool debug;
+	bool genotype;
+	bool phase;
 
 	void set_regions(std::string reg) {
 		size_t i = 0;
@@ -88,6 +97,14 @@ public:
 		}
 		return m_pInstance;
 	}
+
+	double meassure_time(clock_t begin ,std::string msg){
+		clock_t end = clock();
+		double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+		std::cout << msg<<" " << elapsed_secs<<std::endl;
+		return elapsed_secs;
+	}
+
 };
 
 #endif /* PARAMER_H_ */

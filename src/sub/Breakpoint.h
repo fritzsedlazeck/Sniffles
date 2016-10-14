@@ -13,15 +13,11 @@
 #include <iostream>
 #include <sstream>
 #include <math.h>
+#include <vector>
 #include "../Paramer.h"
 #include "../BamParser.h"
 #include "../tree/BinTree.h"
 
-const unsigned char DEL = 0x01; // hex for 0000 0001
-const unsigned char DUP = 0x02; // hex for 0000 0010
-const unsigned char INS = 0x04; // hex for 0000 0100
-const unsigned char INV = 0x08; // hex for 0000 1000
-const unsigned char TRA = 0x10; // hex for 0001 0000
 
 struct region_ref_str{ //not very nice!
 	std::string read_seq;
@@ -40,6 +36,7 @@ struct svs_breakpoint_str{
 struct read_str {
 	//to identify
 	std::string name;
+	long id;
 	region_ref_str aln; //maybe we can use this!
 	short type; //split reads, cigar or md string
 	//for later assessment:
@@ -60,9 +57,15 @@ struct position_str {
 };
 
 
+struct str_types{
+	bool is_SR;
+	bool is_ALN;
+};
+
 //TODO define region object  and inherit from that. Plus define avoid region objects for mappability problems.
 class Breakpoint {
 private:
+	str_types type;
 	position_str positions;
 	std::vector<std::string> strand;
 	std::string supporting_types;
@@ -70,7 +73,6 @@ private:
 	std::string sv_debug;
 	std::string ref_seq;
 	std::vector<short> support;
-	double cov;
 	short type_support;
 	//for phasing:
 	BinTree grouped;
@@ -85,17 +87,17 @@ private:
 	std::string rev_complement(std::string seq);
 	bool is_in(short id);
 	std::string translate_strand(pair<bool, bool> strand);
+	bool is_same_strand(Breakpoint * tmp);
+	bool check_SVtype(Breakpoint * break1, Breakpoint * break2);
 public:
-	Breakpoint(position_str sv, int cov,long len) {
+	Breakpoint(position_str sv,long len) {
 		sv_type=' ';
+		type.is_ALN=((*sv.support.begin()).second.type==0);
+		type.is_SR=((*sv.support.begin()).second.type==1);
 		type_support=-1;
 		this->positions = sv;
-		//std::cout << "Break1: " << positions.start << " " << positions.stop << std::endl;
-
-		//std::cout << "Break2: " << positions.start << " " << positions.stop<< std::endl;
-		this->cov = cov;
 		this->grouped_node=NULL;
-		this->set_length(len);
+		this->length=len;
 	}
 	~Breakpoint() {
 
@@ -111,9 +113,6 @@ public:
 
 	void add_read(Breakpoint * point);
 
-	double get_cov() {
-		return cov;
-	}
 	std::string get_chr(long pos, RefVector ref);
 	long calc_pos(long pos, RefVector ref);
 	char get_SVtype();
@@ -144,6 +143,12 @@ public:
 		return tmp;
 	}
 	void calc_support();
+	str_types get_types(){
+		return this->type;
+	}
+	std::vector< std::string> get_read_names(int num);
+	std::vector<int> get_read_ids();
+	std::string to_string();
 };
 
 #endif /* SUB_BREAKPOINT_H_ */

@@ -29,7 +29,7 @@ public:
 	void copy(TNode * &, TNode *&);
 	TNode * nodecopy(TNode *&);
 	void preorder(TNode*);
-	void inorder(TNode*,TNode * root);
+	void inorder(TNode * p);
 	void postorder(TNode*);
 	int bsheight(TNode*);
 	void get_breakpoints(TNode *p,std::vector<Breakpoint *> & points);
