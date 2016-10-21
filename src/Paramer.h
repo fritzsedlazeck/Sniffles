@@ -24,7 +24,7 @@ class Parameter {
 private:
 	Parameter() {
 		window_thresh=10;//TODO check!
-		version="1.0.0";
+		version="1.0.1";
 	}
 	~Parameter() {
 
