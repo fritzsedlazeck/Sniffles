@@ -15,9 +15,33 @@
 #include "Breakpoint.h"
 
 ///////////////////////////////// MERGING////////////////////////////////////////////
+std::string print_type(char SV1){
+	std::string type="";
+	if((SV1 & INS)){
+		type+= "INS";
+	}
+
+	if((SV1 & TRA)){
+		type+=  "TRA";
+	}
+
+	if((SV1 & INV)){
+		type+=  "INV";
+	}
+
+	if((SV1 & DEL)){
+		type+=  "DEL";
+	}
+
+	if((SV1 & DUP)){
+		type+=  "DUP";
+	}
+	return type;
+}
 bool Breakpoint::check_SVtype(Breakpoint * break1, Breakpoint * break2) { //todo check that!
 	char SV1 = (*break1->get_coordinates().support.begin()).second.SV;
 	char SV2 = (*break2->get_coordinates().support.begin()).second.SV;
+
 	//we have to check it that way,because we can have multiple types!
 	if ((SV1 & INS) && (SV2 & INS)) {
 		return true;
@@ -29,9 +53,10 @@ bool Breakpoint::check_SVtype(Breakpoint * break1, Breakpoint * break2) { //todo
 		return true;
 	} else if ((SV1 & DEL) && (SV2 & DEL)) {
 		return true;
-	} /*else if (((SV1 & DUP) && (SV2 & INS))  || ((SV1 & INS) && (SV2 & DUP))) {
-		return true;
-	}*/
+	} //else if (((SV1 & DUP) && (SV2 & INS)) || ((SV1 & INS) && (SV2 & DUP))) {
+	//	return true;
+	//}
+	//std::cout<<"S1: "<<print_type(SV1)<<" S2 "<<print_type(SV2)<<" "<<(*break2->get_coordinates().support.begin()).second.type<<std::endl;
 	return false;
 }
 bool Breakpoint::is_same_strand(Breakpoint * tmp) {
@@ -45,40 +70,53 @@ bool Breakpoint::is_same_strand(Breakpoint * tmp) {
 	return false;
 }
 int get_dist(Breakpoint * tmp) {
+
 	position_str pos = tmp->get_coordinates();
 	//return Parameter::Instance()->max_dist;
 	if ((*tmp->get_coordinates().support.begin()).second.SV & TRA || (*tmp->get_coordinates().support.begin()).second.SV & INS) {
 		return Parameter::Instance()->max_dist; //TODO: change!
 	} else {
-		int max_val = Parameter::Instance()->max_dist;// * 0.5; //TOOD maybe 0.5?
+		int max_val = Parameter::Instance()->max_dist; // * 0.5; //TOOD maybe 0.5?
 		return std::max(std::min((int) (pos.stop.max_pos - pos.start.min_pos) / 80, Parameter::Instance()->max_dist), max_val); //20% of the lenght of the SV
 	}
 }
 
 long Breakpoint::overlap(Breakpoint * tmp) {
+	bool flag = false;
 
-	int max_dist =  get_dist(tmp);
-	//std::cout<<"\tOverlap: "<<max_dist<< " start: "<<abs(tmp->get_coordinates().start.min_pos - positions.stop.min_pos) << " stop :" <<abs(tmp->get_coordinates().stop.max_pos - positions.start.max_pos);
-
+	int max_dist = Parameter::Instance()->max_dist; // get_dist(tmp);
+	if (flag) {
+		std::cout << "\t Overlap: " << max_dist << " start: " << abs(tmp->get_coordinates().start.min_pos - positions.stop.min_pos) << " stop :" << abs(tmp->get_coordinates().stop.max_pos - positions.start.max_pos);
+		if(is_same_strand(tmp) ){
+			std::cout<<"same strand";
+		}
+	}
 	//check type. ALN could be part of the SPlit read event! Not merge two split reads!
 	if (is_same_strand(tmp) && (abs(tmp->get_coordinates().start.min_pos - positions.start.min_pos) < max_dist && abs(tmp->get_coordinates().stop.max_pos - positions.stop.max_pos) < max_dist)) {
-//		std::cout << "\tfound hit!" << std::endl;
+		if (flag) {
+			std::cout << "\t hit!" << std::endl;
+
+		}
 		return 0;
 	}
 
 	//TODO:: if one of the two SVs is based on ALN it might be good to join them: to merge noisy flanking regions
-	if (((tmp->get_types().is_ALN || this->get_types().is_ALN) && !(tmp->get_types().is_ALN && this->get_types().is_ALN)) && (abs(tmp->get_coordinates().start.min_pos - positions.stop.min_pos) < max_dist/2 || abs(tmp->get_coordinates().stop.max_pos - positions.start.max_pos) < max_dist/2)) { //TODO maybe add SV type check!
-//		std::cout << "\t hit!" << std::endl;
+	if (((tmp->get_types().is_ALN || this->get_types().is_ALN) && !(tmp->get_types().is_ALN && this->get_types().is_ALN)) && (abs(tmp->get_coordinates().start.min_pos - positions.stop.min_pos) < max_dist / 2 || abs(tmp->get_coordinates().stop.max_pos - positions.start.max_pos) < max_dist / 2)) { //TODO maybe add SV type check!
+		if (flag) {
+			std::cout << "\t hit!" << std::endl;
+		}
 		return 0;
 	}
+	if (flag) {
+		std::cout << "no hit? " << std::endl;
+	}
 
-	//std::cout << "no hit? "<< std::endl;
 //as abstraction lets try the start+stop coordinate!
-	long diff=(tmp->get_coordinates().start.min_pos - positions.start.min_pos);
-	if(abs(diff)<max_dist){
+	long diff = (tmp->get_coordinates().start.min_pos - positions.start.min_pos);
+	if (abs(diff) < max_dist) {
 		return (tmp->get_coordinates().stop.max_pos - positions.stop.max_pos);
 	}
-	return diff;// + (tmp->get_coordinates().stop.max_pos - positions.stop.max_pos);
+	return diff; // + (tmp->get_coordinates().stop.max_pos - positions.stop.max_pos);
 }
 
 void Breakpoint::add_read(Breakpoint * point) {
@@ -297,28 +335,6 @@ char Breakpoint::eval_type(std::vector<short> SV) {
 
 	return max_SV;
 }
-/*void trans_strand(pair<bool, bool> tmp) {
- if (tmp.first) {
- std::cout << "+";
- } else {
- std::cout << "-";
- }
-
- if (tmp.second) {
- std::cout << "+";
- } else {
- std::cout << "-";
- }
- std::cout << std::endl;
- }*/
-
-/*
- char direction(bool dir) {
- if (dir) {
- return '+';
- }
- return '-';
- }*/
 
 void Breakpoint::predict_SV() {
 	bool aln = false;
@@ -514,7 +530,7 @@ std::string Breakpoint::get_strand(int num_best) {
 	return tmp;
 }
 #include "Detect_Breakpoints.h"
-std::string Breakpoint::to_string(){
+std::string Breakpoint::to_string() {
 	std::stringstream ss;
 	ss << "\t\tTREE: ";
 	ss << TRANS_type(this->get_SVtype());

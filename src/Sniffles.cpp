@@ -24,17 +24,25 @@
 
 Parameter* Parameter::m_pInstance = NULL;
 //cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
+//TODO: Think of ways to make it faster!
+//TODO: WHY? 1       119401196       189700  N       <TRA>   .       PASS    IMPRECISE;SVMETHOD=Snifflesv0.0.1;CHR2=15;END=51189238;RNAMES=m141229_044222_00118_c100750472550000001823151707081504_s1_p0/2205/0_8445;m141231_161924_00118_c1007507325500000018231517
+//TODO:      1       119400525       189701  N       <TRA>   .       PASS    IMPRECISE;SVMETHOD=Snifflesv0.0.1;CHR2=15;END=51189312;RNAMES=m141229_044222_00118_c100750472550000001823151707081504_s1_p0/2205/0_8445;m141231_161924_00118_c1007507325500000018231517
 
 //TODO: for read names stored for each event store the number of possible events they support.-> If number==1 do not print them in tmp file.
+
 //TODO: write comparison script taking bed or a vcf file!
 //TODO:  make score threshold only on events on reads and not on split reads!
 // Think of method to filter out strange SV.
+// Think of multiple bam files -> setting genotypes
 // Think about overlapping SV, maybe flag to report if they share the same read -> phasing info?
 // Regular scan through the SV and move those where the end point lies far behind the current pos or reads. Eg. 1MB?
 
 
 void read_parameters(int argc, char *argv[]) {
-	TCLAP::CmdLine cmd("Sniffles version 1.0.0", ' ', "1.0.0");
+
+	std::string lable="Sniffles version ";
+	lable+=Parameter::Instance()->version;
+	TCLAP::CmdLine cmd("Sniffles version 1.0.0", ' ', Parameter::Instance()->version);
 	TCLAP::ValueArg<std::string> arg_bamfile("m", "mapped_reads", "Bam File", true, "", "string");
 	TCLAP::ValueArg<std::string> arg_vcf("v", "vcf", "VCF output file name", false, "", "string");
 	//TCLAP::ValueArg<std::string> arg_bede("b", "bede", "Bede output file name", false, "", "string");
@@ -47,17 +55,17 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<int> arg_dist("d", "max_distance", "Maximum distance to group SV together. Default: 1kb", false, 500, "int");
 	TCLAP::ValueArg<int> arg_threads("t", "threads", "Number of threads to use. Default: 3", false, 3, "int");
 	//TCLAP::ValueArg<int> arg_corridor("", "corridor", "Maximum size of corridor for realignment. Default: 2000", false, 2000, "int");
-	TCLAP::ValueArg<int> arg_minlength("l", "min_length", "Minimum length of SV to be reported. Default: 20", false, 20, "int");
+	TCLAP::ValueArg<int> arg_minlength("l", "min_length", "Minimum length of SV to be reported. Default: 30", false, 30, "int");
 	TCLAP::ValueArg<int> arg_mq("q", "minmapping_qual", "Minimum Mapping Quality. Default: 20", false, 20, "int");
 	TCLAP::ValueArg<int> arg_cigar("c", "min_cigar_event", "Minimum Cigar Event (e.g. Insertion, deletion) to take into account. Default:50 ", false, 50, "int");
 	TCLAP::ValueArg<int> arg_numreads("n", "num_reads_report", "Report up to N reads that support the SV. Default: 0", false, 0, "int");
 //	TCLAP::ValueArg<int> arg_phase_minreads("", "min_reads_phase", "Minimum reads overlapping two SV to phase them together. Default: 1", false, 1, "int");
 	TCLAP::ValueArg<std::string> arg_tmp_file("", "tmp_file", "patht to temporary file otherwise Sniffles will use the current directory.", false, "", "string");
 //	TCLAP::SwitchArg arg_realign("", "re-align", "Enables the realignment of reads at predicted SV sites. Leads to more accurate breakpoint predictions.", cmd, false);
-//	TCLAP::SwitchArg arg_MD_cigar("", "use_MD_Cigar", "Enables Sniffles to use the alignment information to screen for suspicious regions.", cmd, false);
+	TCLAP::SwitchArg arg_MD_cigar("", "use_MD_Cigar", "Enables Sniffles to use the alignment information to screen for suspicious regions.", cmd, false);
 	//TCLAP::SwitchArg arg_Splitthreader("", "Splitthreader_output", "Enables Sniffles to compute also the full coverage required by Splitthreader.", cmd, false);
-	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes. (alpha version)", cmd, false);
-	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occure on the same reads (alpha version)", cmd, false);
+	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
+	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occure on the same reads", cmd, false);
 
 	cmd.add(arg_numreads);
 	cmd.add(arg_tmp_file);
@@ -82,7 +90,8 @@ void read_parameters(int argc, char *argv[]) {
 
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
-	Parameter::Instance()->read_name = " ";//00632dff-dc1a-4225-b50e-eaab5fd89cd0_Basecall_Alignment_template";	;//just for debuging reasons!
+
+	Parameter::Instance()->read_name = " ";//0076373e-d278-4316-9967-9b4c0b74df57_Basecall_Alignment_template";//21_30705246";	;//just for debuging reasons!
 	Parameter::Instance()->bam_files.push_back(arg_bamfile.getValue());
 	Parameter::Instance()->min_mq = arg_mq.getValue();
 	Parameter::Instance()->output_vcf = arg_vcf.getValue();
@@ -98,7 +107,7 @@ void read_parameters(int argc, char *argv[]) {
 //	Parameter::Instance()->output_bede = arg_bede.getValue();
 	Parameter::Instance()->min_length = arg_minlength.getValue();
 	//Parameter::Instance()->min_reads_phase = arg_phase_minreads.getValue();
-//	Parameter::Instance()->useMD_CIGAR = arg_MD_cigar.getValue();
+	Parameter::Instance()->useMD_CIGAR = arg_MD_cigar.getValue();
 	Parameter::Instance()->genotype = arg_genotype.getValue();
 	Parameter::Instance()->phase = arg_cluster.getValue();
 	Parameter::Instance()->num_threads = arg_threads.getValue();

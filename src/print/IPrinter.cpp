@@ -67,7 +67,8 @@ std::string IPrinter::get_type(char type) {
 		if (!tmp.empty()) {
 			tmp += '/';
 		}
-		tmp += "TRA";
+		tmp += "BND";
+		//tmp += "TRA";
 	}
 
 	return tmp; // should not occur!

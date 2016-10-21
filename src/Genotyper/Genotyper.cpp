@@ -124,16 +124,18 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 	std::ifstream myfile;
 	bool is_vcf = !Parameter::Instance()->output_vcf.empty();
 
+
 	string file_name;
 	if (!Parameter::Instance()->output_vcf.empty()) {
-		file_name = Parameter::Instance()->output_vcf;
+		file_name=Parameter::Instance()->output_vcf;
 		myfile.open(Parameter::Instance()->output_vcf.c_str(), std::ifstream::in);
 	} else if (!Parameter::Instance()->output_bedpe.empty()) {
-		file_name = Parameter::Instance()->output_bedpe;
+		file_name=Parameter::Instance()->output_bedpe;
 		myfile.open(Parameter::Instance()->output_bedpe.c_str(), std::ifstream::in);
 	}
 
 	FILE*file = fopen(Parameter::Instance()->tmp_file.c_str(), "w");
+
 
 	if (!myfile.good()) {
 		std::cout << "SVParse: could not open file: " << std::endl;
@@ -155,9 +157,9 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 			}
 			int ref = max(tree.get_ref(node, tmp.chr, tmp.pos), tree.get_ref(node, tmp.chr2, tmp.pos2));
 			if (is_vcf) {
-				to_print = mod_breakpoint_vcf(buffer, ref);
-			} else {
-				to_print = mod_breakpoint_bedpe(buffer, ref);
+				to_print=mod_breakpoint_vcf(buffer,ref);
+			}else{
+				to_print=mod_breakpoint_bedpe(buffer,ref);
 			}
 			fprintf(file, "%s", to_print.c_str());
 		} else {
@@ -169,10 +171,10 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 	myfile.close();
 	fclose(file);
 
-	string move = "mv ";
-	move += Parameter::Instance()->tmp_file;
-	move += " ";
-	move += file_name;
+	string move="mv ";
+	move+=Parameter::Instance()->tmp_file;
+	move+=" ";
+	move+=file_name;
 	system(move.c_str());
 }
 
@@ -216,9 +218,7 @@ void Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_node *& node) {
 	//tree.inorder(node);
 }
 void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node) {
-	std::string name = Parameter::Instance()->tmp_file.c_str();
-	name += "ref_allele";
-	FILE * ref_allel_reads = fopen(name.c_str(), "r");
+	FILE * ref_allel_reads = fopen(Parameter::Instance()->tmp_file.c_str(), "r");
 	if (ref_allel_reads == NULL) {
 		std::cerr << "CovParse: could not open file: " << Parameter::Instance()->tmp_file.c_str() << std::endl;
 	}

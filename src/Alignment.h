@@ -124,7 +124,7 @@ public:
 	 double get_scrore_ratio();
 	 std::string get_md();
 	 double get_avg_indel_length_Cigar();
-	 vector<int> get_avg_diff(double & avg_dist);
+	 vector<int> get_avg_diff(double & dist);
 
 };
 

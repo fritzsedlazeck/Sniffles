@@ -24,6 +24,7 @@ class Parameter {
 private:
 	Parameter() {
 		window_thresh=10;//TODO check!
+		version="1.0.0";
 	}
 	~Parameter() {
 
@@ -37,6 +38,7 @@ public:
 	std::string read_name;
 	std::string ignore_regions_bed;
 	std::string tmp_file;
+	std::string version;
 
 	std::vector<std::string> bam_files;
 	short min_mq;
@@ -46,7 +48,6 @@ public:
 
 	double error_rate;
 	double score_treshold;
-	double avg_distance;
 	//double min_num_mismatches;
 
 	int window_thresh;
@@ -59,6 +60,7 @@ public:
 	int max_readlength;
 	int min_grouping_support; //min num reads supporting the overlap of two SVs
 	int huge_ins;
+	int max_dist_alns;
 
 	bool realign;
 	bool splitthreader_output;
