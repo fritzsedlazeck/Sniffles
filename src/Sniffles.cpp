@@ -65,7 +65,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::SwitchArg arg_MD_cigar("", "use_MD_Cigar", "Enables Sniffles to use the alignment information to screen for suspicious regions.", cmd, false);
 	//TCLAP::SwitchArg arg_Splitthreader("", "Splitthreader_output", "Enables Sniffles to compute also the full coverage required by Splitthreader.", cmd, false);
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
-	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occure on the same reads", cmd, false);
+	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
 
 	cmd.add(arg_numreads);
 	cmd.add(arg_tmp_file);
