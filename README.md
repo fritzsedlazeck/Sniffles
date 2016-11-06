@@ -1,5 +1,5 @@
 # Sniffles
-Sniffles is a structural variation caller using third generation sequencing (PacBio or Oxford Nanopore). It detects all types of SVs using evidence from split-read alignments, high-mismatch regions, and coverage analysis. Please note the current version of Sniffles requires output from BWA-MEM with the optional SAM attributes enabled! If you experience problems or have suggestions please contact: fritz.sedlazeck@gmail.com
+Sniffles is a structural variation caller using third generation sequencing (PacBio or Oxford Nanopore). It detects all types of SVs using evidence from split-read alignments, high-mismatch regions, and coverage analysis. Please note the current version of Sniffles requires sorted output from BWA-MEM or NGM-LR with the optional SAM attributes enabled! If you experience problems or have suggestions please contact: fritz.sedlazeck@gmail.com
 
 **************************************
 
@@ -21,7 +21,15 @@ git clone https://github.com/fritzsedlazeck/Sniffles
   make
  
   cd ../bin/
-  
+
+**************************************
+
+NextGenMap-LR: (NGM-LR)
+
+
+Sniffles performs best with the mappings of NGM-LR our novel long read mapping method. 
+Please see:
+https://github.com/philres/nextgenmap-lr
   
 **************************************
 
@@ -41,7 +49,7 @@ Options:
 Where: 
 
    -m <string>,  --mapped_reads <string>
-     (required)  Bam File
+     (required)  sorted bam File
 
    -s <int>,  --min_support <int>
      Minimum number of reads that support a SV. Default: 10
