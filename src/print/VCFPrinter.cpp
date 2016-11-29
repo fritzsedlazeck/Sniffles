@@ -59,7 +59,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 		pos = IPrinter::calc_pos(SV->get_coordinates().stop.most_support, ref, chr);
 		std::string strands = SV->get_strand(1);
 		fprintf(file, "%s", "\tN\t");
-		if (SV->get_SVtype() & TRA) {	//TODO check for INV!
+		/*if (SV->get_SVtype() & TRA) {	//TODO check for INV!
 			//N[22:36765684[ +-
 			//]21:10540232]N -+
 			if (strands[0] == '+') {
@@ -85,7 +85,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%s", "\t.\tPASS\tIMPRECISE;SVMETHOD=Snifflesv");
 			fprintf(file, "%s", Parameter::Instance()->version.c_str());
 
-		} else {
+		} else {*/
 			fprintf(file, "%c", '<');
 			fprintf(file, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());
 			fprintf(file, "%c", '>');
@@ -95,11 +95,11 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%s", chr.c_str());
 			fprintf(file, "%s", ";END=");
 			if (SV->get_SVtype() & INS) {
-				fprintf(file, "%i", pos + SV->get_length());
+				fprintf(file, "%i", pos - SV->get_length());
 			} else {
 				fprintf(file, "%i", pos);
 			}
-		}
+	//	}
 		fprintf(file, "%s", ";SVTYPE=");
 		fprintf(file, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());
 		if (Parameter::Instance()->report_n_reads > 0) {

@@ -14,6 +14,7 @@
 #include <sstream>
 #include <math.h>
 #include <vector>
+#include <algorithm>
 #include "../Paramer.h"
 #include "../BamParser.h"
 #include "../tree/BinTree.h"
@@ -35,7 +36,7 @@ struct svs_breakpoint_str{
 };
 struct read_str {
 	//to identify
-	std::string name;
+//	std::string name;
 	long id;
 	region_ref_str aln; //maybe we can use this!
 	short type; //split reads, cigar or md string
@@ -43,6 +44,7 @@ struct read_str {
 	pair<bool, bool> strand;
 	pair<long,long> coordinates; // I could use the bin tree for that!
 	char SV; // bit vector
+	int length;
 };
 struct position_str {
 	svs_breakpoint_str start;
@@ -60,6 +62,7 @@ struct position_str {
 struct str_types{
 	bool is_SR;
 	bool is_ALN;
+	bool is_Noise;
 };
 
 //TODO define region object  and inherit from that. Plus define avoid region objects for mappability problems.
@@ -72,7 +75,7 @@ private:
 	char sv_type;
 	std::string sv_debug;
 	std::string ref_seq;
-	std::vector<short> support;
+	//std::vector<short> support;
 	short type_support;
 	//for phasing:
 	BinTree grouped;
@@ -91,9 +94,11 @@ private:
 	bool check_SVtype(Breakpoint * break1, Breakpoint * break2);
 public:
 	Breakpoint(position_str sv,long len) {
+
 		sv_type=' ';
 		type.is_ALN=((*sv.support.begin()).second.type==0);
 		type.is_SR=((*sv.support.begin()).second.type==1);
+		type.is_Noise=((*sv.support.begin()).second.type==2);
 		type_support=-1;
 		this->positions = sv;
 		this->grouped_node=NULL;
@@ -105,6 +110,10 @@ public:
 
 	int get_support();
 	long overlap(Breakpoint * tmp);
+	void set_coordinates(int start, int stop){
+		this->positions.start.min_pos=start;
+		this->positions.stop.max_pos=stop;
+	}
 	position_str get_coordinates() {
 		return this->positions;
 	}

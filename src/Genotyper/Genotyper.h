@@ -27,7 +27,7 @@ private:
 	variant_str get_breakpoint_bedpe(char *buffer);
 	std::string mod_breakpoint_vcf(char *buffer, int ref);
 	std::string mod_breakpoint_bedpe(char *buffer, int ref);
-
+	void parse_pos(char * buffer, int & pos, std::string & chr);
 public:
 	Genotyper(){
 		node=NULL;

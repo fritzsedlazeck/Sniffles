@@ -6,6 +6,20 @@
  */
 
 #include "Detect_Breakpoints.h"
+#include "../print/IPrinter.h"
+
+long fuck_off(long pos, RefVector ref, std::string &chr) {
+	size_t i = 0;
+	pos -= (ref[i].RefLength + Parameter::Instance()->max_dist);
+
+	while (i < ref.size() && pos >= 0) {
+		i++;
+		pos -= ((long) ref[i].RefLength + (long) Parameter::Instance()->max_dist);
+	}
+	chr = ref[i].RefName;
+	return pos + ref[i].RefLength + (long) Parameter::Instance()->max_dist;
+}
+
 std::string TRANS_type(char type) {
 	string tmp;
 	if (type & DEL) {
@@ -50,6 +64,7 @@ long get_ref_lengths(int id, RefVector ref) {
 
 bool should_be_stored(Breakpoint *& point) {
 	point->calc_support(); // we need that before:
+	//std::cout << "Stored: " << point->get_support() << " " << point->get_length() << std::endl;
 	if (point->get_SVtype() & TRA) { // we cannot make assumptions abut support yet.
 		return (point->get_support() > 2); // this is needed as we take each chr independently and just look at the primary alignment
 	} else if (point->get_support() > Parameter::Instance()->min_support) {
@@ -59,19 +74,32 @@ bool should_be_stored(Breakpoint *& point) {
 
 	return false;
 }
-void polish_points(std::vector<Breakpoint *> & points) { //TODO might be usefull! but why does the tree not fully work??
+void polish_points(std::vector<Breakpoint *> & points, RefVector ref) { //TODO might be usefull! but why does the tree not fully work??
 	return;
 	if (!points.empty()) {
-		std::vector<Breakpoint *> new_points;
-		points[0]->calc_support();
-		new_points.push_back(points[0]);
 
-		for (size_t i = 1; i < points.size(); i++) {
+		for (size_t i = 0; i < points.size(); i++) {
+			points[i]->predict_SV();
 			points[i]->calc_support();
-			if (should_be_stored(points[i])) {
-				if (abs(points[i - 1]->get_coordinates().start.min_pos - points[i]->get_coordinates().start.min_pos) < Parameter::Instance()->min_length && abs(points[i - 1]->get_coordinates().stop.max_pos - points[i]->get_coordinates().stop.max_pos) < Parameter::Instance()->min_length) {
-					//merge!
-					std::cout << "HIT: " << points[i - 1]->get_coordinates().start.min_pos << " " << points[i - 1]->get_support() << " OTHER: " << points[i]->get_coordinates().start.min_pos << " " << points[i]->get_support() << std::endl;
+		}
+
+		for (size_t i = 0; i < points.size(); i++) {
+			if (!(points[i]->get_SVtype() & TRA)) { // we cannot make assumptions abut support yet.
+				for (size_t j = 0; j < points.size(); j++) {
+					if (!(points[j]->get_SVtype() & TRA)) {
+						if ((i != j)
+								&& (abs(points[j]->get_coordinates().start.most_support - points[i]->get_coordinates().start.most_support) < Parameter::Instance()->max_dist / 2
+										&& abs(points[j]->get_coordinates().stop.most_support - points[i]->get_coordinates().stop.most_support) < Parameter::Instance()->max_dist / 2)) {
+
+							std::string chr;
+							int pos1 = fuck_off(points[j]->get_coordinates().start.most_support, ref, chr);
+							std::cout << "HIT: " << chr << " " << pos1 << " " << TRANS_type((*points[j]->get_coordinates().support.begin()).second.SV) << " OTHER: ";
+
+							pos1 = fuck_off(points[i]->get_coordinates().start.most_support, ref, chr);
+
+							std::cout << chr << " " << pos1 << " " << TRANS_type((*points[i]->get_coordinates().support.begin()).second.SV) << std::endl;
+						}
+					}
 				}
 			}
 		}
@@ -93,13 +121,17 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	std::cout << "Start parsing..." << std::endl;
 //Using Interval tree to store and manage breakpoints:
 
+	//IntervallList final;
+	//IntervallList bst;
+
 	IntervallTree final;
+	IntervallTree bst;
+
 	TNode * root_final = NULL;
 	int current_RefID = 0;
 
-	IntervallTree bst;
 	TNode *root = NULL;
-	//FILE * alt_allel_reads;
+//FILE * alt_allel_reads;
 	FILE * ref_allel_reads;
 	if (Parameter::Instance()->genotype) {
 
@@ -114,21 +146,19 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	Alignment * tmp_aln = mapped_file->parseRead(Parameter::Instance()->min_mq);
 	long ref_space = get_ref_lengths(tmp_aln->getRefID(), ref);
 	std::string prev = "test";
-	std::string curr = "wtf";
+	std::string curr = "curr";
 	long num_reads = 0;
 	while (!tmp_aln->getQueryBases().empty()) {
-
 		if ((tmp_aln->getAlignment()->IsPrimaryAlignment()) && (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800) && tmp_aln->get_is_save())) {
-			//flush_tree(local_tree, local_root, final, root_final);
-
-			if (current_RefID != tmp_aln->getRefID()) {	// Regular scan through the SV and move those where the end point lies far behind the current pos or reads. Eg. 1MB?
+			//change CHR:
+			if (current_RefID != tmp_aln->getRefID()) {
 				current_RefID = tmp_aln->getRefID();
 				ref_space = get_ref_lengths(tmp_aln->getRefID(), ref);
 				std::cout << "\tSwitch Chr " << ref[tmp_aln->getRefID()].RefName << " " << ref[tmp_aln->getRefID()].RefLength << std::endl;
 				std::vector<Breakpoint *> points;
 				//	clarify(points);
 				bst.get_breakpoints(root, points);
-				polish_points(points);
+				polish_points(points, ref);
 				for (int i = 0; i < points.size(); i++) {
 					if (should_be_stored(points[i])) {
 						if (points[i]->get_SVtype() & TRA) {
@@ -138,8 +168,9 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 						}
 					}
 				}
-				bst.makeempty(root);
+				bst.clear(root);
 			}
+			//SCAN read:
 			std::vector<str_event> aln_event;
 			std::vector<aln_str> split_events;
 			if (tmp_aln->getMappingQual() > Parameter::Instance()->min_mq) {
@@ -166,6 +197,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 				}
 				//tmp_aln->set_supports_SV(aln_event.empty() && split_events.empty());
 
+				//Store reference supporting reads for genotype estimation:
 				str_read tmp;
 				tmp.SV_support = !(aln_event.empty() && split_events.empty());
 				if ((Parameter::Instance()->genotype && !tmp.SV_support) && (score == -1 || score > Parameter::Instance()->score_treshold)) {
@@ -176,39 +208,21 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 					tmp.SV_support = false;
 					fwrite(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
 				}
-				/*else { // we store the reads that support the SVs in IPrinter when writing out the SVs.
-				 for (size_t i = 0; i < split_events.size(); i++) {
-				 tmp.chr = ref[split_events[i].RefID].RefName;
-				 tmp.start = split_events[i].pos;
-				 tmp.length = split_events[i].length;
-				 fwrite(&tmp, sizeof(struct str_read), 1, alt_allel_reads);
-				 }
-				 if (split_events.empty()) { //splits store the primary aln as well!
-				 tmp.chr = ref[tmp_aln->getRefID()].RefName;
-				 tmp.start = tmp_aln->getPosition();
-				 tmp.length = tmp_aln->getRefLength();
-				 fwrite(&tmp, sizeof(struct str_read), 1, alt_allel_reads);
-				 }
-				 }*/
 
-				//	clock_t begin = clock();
-				//maybe just store the extreme intervals for coverage -> If the cov doubled within Xbp or were the coverage is 0.
+				//store the potential SVs:
 				if (!aln_event.empty()) {
 					add_events(tmp_aln, aln_event, 0, ref_space, bst, root, num_reads);
 				}
-				//	Parameter::Instance()->meassure_time(begin, " add event ");
-				//cout<<"event: "<<aln_event.size()<<endl;
-				//	begin = clock();
 				if (!split_events.empty()) {
 					add_splits(tmp_aln, split_events, 1, ref, bst, root, num_reads);
-
 				}
-				//	Parameter::Instance()->meassure_time(begin, " add split ");
-
 			}
 		}
+		//get next read:
 		mapped_file->parseReadFast(Parameter::Instance()->min_mq, tmp_aln);
+
 		num_reads++;
+
 		if (num_reads % 10000 == 0) {
 			curr = tmp_aln->getName();
 			cout << "\t\t# Processed reads: " << num_reads << endl;
@@ -219,14 +233,11 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 			prev = curr;
 		}
 	}
-
-//	cout << "Print tree:" << std::endl;
-//	bst.inorder(root);
 //filter and copy results:
 	std::cout << "Finalizing  .." << std::endl;
 	std::vector<Breakpoint *> points;
 	bst.get_breakpoints(root, points);
-	polish_points(points);
+	polish_points(points, ref);
 	for (int i = 0; i < points.size(); i++) {
 		if (should_be_stored(points[i])) {
 			if (points[i]->get_SVtype() & TRA) {
@@ -236,14 +247,14 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 			}
 		}
 	}
-	bst.makeempty(root);
+	bst.clear(root);
 	if (Parameter::Instance()->genotype) {
 		fclose(ref_allel_reads);
 	}
 //	sweep->finalyze();
 	points.clear();
 	final.get_breakpoints(root_final, points);
-	polish_points(points);
+	polish_points(points, ref);
 	for (size_t i = 0; i < points.size(); i++) {
 		if (points[i]->get_SVtype() & TRA) {
 			points[i]->calc_support();
@@ -255,13 +266,17 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	}
 }
 
-void add_events(Alignment *& tmp, std::vector<str_event> events, short type, long ref_space, IntervallTree & bst, TNode *&root, long read_id) {
+void add_events(Alignment *& tmp, std::vector<str_event> events, short type, long ref_space, IntervallContainer & bst, TNode *&root, long read_id) {
 
 	bool flag = (strcmp(tmp->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 	for (size_t i = 0; i < events.size(); i++) {
 		position_str svs;
 		read_str read;
-		read.type = 0;
+		if (events[i].is_noise) {
+			read.type = 2;
+		} else {
+			read.type = 0;
+		}
 		read.SV = events[i].type;
 
 		if (flag) {
@@ -271,9 +286,9 @@ void add_events(Alignment *& tmp, std::vector<str_event> events, short type, lon
 		svs.start.min_pos += ref_space;
 		svs.stop.max_pos = svs.start.min_pos;
 
-		if (!(events[i].type & INS)) { //for all events but not INS!
-			svs.stop.max_pos += events[i].length;
-		}
+		//if (!(events[i].type & INS)) { //for all events but not INS!
+		svs.stop.max_pos += events[i].length;
+		//	}
 
 		if (tmp->getStrand()) {
 			read.strand.first = (tmp->getStrand());
@@ -317,16 +332,20 @@ void add_events(Alignment *& tmp, std::vector<str_event> events, short type, lon
 			read.coordinates.first = svs.start.min_pos;
 			read.coordinates.second = svs.stop.max_pos;
 		}
+		//if(read.SV & DEL){
+		//	std::cout<<"ADD DEL: "<<svs.start.min_pos<< " "<<svs.stop.max_pos<<std::endl;
+		//}
 		read.id = read_id;
 		svs.support[tmp->getName()] = read;
+		svs.support[tmp->getName()].length = events[i].length;
 		Breakpoint * point = new Breakpoint(svs, events[i].length);
 		bst.insert(point, root);
 	}
 }
 
-void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVector ref, IntervallTree & bst, TNode *&root, long read_id) {
-	bool flag = (strcmp(tmp->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
-	//flag = true;
+void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVector ref, IntervallContainer & bst, TNode *&root, long read_id) {
+	bool flag = false;//(strcmp(tmp->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+
 	if (false) {
 		cout << "SPLIT: " << std::endl;
 		for (size_t i = 0; i < events.size(); i++) {
@@ -377,29 +396,21 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 							<< svs.read_stop << "readstart+len: " << len1 << " readstop+len: " << len2 << endl;
 				}
 
-				if ((svs.stop.max_pos - svs.start.min_pos) > 0 && ((svs.stop.max_pos - svs.start.min_pos) + (Parameter::Instance()->min_cigar_event) < (svs.read_stop - svs.read_start) && (svs.read_stop - svs.read_start) > (Parameter::Instance()->min_cigar_event * 2))) {
+				if ((svs.stop.max_pos - svs.start.min_pos) > 0 && ((svs.stop.max_pos - svs.start.min_pos) + (Parameter::Instance()->min_length) < (svs.read_stop - svs.read_start) && (svs.read_stop - svs.read_start) > (Parameter::Instance()->min_length * 2))) {
 					if (flag) {
 						cout << "INS: " << endl;
 					}
-					//read.SV = 'n'; //TODO redefine criteria!
 					read.SV |= INS;
-					/*	if (events[i - 1].strand) { //TODO check f
-					 svs.start.min_pos -=events[i - 1].length;
-					 }else{
-					 svs.start.min_pos -=events[i].length;
-					 }*/
-					//				cout<<"Split INS: "<<events[i - 1].length<<" "<<(svs.stop.max_pos - svs.start.min_pos)<<" "<<svs.read_stop - svs.read_start<<endl;
-				} else if ((svs.start.min_pos - svs.stop.max_pos) * -1 > (svs.read_stop - svs.read_start) + (Parameter::Instance()->min_cigar_event)) {
+				} else if ((svs.start.min_pos - svs.stop.max_pos) * -1 > (svs.read_stop - svs.read_start) + (Parameter::Instance()->min_length)) {
 					read.SV |= DEL;
 					if (flag) {
 						cout << "DEL" << endl;
 					}
-				} else if ((svs.start.min_pos - svs.stop.max_pos) > Parameter::Instance()->min_cigar_event && (svs.read_start - svs.read_stop)<Parameter::Instance()->min_length ) { //check with respect to the coords of reads!
+				} else if ((svs.start.min_pos - svs.stop.max_pos) > Parameter::Instance()->min_length && (svs.read_start - svs.read_stop) < Parameter::Instance()->min_length) { //check with respect to the coords of reads!
 					read.SV |= DUP;
 					if (flag) {
 						cout << "DUP: " << endl;
 					}
-					//TODO ADDED &&(svs.read_stop - svs.read_start) > (Parameter::Instance()->min_cigar_event)
 				} else {
 					if (flag) {
 						cout << "N" << endl;
@@ -459,7 +470,7 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 					std::cout << " -";
 				}
 				std::cout << " " << tmp->getName() << std::endl;
-				std::cout<<"READ: "<<svs.read_start<<" "<<svs.read_stop<<" "<<svs.read_start - svs.read_stop<<std::endl;
+				std::cout << "READ: " << svs.read_start << " " << svs.read_stop << " " << svs.read_start - svs.read_stop << std::endl;
 			}
 			//std::cout<<"split"<<std::endl;
 
@@ -489,10 +500,11 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 			//pool out?
 			read.id = read_id;
 			svs.support[tmp->getName()] = read;
+			svs.support[tmp->getName()].length = events[i].length;
 			Breakpoint * point = new Breakpoint(svs, events[i].length);
-
+			//std::cout<<"split ADD: " << TRANS_type(read.SV)<<" Name: "<<tmp->getName()<<" "<< svs.start.min_pos- get_ref_lengths(events[i].RefID, ref)<<"-"<<svs.stop.max_pos- get_ref_lengths(events[i].RefID, ref)<<std::endl;
 			bst.insert(point, root);
-			//	breakpoints_tmp1.push_back(pair<position_str,int> (svs, events[i].length)); TODO we could create 2 loops: 1st: collect evidence 2nd: further interpretation of complex Var
+		//	bst.print(root);
 		}
 	}
 }
@@ -532,6 +544,7 @@ void estimate_parameters(std::string read_filename) {
 			//2. get score ration without checking before hand! (above if!)
 			double dist = 0;
 			vector<int> tmp = tmp_aln->get_avg_diff(dist);
+			//std::cout<<dist<<std::endl;
 			avg_dist += dist;
 			for (size_t i = 0; i < tmp.size(); i++) {
 				while (tmp[i] + 1 > mis_per_window.size()) { //adjust length
@@ -559,7 +572,7 @@ void estimate_parameters(std::string read_filename) {
 	vector<int> nums;
 	size_t pos = 0;
 	Parameter::Instance()->max_dist_alns = floor(avg_dist / num) / 2;
-	Parameter::Instance()->window_thresh = 25;
+	Parameter::Instance()->window_thresh = 50;			//25;
 	if (!mis_per_window.empty()) {
 
 		for (size_t i = 0; i < mis_per_window.size(); i++) {
@@ -572,7 +585,7 @@ void estimate_parameters(std::string read_filename) {
 		}
 		pos = nums.size() * 0.95; //the highest 5% cutoff
 		if (pos <= nums.size()) {
-			Parameter::Instance()->window_thresh = std::max(50, nums[pos]); //just in case we have too clean data! :)
+			Parameter::Instance()->window_thresh = std::max(Parameter::Instance()->window_thresh, nums[pos]); //just in case we have too clean data! :)
 		}
 		nums.clear();
 	}

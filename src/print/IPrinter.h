@@ -33,6 +33,7 @@ protected:
 	std::string get_type(char type);
 
 public:
+
 	IPrinter() {
 		id = 0;
 		root = NULL;

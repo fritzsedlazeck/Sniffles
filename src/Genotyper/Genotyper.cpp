@@ -57,7 +57,27 @@ std::string Genotyper::mod_breakpoint_bedpe(char *buffer, int ref) {
 	return entry;
 }
 
+void Genotyper::parse_pos(char * buffer, int & pos, std::string & chr) {
+	chr="";
+	pos=-1;
+	size_t i = 0;
+	int count = 0;
+	while (buffer[i] != '\t') {
+		if (count == 1 && ((buffer[i] != '[' || buffer[i] != ']') && buffer[i] != ':')) {
+			chr += buffer[i];
+		}
+		if (count == 2 && buffer[i - 1] == ':') {
+			pos = atoi(&buffer[i]);
+		}
+		if ((buffer[i] == ']' || buffer[i] == '[') || buffer[i] == ':') {
+			count++;
+		}
+		i++;
+	}
+}
+
 variant_str Genotyper::get_breakpoint_vcf(char *buffer) {
+	//TODO extend for TRA!
 	size_t i = 0;
 	int count = 0;
 
@@ -69,6 +89,9 @@ variant_str Genotyper::get_breakpoint_vcf(char *buffer) {
 		}
 		if (count == 1 && buffer[i - 1] == '\t') {
 			tmp.pos = atoi(&buffer[i]);
+		}
+		if (tmp.pos2 == -1 && (count == 4 && (buffer[i - 1] == '[' || buffer[i - 1] == ']'))) {
+			parse_pos(&buffer[i - 1],tmp.pos2,tmp.chr2);
 		}
 
 		if (count > 6 && strncmp(";CHR2=", &buffer[i], 6) == 0) {
@@ -124,18 +147,16 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 	std::ifstream myfile;
 	bool is_vcf = !Parameter::Instance()->output_vcf.empty();
 
-
 	string file_name;
 	if (!Parameter::Instance()->output_vcf.empty()) {
-		file_name=Parameter::Instance()->output_vcf;
+		file_name = Parameter::Instance()->output_vcf;
 		myfile.open(Parameter::Instance()->output_vcf.c_str(), std::ifstream::in);
 	} else if (!Parameter::Instance()->output_bedpe.empty()) {
-		file_name=Parameter::Instance()->output_bedpe;
+		file_name = Parameter::Instance()->output_bedpe;
 		myfile.open(Parameter::Instance()->output_bedpe.c_str(), std::ifstream::in);
 	}
 
 	FILE*file = fopen(Parameter::Instance()->tmp_file.c_str(), "w");
-
 
 	if (!myfile.good()) {
 		std::cout << "SVParse: could not open file: " << std::endl;
@@ -157,9 +178,9 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 			}
 			int ref = max(tree.get_ref(node, tmp.chr, tmp.pos), tree.get_ref(node, tmp.chr2, tmp.pos2));
 			if (is_vcf) {
-				to_print=mod_breakpoint_vcf(buffer,ref);
-			}else{
-				to_print=mod_breakpoint_bedpe(buffer,ref);
+				to_print = mod_breakpoint_vcf(buffer, ref);
+			} else {
+				to_print = mod_breakpoint_bedpe(buffer, ref);
 			}
 			fprintf(file, "%s", to_print.c_str());
 		} else {
@@ -171,10 +192,10 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 	myfile.close();
 	fclose(file);
 
-	string move="mv ";
-	move+=Parameter::Instance()->tmp_file;
-	move+=" ";
-	move+=file_name;
+	string move = "mv ";
+	move += Parameter::Instance()->tmp_file;
+	move += " ";
+	move += file_name;
 	system(move.c_str());
 }
 
@@ -218,9 +239,12 @@ void Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_node *& node) {
 	//tree.inorder(node);
 }
 void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node) {
-	FILE * ref_allel_reads = fopen(Parameter::Instance()->tmp_file.c_str(), "r");
+	std::string output = Parameter::Instance()->tmp_file.c_str();
+	output += "ref_allele";
+
+	FILE * ref_allel_reads = fopen(output.c_str(), "r");
 	if (ref_allel_reads == NULL) {
-		std::cerr << "CovParse: could not open file: " << Parameter::Instance()->tmp_file.c_str() << std::endl;
+		std::cerr << "CovParse: could not open file: " << output.c_str() << std::endl;
 	}
 
 	//check if we want to compute the full coverage!

@@ -54,15 +54,6 @@ public:
 	void set_height(int val) {
 		this->height = val;
 	}
-	/*int overlap(TNode * tmp) {
-		int score = 0; //(tmp->get_type() - type); // 0 if both points are on the same chr!
-		if (abs(tmp->get_data()->get_coordinates().start - data->get_coordinates().start) < MAX_DIST
-				&& abs(tmp->get_data()->get_coordinates().stop - data->get_coordinates().stop) < MAX_DIST) {
-			return score;
-		}
-		//as abstraction lets try the start coordinate only!
-		return abs(tmp->get_data()->get_coordinates().start - data->get_coordinates().start);
-	}*/
 };
 
 #endif /* TREE_TNODE_H_ */

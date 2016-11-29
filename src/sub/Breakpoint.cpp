@@ -15,26 +15,26 @@
 #include "Breakpoint.h"
 
 ///////////////////////////////// MERGING////////////////////////////////////////////
-std::string print_type(char SV1){
-	std::string type="";
-	if((SV1 & INS)){
-		type+= "INS";
+std::string print_type(char SV1) {
+	std::string type = "";
+	if ((SV1 & INS)) {
+		type += "INS";
 	}
 
-	if((SV1 & TRA)){
-		type+=  "TRA";
+	if ((SV1 & TRA)) {
+		type += "TRA";
 	}
 
-	if((SV1 & INV)){
-		type+=  "INV";
+	if ((SV1 & INV)) {
+		type += "INV";
 	}
 
-	if((SV1 & DEL)){
-		type+=  "DEL";
+	if ((SV1 & DEL)) {
+		type += "DEL";
 	}
 
-	if((SV1 & DUP)){
-		type+=  "DUP";
+	if ((SV1 & DUP)) {
+		type += "DUP";
 	}
 	return type;
 }
@@ -54,10 +54,10 @@ bool Breakpoint::check_SVtype(Breakpoint * break1, Breakpoint * break2) { //todo
 	} else if ((SV1 & DEL) && (SV2 & DEL)) {
 		return true;
 	} //else if (((SV1 & DUP) && (SV2 & INS)) || ((SV1 & INS) && (SV2 & DUP))) {
-	//	return true;
-	//}
+	  //	return true;
+	  //}
 	//std::cout<<"S1: "<<print_type(SV1)<<" S2 "<<print_type(SV2)<<" "<<(*break2->get_coordinates().support.begin()).second.type<<std::endl;
-	return false;
+	return (SV1==SV2);
 }
 bool Breakpoint::is_same_strand(Breakpoint * tmp) {
 	//todo check for same SVtype? except for INV+DEL
@@ -82,53 +82,63 @@ int get_dist(Breakpoint * tmp) {
 }
 
 long Breakpoint::overlap(Breakpoint * tmp) {
-	bool flag = false;
-
+	bool flag =false;
+	//flag = ((*tmp->get_coordinates().support.begin()).second.SV & DEL);
 	int max_dist = Parameter::Instance()->max_dist; // get_dist(tmp);
 	if (flag) {
-		std::cout << "\t Overlap: " << max_dist << " start: " << abs(tmp->get_coordinates().start.min_pos - positions.stop.min_pos) << " stop :" << abs(tmp->get_coordinates().stop.max_pos - positions.start.max_pos);
-		if(is_same_strand(tmp) ){
-			std::cout<<"same strand";
+		std::cout << "\t Overlap: " << max_dist << " start: " << tmp->get_coordinates().start.min_pos<<" "<<positions.start.min_pos << " stop :" << tmp->get_coordinates().stop.max_pos<<" "<< positions.stop.max_pos;
+		if ((*positions.support.begin()).second.SV & DEL) {
+			std::cout << " Is DEL";
+		} else if ((*positions.support.begin()).second.SV & INS) {
+			std::cout << " Is Ins ";
+		} else if ((*positions.support.begin()).second.SV & DUP) {
+			std::cout << " Is Dup ";
+		} else if ((*positions.support.begin()).second.SV & INV) {
+			std::cout << " Is Inv ";
 		}
+		std::cout<<" Support: "<<positions.support.size();
+		std::cout << std::endl;
+
 	}
-	//check type. ALN could be part of the SPlit read event! Not merge two split reads!
+	//merging two robust calls:
 	if (is_same_strand(tmp) && (abs(tmp->get_coordinates().start.min_pos - positions.start.min_pos) < max_dist && abs(tmp->get_coordinates().stop.max_pos - positions.stop.max_pos) < max_dist)) {
 		if (flag) {
-			std::cout << "\t hit!" << std::endl;
-
+			cout << "\tHIT" << endl;
 		}
 		return 0;
 	}
 
-	//TODO:: if one of the two SVs is based on ALN it might be good to join them: to merge noisy flanking regions
-	if (((tmp->get_types().is_ALN || this->get_types().is_ALN) && !(tmp->get_types().is_ALN && this->get_types().is_ALN)) && (abs(tmp->get_coordinates().start.min_pos - positions.stop.min_pos) < max_dist / 2 || abs(tmp->get_coordinates().stop.max_pos - positions.start.max_pos) < max_dist / 2)) { //TODO maybe add SV type check!
+	//extend Split read by noisy region: //not longer needed??
+/*	if (((tmp->get_types().is_Noise || this->get_types().is_Noise) && !(tmp->get_types().is_Noise && this->get_types().is_Noise))
+			&& (abs(tmp->get_coordinates().start.min_pos - positions.stop.min_pos) < max_dist / 2 || abs(tmp->get_coordinates().stop.max_pos - positions.start.max_pos) < max_dist / 2)) { //TODO maybe add SV type check!
 		if (flag) {
-			std::cout << "\t hit!" << std::endl;
+			cout << "\tHIT Noise" << endl;
 		}
 		return 0;
-	}
-	if (flag) {
-		std::cout << "no hit? " << std::endl;
-	}
+	}*/
 
 //as abstraction lets try the start+stop coordinate!
 	long diff = (tmp->get_coordinates().start.min_pos - positions.start.min_pos);
-	if (abs(diff) < max_dist) {
-		return (tmp->get_coordinates().stop.max_pos - positions.stop.max_pos);
+	//if (abs(diff) < max_dist) {
+	//return (tmp->get_coordinates().stop.max_pos - positions.stop.max_pos);
+	//}
+	if(diff==0){
+		return 1;
 	}
 	return diff; // + (tmp->get_coordinates().stop.max_pos - positions.stop.max_pos);
 }
 
-void Breakpoint::add_read(Breakpoint * point) {
+void Breakpoint::add_read(Breakpoint * point) { //point = one read support!
+
 	if (point != NULL) {
-		if ((*point->get_coordinates().support.begin()).second.type == 0) {
+		/*if ((*point->get_coordinates().support.begin()).second.type == 0) {
 			this->type.is_ALN = true;
 		}
 		if ((*point->get_coordinates().support.begin()).second.type == 1) {
 			this->type.is_SR = true;
 		}
 
-		if ((point->get_types().is_ALN || this->get_types().is_ALN) && !(point->get_types().is_ALN && this->get_types().is_ALN)) { //
+		if ((point->get_types().is_ALN || this->get_types().is_ALN) && !(point->get_types().is_ALN && this->get_types().is_ALN)) { //just to extend a split read event
 			this->type.is_ALN = false; //TODO trick ;)
 			//THis is to merger noisy flanking regions:
 			if (abs(point->get_coordinates().start.min_pos - positions.stop.min_pos) < Parameter::Instance()->max_dist / 2) { //left of the current position
@@ -160,28 +170,23 @@ void Breakpoint::add_read(Breakpoint * point) {
 					(*i).second.coordinates.first = -1;
 				}
 			}
-		} else {
-			this->positions.start.min_pos = min(this->positions.start.min_pos, point->get_coordinates().start.min_pos);
-			this->positions.start.max_pos = max(this->positions.start.max_pos, point->get_coordinates().start.max_pos);
+		} else {			// merge two events:
+		//grow interval:
+		//	this->positions.start.min_pos = min(this->positions.start.min_pos, point->get_coordinates().start.min_pos);
+		//	this->positions.start.max_pos = max(this->positions.start.max_pos, point->get_coordinates().start.max_pos);
 
-			if (point->get_coordinates().support.begin()->second.SV & INS) {
+		/*	if (point->get_coordinates().support.begin()->second.SV & INS) {
 				this->positions.stop.min_pos = this->positions.start.max_pos;
 				this->positions.stop.max_pos = this->positions.start.max_pos;
 			} else {
 				this->positions.stop.min_pos = min(this->positions.stop.min_pos, point->get_coordinates().stop.min_pos);
 				this->positions.stop.max_pos = max(this->positions.stop.max_pos, point->get_coordinates().stop.max_pos);
 			}
-		}
-		bool flag = false;
+		}*/
+		//merge the support:
 		std::map<std::string, read_str> support = point->get_coordinates().support;
 		for (std::map<std::string, read_str>::iterator i = support.begin(); i != support.end(); i++) {
-			if (this->positions.support[(*i).first].SV & INS) {
-				flag = true;
-			}
 			this->positions.support[(*i).first] = (*i).second;
-		}
-		if (flag) {
-			this->length = (this->length + point->get_length()) / 2;
 		}
 	}
 }
@@ -264,7 +269,6 @@ char Breakpoint::get_SVtype() {
 }
 
 void Breakpoint::calc_support() {
-	//if (positions.support.size() > Parameter::Instance()->min_support) {
 	std::vector<short> SV;
 	for (size_t i = 0; i < 5; i++) {
 		SV.push_back(0);
@@ -275,11 +279,11 @@ void Breakpoint::calc_support() {
 	}
 	//given the majority type get the stats:
 	this->sv_type = eval_type(SV);
-	//}
+
 }
 
 char Breakpoint::eval_type(std::vector<short> SV) {
-	/*	std::stringstream ss;
+	/*std::stringstream ss;
 	 if (SV[0] != 0) {
 	 ss << " DEL(";
 	 ss << SV[0];
@@ -306,8 +310,8 @@ char Breakpoint::eval_type(std::vector<short> SV) {
 	 ss << ")";
 	 }
 	 this->sv_debug = ss.str(); //only for debug!
-	 std::cout << sv_debug << std::endl;
-	 */
+	 std::cout << sv_debug << std::endl;*/
+
 	int maxim = 0;
 	int id = 0;
 	for (size_t i = 0; i < SV.size(); i++) {
@@ -332,17 +336,28 @@ char Breakpoint::eval_type(std::vector<short> SV) {
 	if (maxim == SV[4]) {
 		max_SV |= TRA;
 	}
-
 	return max_SV;
 }
 
+long get_median(std::vector<long> corrds){
+	sort(corrds.begin(), corrds.end());
+	if (corrds.size() % 2 == 0){
+		return (corrds[corrds.size()/2 - 1] + corrds[corrds.size()/2]) / 2;
+	}
+	return corrds[corrds.size()/2];
+
+}
 void Breakpoint::predict_SV() {
 	bool aln = false;
 	bool split = false;
+	bool noise=false;
 	int num = 0;
 	std::map<long, int> starts;
 	std::map<long, int> stops;
+	std::map<long, int> lengths;			//ins!
 	std::map<std::string, int> strands;
+	std::vector<long> start2;
+	std::vector<long> stops2;
 
 	for (std::map<std::string, read_str>::iterator i = positions.support.begin(); i != positions.support.end(); i++) {
 		if ((*i).second.SV & this->sv_type) { ///check type
@@ -353,6 +368,7 @@ void Breakpoint::predict_SV() {
 				} else {
 					starts[(*i).second.coordinates.first]++;
 				}
+				start2.push_back((*i).second.coordinates.first);
 			}
 			if ((*i).second.coordinates.second != -1) { //TODO test
 				if (stops.find((*i).second.coordinates.second) == stops.end()) {
@@ -360,12 +376,20 @@ void Breakpoint::predict_SV() {
 				} else {
 					stops[(*i).second.coordinates.second]++;
 				}
+				stops2.push_back((*i).second.coordinates.second);
 			}
+			if ((*i).second.SV & INS) { //check lenght for ins only!
+				//	std::cout<<"LENGTH 1st: "<<(*i).second.length<<" "<<(*i).first<<std::endl;
+				if (lengths.find((*i).second.length) == lengths.end()) {
+					lengths[(*i).second.length] = 1;
+				} else {
+
+					lengths[(*i).second.length]++;
+				}
+			}
+
 			if (!((*i).second.type == 0 && ((*i).second.SV & INV))) {
-
 				std::string tmp = translate_strand((*i).second.strand);
-
-				//std::cout << tmp << std::endl;
 				if (strands.find(tmp) == strands.end()) {
 					strands[tmp] = 1;
 				} else {
@@ -376,6 +400,8 @@ void Breakpoint::predict_SV() {
 				aln = true;
 			} else if ((*i).second.type == 1) {
 				split = true;
+			}else if((*i).second.type==2){
+				noise=true;
 			} else {
 				std::cerr << "Type " << (*i).second.type << std::endl;
 			}
@@ -387,17 +413,19 @@ void Breakpoint::predict_SV() {
 	long counts = 0;
 	int maxim = 0;
 	long coord = 0;
+
 	for (map<long, int>::iterator i = starts.begin(); i != starts.end(); i++) {
-		//cout<<"start:\t"<<(*i).first<<" "<<(*i).second<<endl;
+	//	cout << "start:\t" << (*i).first << " " << (*i).second << endl;
 		if ((*i).second > maxim) {
 			coord = (*i).first;
 			maxim = (*i).second;
 		}
-		mean += ((*i).first * (*i).second);
-		counts += (*i).second;
+		//mean += ((*i).first * (*i).second);
+	//	counts += (*i).second;
 	}
 	if (maxim < 5) {
-		this->positions.start.most_support = mean / counts;
+
+		this->positions.start.most_support = get_median(start2);//mean / counts;
 	} else {
 		this->positions.start.most_support = coord;
 	}
@@ -407,6 +435,7 @@ void Breakpoint::predict_SV() {
 	mean = 0;
 	counts = 0;
 	for (map<long, int>::iterator i = stops.begin(); i != stops.end(); i++) {
+	//	cout << "stop:\t" << (*i).first << " " << (*i).second << endl;
 		if ((*i).second > maxim) {
 			coord = (*i).first;
 			maxim = (*i).second;
@@ -415,13 +444,35 @@ void Breakpoint::predict_SV() {
 		counts += (*i).second;
 	}
 	if (maxim < 5) {
-		this->positions.stop.most_support = mean / counts;
+		this->positions.stop.most_support =get_median(stops2);// mean / counts;
 	} else {
 		this->positions.stop.most_support = coord;
 	}
-	if (!(this->get_SVtype() & INS)) {
+
+	if (!(this->get_SVtype() & INS)) { //all types but Insertions:
 		this->length = this->positions.stop.most_support - this->positions.start.most_support;
+	} else { //compute most supported length for insertions:
+		maxim = 0;
+		coord = 0;
+		mean = 0;
+		counts = 0;
+		for (map<long, int>::iterator i = lengths.begin(); i != lengths.end(); i++) {
+			//	std::cout<<"LENGTH: "<<(*i).first<<" : "<<(*i).second<<std::endl;
+			if ((*i).second > maxim) {
+				coord = (*i).first;
+				maxim = (*i).second;
+			}
+			mean += ((*i).first * (long) (*i).second);
+			counts += (*i).second;
+		}
+		if (maxim < 3) {
+			this->length = mean / counts;
+		} else {
+			this->length = coord;
+		}
+
 	}
+
 	starts.clear();
 	stops.clear();
 
@@ -451,6 +502,12 @@ void Breakpoint::predict_SV() {
 			this->supporting_types += ",";
 		}
 		this->supporting_types += "SR";
+	}
+	if (noise) {
+		if (!supporting_types.empty()) {
+			this->supporting_types += ",";
+		}
+		this->supporting_types += "NR";
 	}
 }
 

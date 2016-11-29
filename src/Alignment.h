@@ -40,6 +40,7 @@ struct str_event{
 	int pos;
 	int read_pos;
 	char type;
+	bool is_noise;
 };
 struct aln_str{
 	int RefID;
@@ -69,6 +70,7 @@ private:
 	 vector<differences_str> summarizeAlignment();
 	 void sort_insert(aln_str tmp, vector<aln_str> &entries);
 	 void check_entries(vector<aln_str> &entries);
+	 bool overlapping_segments(vector<aln_str> entries);
 public:
 	Alignment(){
 		ref_len=0;

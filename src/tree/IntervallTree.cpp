@@ -7,18 +7,45 @@
 
 #include "IntervallTree.h"
 
+void IntervallTree::careful_screening(Breakpoint *& new_break, TNode *p) { //maybe I just need the pointer not a ref.
+	if (p != NULL && !(new_break->get_coordinates().start.min_pos == -1 && new_break->get_coordinates().stop.max_pos == -1)) {
+		careful_screening(new_break, p->left);
+		if (p->get_data()->overlap(new_break) == 0) { //SV type
+			p->get_data()->add_read(new_break);
+			new_break->set_coordinates(-1, -1);
+			return;
+		}
+		careful_screening(new_break, p->right);
+	}
+}
+
 // Inserting a node
 void IntervallTree::insert(Breakpoint * new_break, TNode *&p) {
+	if (new_break->get_coordinates().start.min_pos == -1 && new_break->get_coordinates().stop.max_pos == -1) {\
 
-	if (p == NULL) {
-		p = new TNode(new_break); //TODO: this is going to be a problem!
+		return;
+	}
+	if (p == NULL) { // add to tree:
+		p = new TNode(new_break);
 		if (p == NULL) {
 			std::cout << "Out of Space\n" << std::endl;
 		}
-	} else {
+	} else { // find on tree:
 		long score = p->get_data()->overlap(new_break); //comparison function
+		if (score == 0) { //add SV types?
+			p->get_data()->add_read(new_break);
+			new_break->set_coordinates(-1, -1);
+			//delete new_break;
+			return;
+		} else if (abs(score) < Parameter::Instance()->max_dist) { // if two or more events are too close:
+			//std::cout<<"Screen"<<std::endl;
+			careful_screening(new_break, p);
+			if (new_break->get_coordinates().start.min_pos == -1 && new_break->get_coordinates().stop.max_pos == -1) {
+				return;
+			}
+		}
 
-		if (score > 0) {
+		if (score > 0) { // go left
 			insert(new_break, p->left);
 			if ((bsheight(p->left) - bsheight(p->right)) == 2) {
 				score = p->left->get_data()->overlap(new_break);
@@ -28,7 +55,7 @@ void IntervallTree::insert(Breakpoint * new_break, TNode *&p) {
 					p = drl(p);
 				}
 			}
-		} else if (score < 0) {
+		} else if (score < 0) { // go right
 			insert(new_break, p->right);
 			if ((bsheight(p->right) - bsheight(p->left)) == 2) {
 				score = p->right->get_data()->overlap(new_break);
@@ -38,10 +65,6 @@ void IntervallTree::insert(Breakpoint * new_break, TNode *&p) {
 					p = drr(p);
 				}
 			}
-		} else { //overlaps!
-			p->get_data()->add_read(new_break);
-			delete new_break;
-			//std::cout << "Breakpoint was detected\n" << std::endl;
 		}
 	}
 	int m, n, d;
@@ -94,15 +117,15 @@ void IntervallTree::find(Breakpoint * point, TNode * &p) {
 }
 // Copy a tree
 void IntervallTree::copy(TNode * &p, TNode * &p1) {
-	makeempty(p1);
+	clear(p1);
 	p1 = nodecopy(p);
 }
 // Make a tree empty
-void IntervallTree::makeempty(TNode * &p) {
+void IntervallTree::clear(TNode * &p) {
 	TNode * d;
 	if (p != NULL) {
-		makeempty(p->left);
-		makeempty(p->right);
+		clear(p->left);
+		clear(p->right);
 		d = p;
 		free(d);
 		p = NULL;
@@ -175,6 +198,7 @@ void IntervallTree::preorder(TNode * p) {
 void IntervallTree::get_breakpoints(TNode *p, std::vector<Breakpoint *> & points) {
 	if (p != NULL) {
 		get_breakpoints(p->right, points);
+		//std::cout << "( " << p->get_data()->get_coordinates().start.min_pos << "-" << p->get_data()->get_coordinates().stop.max_pos << " "<< p->get_data()->get_coordinates().support.size()<<" )"<<std::endl;
 		points.push_back(p->get_data());
 		get_breakpoints(p->left, points);
 	}
@@ -184,8 +208,16 @@ void IntervallTree::get_breakpoints(TNode *p, std::vector<Breakpoint *> & points
 void IntervallTree::inorder(TNode * p) {
 	if (p != NULL) {
 		inorder(p->left);
-		std::cout << p->get_data()->to_string()<<endl;
+		std::cout << p->get_data()->to_string() << endl;
 		inorder(p->right);
+	}
+}
+void IntervallTree::print(TNode *p){
+	if (p != NULL) {
+		print(p->left);
+		std::cout << p->get_data()->to_string() << endl;
+		//std::cout << "( " << p->get_data()->get_coordinates().start.min_pos << "-" << p->get_data()->get_coordinates().stop.max_pos << " "<< p->get_data()->get_coordinates().support.size()<<" )"<<std::endl;
+		print(p->right);
 	}
 }
 
@@ -260,6 +292,6 @@ void IntervallTree::collapse_intervalls(TNode *&p) {
 			this->insert(points[i], new_root);
 		}
 	}
-	this->makeempty(p);
+	this->clear(p);
 	p = new_root;
 }

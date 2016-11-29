@@ -17,6 +17,7 @@ add_executable(sniffles
 					sub/Detect_Breakpoints.cpp
 					sub/Breakpoint.cpp
 					tree/IntervallTree.cpp
+					tree/IntervallList.cpp
 					realign/SWCPU.cpp
 					realign/Realign.cpp
 					print/VCFPrinter.cpp
@@ -40,6 +41,7 @@ add_executable(sniffles-debug
 					Sniffles.cpp
 					Ignore_Regions.cpp
 					tree/Intervall_bed.cpp
+					tree/IntervallList.cpp
 					sub/Detect_Breakpoints.cpp
 					sub/Breakpoint.cpp
 					tree/IntervallTree.cpp

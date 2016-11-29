@@ -24,7 +24,8 @@ class Parameter {
 private:
 	Parameter() {
 		window_thresh=10;//TODO check!
-		version="1.0.1";
+		version="1.0.0";
+		huge_ins = 4000;//TODO check??
 	}
 	~Parameter() {
 
@@ -42,7 +43,6 @@ public:
 
 	std::vector<std::string> bam_files;
 	short min_mq;
-	short min_cigar_event;
 	short report_n_reads;
 	short corridor;
 
@@ -62,9 +62,7 @@ public:
 	int huge_ins;
 	int max_dist_alns;
 
-	bool realign;
-	bool splitthreader_output;
-	bool useMD_CIGAR;
+//	bool splitthreader_output;
 	bool debug;
 	bool genotype;
 	bool phase;
