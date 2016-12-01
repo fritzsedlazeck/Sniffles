@@ -21,8 +21,7 @@ void IntervallTree::careful_screening(Breakpoint *& new_break, TNode *p) { //may
 
 // Inserting a node
 void IntervallTree::insert(Breakpoint * new_break, TNode *&p) {
-	if (new_break->get_coordinates().start.min_pos == -1 && new_break->get_coordinates().stop.max_pos == -1) {\
-
+	if (new_break->get_coordinates().start.min_pos == -1 && new_break->get_coordinates().stop.max_pos == -1) {
 		return;
 	}
 	if (p == NULL) { // add to tree:
@@ -212,10 +211,13 @@ void IntervallTree::inorder(TNode * p) {
 		inorder(p->right);
 	}
 }
-void IntervallTree::print(TNode *p){
+void IntervallTree::print(TNode *p) {
 	if (p != NULL) {
 		print(p->left);
-		std::cout << p->get_data()->to_string() << endl;
+		std::string msg = p->get_data()->to_string();
+		if (msg.size() > 3) {
+			std::cout << msg << endl;
+		}
 		//std::cout << "( " << p->get_data()->get_coordinates().start.min_pos << "-" << p->get_data()->get_coordinates().stop.max_pos << " "<< p->get_data()->get_coordinates().support.size()<<" )"<<std::endl;
 		print(p->right);
 	}

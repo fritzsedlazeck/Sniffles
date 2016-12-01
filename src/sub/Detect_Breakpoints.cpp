@@ -67,9 +67,9 @@ bool should_be_stored(Breakpoint *& point) {
 	//std::cout << "Stored: " << point->get_support() << " " << point->get_length() << std::endl;
 	if (point->get_SVtype() & TRA) { // we cannot make assumptions abut support yet.
 		return (point->get_support() > 2); // this is needed as we take each chr independently and just look at the primary alignment
-	} else if (point->get_support() > Parameter::Instance()->min_support) {
+	} else if (point->get_support() >= Parameter::Instance()->min_support) {
 		point->predict_SV();
-		return (point->get_support() > Parameter::Instance()->min_support && point->get_length() > Parameter::Instance()->min_length);
+		return (point->get_support() >= Parameter::Instance()->min_support && point->get_length() > Parameter::Instance()->min_length);
 	}
 
 	return false;
@@ -282,13 +282,8 @@ void add_events(Alignment *& tmp, std::vector<str_event> events, short type, lon
 		if (flag) {
 			std::cout << "ADD EVENT " << tmp->getName() << " " << tmp->getRefID() << " " << events[i].pos << " " << abs(events[i].length) << std::endl;
 		}
-		svs.start.min_pos = (long) events[i].pos;
-		svs.start.min_pos += ref_space;
-		svs.stop.max_pos = svs.start.min_pos;
-
-		//if (!(events[i].type & INS)) { //for all events but not INS!
-		svs.stop.max_pos += events[i].length;
-		//	}
+		svs.start.min_pos = (long) events[i].pos + ref_space;
+		svs.stop.max_pos = svs.start.min_pos + events[i].length;
 
 		if (tmp->getStrand()) {
 			read.strand.first = (tmp->getStrand());
@@ -332,19 +327,25 @@ void add_events(Alignment *& tmp, std::vector<str_event> events, short type, lon
 			read.coordinates.first = svs.start.min_pos;
 			read.coordinates.second = svs.stop.max_pos;
 		}
-		//if(read.SV & DEL){
-		//	std::cout<<"ADD DEL: "<<svs.start.min_pos<< " "<<svs.stop.max_pos<<std::endl;
-		//}
+		/*if(read.SV & DEL){
+			std::cout<<"ADD DEL: "<<svs.start.min_pos<< " "<<svs.stop.max_pos<<" "<<tmp->getName()<<std::endl;
+		}*/
+		/*if(read.SV & INS){
+			std::cout<<"ALN LEN: "<<events[i].length<<" Pos: "<<svs.start.min_pos<< " "<<svs.stop.max_pos<<" "<<tmp->getName()<<std::endl;
+		}*/
 		read.id = read_id;
 		svs.support[tmp->getName()] = read;
 		svs.support[tmp->getName()].length = events[i].length;
 		Breakpoint * point = new Breakpoint(svs, events[i].length);
 		bst.insert(point, root);
+
+		//std::cout<<"Print:"<<std::endl;
+		//bst.print(root);
 	}
 }
 
 void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVector ref, IntervallContainer & bst, TNode *&root, long read_id) {
-	bool flag = false;//(strcmp(tmp->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+	bool flag = (strcmp(tmp->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 
 	if (false) {
 		cout << "SPLIT: " << std::endl;
@@ -375,25 +376,25 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 					read.strand.first = !events[i - 1].strand;
 					read.strand.second = events[i].strand;
 				}
-				int len1 = 0;
-				int len2 = 0;
+			//	int len1 = 0;
+				//int len2 = 0;
 				svs.read_start = events[i - 1].read_pos_stop; // (short) events[i - 1].read_pos_start + (short) events[i - 1].length;
 				svs.read_stop = events[i].read_pos_start;
 				if (events[i - 1].strand) {
-					len1 = events[i - 1].pos;
-					len2 = events[i].pos - events[i].length;
+				//	len1 = events[i - 1].pos;
+				//	len2 = events[i].pos - events[i].length;
 					svs.start.min_pos = events[i - 1].pos + events[i - 1].length + get_ref_lengths(events[i - 1].RefID, ref);
 					svs.stop.max_pos = events[i].pos + get_ref_lengths(events[i].RefID, ref);
 				} else {
-					len1 = events[i].pos;
-					len2 = events[i - 1].pos - events[i - 1].length;
+				//	len1 = events[i].pos;
+				//	len2 = events[i - 1].pos - events[i - 1].length;
 					svs.start.min_pos = events[i].pos + events[i].length + get_ref_lengths(events[i].RefID, ref);
 					svs.stop.max_pos = events[i - 1].pos + get_ref_lengths(events[i - 1].RefID, ref);
 				}
 
 				if (flag) {
 					cout << "Debug: SV_Size: " << (svs.start.min_pos - svs.stop.max_pos) << " Ref_start: " << svs.start.min_pos - get_ref_lengths(events[i].RefID, ref) << " Ref_stop: " << svs.stop.max_pos - get_ref_lengths(events[i].RefID, ref) << " readstart: " << svs.read_start << " readstop: "
-							<< svs.read_stop << "readstart+len: " << len1 << " readstop+len: " << len2 << endl;
+							<< svs.read_stop<< std::endl;
 				}
 
 				if ((svs.stop.max_pos - svs.start.min_pos) > 0 && ((svs.stop.max_pos - svs.start.min_pos) + (Parameter::Instance()->min_length) < (svs.read_stop - svs.read_start) && (svs.read_stop - svs.read_start) > (Parameter::Instance()->min_length * 2))) {
@@ -496,24 +497,24 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 				read.coordinates.first = svs.start.min_pos;
 				read.coordinates.second = svs.stop.max_pos;
 			}
-
+			/*if(read.SV & INS){
+				std::cout<<"Split LEN: "<<abs(read.coordinates.second-read.coordinates.first)<<" Pos: "<<read.coordinates.first-get_ref_lengths(events[i - 1].RefID, ref)<<tmp->getName()<<std::endl;
+			}*/
+			//if( abs(read.coordinates.second-read.coordinates.first)<10){
+			///	events[i].length=abs(read.coordinates.second-read.coordinates.first);//TODO try
+			//	std::cout<<"Split event ===1 "<<" "<<abs(read.coordinates.second-read.coordinates.first)<<" len: "<< events[i].length<<" Pos "<<events[i].pos <<" Name "<<tmp->getName() <<std::endl;
+		//	}
 			//pool out?
 			read.id = read_id;
 			svs.support[tmp->getName()] = read;
-			svs.support[tmp->getName()].length = events[i].length;
-			Breakpoint * point = new Breakpoint(svs, events[i].length);
-			//std::cout<<"split ADD: " << TRANS_type(read.SV)<<" Name: "<<tmp->getName()<<" "<< svs.start.min_pos- get_ref_lengths(events[i].RefID, ref)<<"-"<<svs.stop.max_pos- get_ref_lengths(events[i].RefID, ref)<<std::endl;
+			svs.support[tmp->getName()].length = abs(read.coordinates.second-read.coordinates.first);
+			Breakpoint * point = new Breakpoint(svs, abs(read.coordinates.second-read.coordinates.first));
+			//std::cout<<"split ADD: " << <<" Name: "<<tmp->getName()<<" "<< svs.start.min_pos- get_ref_lengths(events[i].RefID, ref)<<"-"<<svs.stop.max_pos- get_ref_lengths(events[i].RefID, ref)<<std::endl;
 			bst.insert(point, root);
+		//	std::cout<<"Print:"<<std::endl;
 		//	bst.print(root);
 		}
 	}
-}
-
-void clarify(std::vector<Breakpoint *> & points) {
-//if WTF regions next to duplications-> delete!
-	/*for(size_t i=0;i<points.size();i++){
-
-	 }*/
 }
 
 void estimate_parameters(std::string read_filename) {

@@ -15,7 +15,7 @@
 #include "../Ignore_Regions.h"
 #include "../sub/Breakpoint.h"
 #include "../cluster/Cluster_SVs.h"
-
+#include <math.h>
 class IPrinter {
 protected:
 	FILE *file;
@@ -69,6 +69,7 @@ public:
 	void close_file(){
 		fclose(this->file);
 	}
+	void comp_std(Breakpoint * &SV,double & std_start, double & std_stop);
 	const std::string currentDateTime();
 };
 

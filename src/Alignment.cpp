@@ -468,6 +468,26 @@ void Alignment::check_entries(vector<aln_str> &entries) {
 		}
 		std::cout << std::endl;
 	}
+	int chr = entries[0].RefID;
+	bool strand = entries[0].strand;
+	int strands = 1;
+	int valid=1;
+	for (size_t i = 1; i < entries.size(); i++) {
+		if (entries[i].read_pos_stop - entries[i].read_pos_start > 200) {
+			valid++;
+			if (chr != entries[i].RefID) {
+				return;
+			}
+			if (strand != entries[i].strand) {
+				strands++;
+				strands=entries[i].strand;
+			}
+		}
+	}
+	if (strands <3 || valid<3) {
+		return;
+	}
+
 	for (size_t i = 1; i < entries.size(); i++) {
 		int ref_dist = 0;
 		int read_dist = 0;
@@ -489,9 +509,9 @@ void Alignment::check_entries(vector<aln_str> &entries) {
 			tmp.read_pos_start = entries[i].read_pos_stop; //fake...
 
 			if (entries[0].strand) {
-				tmp.pos = entries[i-1].pos + entries[i-1].length;
-				tmp.read_pos_start = entries[i-1].read_pos_stop; //fake...
-				tmp.strand=!tmp.strand;
+				tmp.pos = entries[i - 1].pos + entries[i - 1].length;
+				tmp.read_pos_start = entries[i - 1].read_pos_stop; //fake...
+				tmp.strand = !tmp.strand;
 			} else {
 				tmp.pos = entries[i].pos + entries[i].length;
 				tmp.read_pos_start = entries[i].read_pos_stop; //fake...
@@ -1188,6 +1208,7 @@ vector<str_event> Alignment::get_events_Aln() {
 				if (flag) {
 					cout << "store DEL " << this->getName() << endl;
 				}
+				tmp.length = del_max;
 				tmp.type |= DEL;
 				tmp.is_noise = false;
 			} else if (mismatch > Parameter::Instance()->min_length) { //TODO

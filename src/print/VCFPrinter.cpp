@@ -48,15 +48,15 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			store_readnames(SV->get_read_ids(), id);
 		}
 		std::string chr;
-		int pos = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr);
+		int start = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr);
 		fprintf(file, "%s", chr.c_str());
 		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", pos);
+		fprintf(file, "%i", start);
 		fprintf(file, "%c", '\t');
 		fprintf(file, "%i", id);
 		id++;
 
-		pos = IPrinter::calc_pos(SV->get_coordinates().stop.most_support, ref, chr);
+		int end = IPrinter::calc_pos(SV->get_coordinates().stop.most_support, ref, chr);
 		std::string strands = SV->get_strand(1);
 		fprintf(file, "%s", "\tN\t");
 		/*if (SV->get_SVtype() & TRA) {	//TODO check for INV!
@@ -95,10 +95,18 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%s", chr.c_str());
 			fprintf(file, "%s", ";END=");
 			if (SV->get_SVtype() & INS) {
-				fprintf(file, "%i", pos - SV->get_length());
+				fprintf(file, "%i", std::max((int)(end - SV->get_length()) , start));
 			} else {
-				fprintf(file, "%i", pos);
+				fprintf(file, "%i", end);
 			}
+
+			double std_start=0;
+			double std_stop=0;
+//			comp_std(SV,std_start,std_stop);
+//			fprintf(file, "%s", ";STD_start=");
+//			fprintf(file, "%f",std_start);
+//			fprintf(file, "%s", ";STD_end=");
+//			fprintf(file, "%f",std_stop);
 	//	}
 		fprintf(file, "%s", ";SVTYPE=");
 		fprintf(file, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());

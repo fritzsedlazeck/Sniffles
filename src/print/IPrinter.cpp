@@ -84,3 +84,21 @@ const std::string IPrinter::currentDateTime() {
 	strftime(buf, sizeof(buf), "%Y%m%d", &tstruct);
 	return buf;
 }
+
+void IPrinter::comp_std(Breakpoint * &SV, double & std_start, double & std_stop) {
+	double count=0;
+	for (std::map<std::string, read_str>::iterator i = SV->get_coordinates().support.begin(); i != SV->get_coordinates().support.end(); i++) {
+		if ((*i).second.SV & SV->get_SVtype()) {
+			count++;
+			if ((*i).second.coordinates.first != -1) {
+				std_start+=std::pow(SV->get_coordinates().start.most_support-(*i).second.coordinates.first,2);
+			}
+			if ((*i).second.coordinates.second != -1) {
+				std_stop+=std::pow(SV->get_coordinates().stop.most_support-(*i).second.coordinates.second,2);
+			}
+
+		}
+	}
+	std_start=std::sqrt(std_start/count);
+	std_stop=std::sqrt(std_stop/count);
+}
