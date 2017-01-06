@@ -16,9 +16,14 @@
 #include "../sub/Breakpoint.h"
 #include "../cluster/Cluster_SVs.h"
 #include <math.h>
+
+double const uniform_variance = 0.2886751; //sqrt(1/12) see variance of uniform distribution -> std
+
+
 class IPrinter {
 protected:
 	FILE *file;
+	FILE *distances;
 	FILE *tmp_file;
 	uint id;
 	RefVector ref;
@@ -31,7 +36,7 @@ protected:
 	long calc_pos(long pos, RefVector ref, std::string &chr);
 	std::string get_chr(long pos, RefVector ref);
 	std::string get_type(char type);
-
+	void sort_insert(int pos,std::vector<int> & positons);
 public:
 
 	IPrinter() {
@@ -48,6 +53,7 @@ public:
 		print_body(SV, ref);
 	}
 	void init() {
+		distances=fopen("distances.txt", "w");
 		if(!Parameter::Instance()->output_vcf.empty()){
 			file = fopen(Parameter::Instance()->output_vcf.c_str(), "w");
 		}else if(!Parameter::Instance()->output_bedpe.empty()){
@@ -65,11 +71,14 @@ public:
 		tmp_name_file+="Names";
 		tmp_file=fopen(tmp_name_file.c_str(), "wb");
 	}
-	void store_readnames(std::vector<int> names, int id);
+	bool to_print(Breakpoint * &SV,double & std_start,double &std_stop);
+	void store_readnames(std::vector<long> names, int id);
 	void close_file(){
 		fclose(this->file);
 	}
 	void comp_std(Breakpoint * &SV,double & std_start, double & std_stop);
+	void comp_std_med(Breakpoint * &SV, double & std_start, double & std_stop);
+	void comp_std_quantile(Breakpoint * &SV, double & std_start, double & std_stop);
 	const std::string currentDateTime();
 };
 

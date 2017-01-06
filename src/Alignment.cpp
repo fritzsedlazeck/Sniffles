@@ -89,22 +89,22 @@ vector<differences_str> Alignment::summarizeAlignment() {
 		} else if (al->CigarData[i].Type == 'N') {
 			pos += al->CigarData[i].Length;
 		}
-		/*} else if (al->CigarData[i].Type == 'S' && al->CigarData[i].Length > 4000) { /// Used for reads ranging into an inser
-		 string sa;
-		 al->GetTag("SA", sa);
-		 if (sa.empty()) { // == no split reads!
-		 if (flag) {
-		 std::cout << "Chop: " << pos << " Rname: " << this->getName() << std::endl;
-		 }
-		 if (pos == this->getPosition()) {
-		 ev.position = pos - Parameter::Instance()->huge_ins;
-		 } else {
-		 ev.position = pos;
-		 }
-		 ev.type = Parameter::Instance()->huge_ins * -1; //insertion: WE have to fix the length since we cannot estimate it!]
-		 events.push_back(ev);
-		 }
-		 }*/
+		/*else if (al->CigarData[i].Type == 'S' && al->CigarData[i].Length > Parameter::Instance()->huge_ins) { /// Used for reads ranging into an inser
+			string sa;
+			al->GetTag("SA", sa);
+			if (sa.empty()) { // == no split reads!
+				if (flag) {
+					std::cout << "Chop: " << pos << " Rname: " << this->getName() << std::endl;
+				}
+				if (pos == this->getPosition()) {
+					ev.position = pos - Parameter::Instance()->huge_ins;
+				} else {
+					ev.position = pos;
+				}
+				ev.type = Parameter::Instance()->huge_ins * -1; //insertion: WE have to fix the length since we cannot estimate it!]
+				events.push_back(ev);
+			}
+		}*/
 	}
 
 	if (flag) {
@@ -358,7 +358,15 @@ int Alignment::getAlignmentFlag() {
 	return al->AlignmentFlag;
 }
 string Alignment::getQueryBases() {
-	return al->QueryBases;
+	if (al != NULL) {
+		return al->QueryBases;
+	} else {
+		return "";
+	}
+}
+void Alignment::clear_QueryBases() {
+	al->QueryBases.clear();
+	al->QueryBases = "";
 }
 string Alignment::getQualities() {
 	return al->Qualities;
@@ -456,8 +464,9 @@ void Alignment::get_coords(aln_str tmp, int & start, int &stop) {
 }
 void Alignment::check_entries(vector<aln_str> &entries) {
 
-	bool flag = false;
+	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 	if (flag) {
+		std::cout << "Nested? " << std::endl;
 		for (size_t i = 0; i < entries.size(); i++) {
 			std::cout << entries[i].pos << "-" << entries[i].pos + entries[i].length << "(" << entries[i].read_pos_start << "-" << entries[i].read_pos_stop << ")";
 			if (entries[i].strand) {
@@ -471,7 +480,7 @@ void Alignment::check_entries(vector<aln_str> &entries) {
 	int chr = entries[0].RefID;
 	bool strand = entries[0].strand;
 	int strands = 1;
-	int valid=1;
+	int valid = 1;
 	for (size_t i = 1; i < entries.size(); i++) {
 		if (entries[i].read_pos_stop - entries[i].read_pos_start > 200) {
 			valid++;
@@ -480,11 +489,14 @@ void Alignment::check_entries(vector<aln_str> &entries) {
 			}
 			if (strand != entries[i].strand) {
 				strands++;
-				strands=entries[i].strand;
+				strand = entries[i].strand;
 			}
 		}
 	}
-	if (strands <3 || valid<3) {
+	if (flag) {
+		std::cout << "summary: " << strands << " " << valid << std::endl;
+	}
+	if (strands < 3 || valid < 3) {
 		return;
 	}
 
@@ -1194,8 +1206,6 @@ vector<str_event> Alignment::get_events_Aln() {
 			tmp.length = (tmp.length - event_aln[start].position);
 
 			tmp.type = 0;
-
-			//TODO constance used!
 			if (insert_max > Parameter::Instance()->min_length && insert > (del + del)) { //we have an insertion! //todo check || vs. &&
 				if (flag) {
 					cout << "store INS" << endl;
@@ -1211,7 +1221,7 @@ vector<str_event> Alignment::get_events_Aln() {
 				tmp.length = del_max;
 				tmp.type |= DEL;
 				tmp.is_noise = false;
-			} else if (mismatch > Parameter::Instance()->min_length) { //TODO
+			} else if ((mismatch+del+insert)/2 > Parameter::Instance()->min_length) { //TODO
 				if (flag) {
 					cout << "store Noise" << endl;
 				}

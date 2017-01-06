@@ -19,6 +19,83 @@ long fuck_off(long pos, RefVector ref, std::string &chr) {
 	chr = ref[i].RefName;
 	return pos + ref[i].RefLength + (long) Parameter::Instance()->max_dist;
 }
+void store_pos(vector<hist_str> &positions, long pos, std::string read_name) {
+	for (size_t i = 0; i < positions.size(); i++) {
+		if (abs(positions[i].position - pos) < Parameter::Instance()->min_length) {
+			positions[i].hits++;
+			positions[i].names.push_back(read_name);
+			return;
+		}
+	}
+	hist_str tmp;
+	tmp.position = pos;
+	tmp.hits = 1;
+	tmp.names.push_back(read_name);
+	positions.push_back(tmp);
+}
+
+Breakpoint * split_points(vector<std::string> names, std::map<std::string, read_str> support) {
+	std::map<std::string, read_str> new_support;
+	for (size_t i = 0; i < names.size(); i++) {
+		new_support[names[i]] = support[names[i]];
+	}
+	position_str svs;
+	svs.start.min_pos = 0;//just to initialize. Should not be needed anymore at this stage of the prog.
+	svs.stop.max_pos = 0;
+	svs.support = new_support;
+	Breakpoint * point = new Breakpoint(svs, (*new_support.begin()).second.coordinates.second - (*new_support.begin()).second.coordinates.first);
+	return point;
+}
+
+void detect_merged_svs(position_str point, RefVector ref, vector<Breakpoint *> & new_points) {
+	new_points.clear(); //just in case!
+	vector<hist_str> pos_start;
+	vector<hist_str> pos_stop;
+
+	for (std::map<std::string, read_str>::iterator i = point.support.begin(); i != point.support.end(); i++) {
+		long pos = (*i).second.coordinates.first;
+		//std::cout<<(*i).second.coordinates.first<<" "<<(*i).second.coordinates.second<<std::endl;
+		store_pos(pos_start, pos, (*i).first);
+		pos = (*i).second.coordinates.second;
+		store_pos(pos_stop, pos, (*i).first);
+	}
+//	std::cout << "Start: " << std::endl;
+	int start_count = 0;
+	for (size_t i = 0; i < pos_start.size(); i++) {
+		if (pos_start[i].hits > Parameter::Instance()->min_support) {
+			start_count++;
+			/*		std::string chr = "";
+			long pos = fuck_off(pos_start[i].position, ref, chr);
+			std::cout << chr << " " << pos << ":" << pos_start[i].hits << " ; ";
+			*/
+		}
+	}
+//	std::cout << std::endl;
+//	std::cout << "Stop: " << std::endl;
+	int stop_count = 0;
+	for (size_t i = 0; i < pos_stop.size(); i++) {
+		if (pos_stop[i].hits > Parameter::Instance()->min_support) {
+			stop_count++;
+		/*	std::string chr = "";
+			long pos = fuck_off(pos_stop[i].position, ref, chr);
+			std::cout << chr << " " << pos << ":" << pos_stop[i].hits << " ; ";
+			*/
+		}
+	}
+//	std::cout << std::endl;
+//	std::cout << std::endl;
+
+	if (stop_count > 1 || start_count > 1) {
+		std::cout << "\tprocessing merged TRA" << std::endl;
+		if (start_count > 1) {
+			new_points.push_back(split_points(pos_start[0].names, point.support));
+			new_points.push_back(split_points(pos_start[1].names, point.support));
+		} else {
+			new_points.push_back(split_points(pos_stop[0].names, point.support));
+			new_points.push_back(split_points(pos_stop[1].names, point.support));
+		}
+	}
+}
 
 std::string TRANS_type(char type) {
 	string tmp;
@@ -49,7 +126,12 @@ std::string TRANS_type(char type) {
 		}
 		tmp += "TRA";
 	}
-
+	if (type & NEST) {
+		if (!tmp.empty()) {
+			tmp += '/';
+		}
+		tmp += "NEST";
+	}
 	return tmp; // should not occur!
 }
 
@@ -105,6 +187,7 @@ void polish_points(std::vector<Breakpoint *> & points, RefVector ref) { //TODO m
 		}
 	}
 }
+
 void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	estimate_parameters(read_filename);
 	BamParser * mapped_file = 0;
@@ -145,8 +228,8 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	}
 	Alignment * tmp_aln = mapped_file->parseRead(Parameter::Instance()->min_mq);
 	long ref_space = get_ref_lengths(tmp_aln->getRefID(), ref);
-	std::string prev = "test";
-	std::string curr = "curr";
+	//std::string prev = "test";
+	//std::string curr = "curr";
 	long num_reads = 0;
 	while (!tmp_aln->getQueryBases().empty()) {
 		if ((tmp_aln->getAlignment()->IsPrimaryAlignment()) && (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800) && tmp_aln->get_is_save())) {
@@ -161,6 +244,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 				polish_points(points, ref);
 				for (int i = 0; i < points.size(); i++) {
 					if (should_be_stored(points[i])) {
+						//detect_merged_svs(points[i]);
 						if (points[i]->get_SVtype() & TRA) {
 							final.insert(points[i], root_final);
 						} else {
@@ -224,13 +308,13 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 		num_reads++;
 
 		if (num_reads % 10000 == 0) {
-			curr = tmp_aln->getName();
+			//	curr = tmp_aln->getName();
 			cout << "\t\t# Processed reads: " << num_reads << endl;
-			if (curr.size() == prev.size() && strcmp(prev.c_str(), curr.c_str()) == 0) {
-				std::cerr << "Read occurred twice with primary alignment marked. Possibly no eof recognized in bam file." << std::endl;
-				break;
-			}
-			prev = curr;
+			/*(if (curr.size() == prev.size() && strcmp(prev.c_str(), curr.c_str()) == 0) {
+			 std::cerr << "Read occurred twice with primary alignment marked. Possibly no eof recognized in bam file." << std::endl;
+			 break;
+			 }
+			 prev = curr;*/
 		}
 	}
 //filter and copy results:
@@ -240,6 +324,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	polish_points(points, ref);
 	for (int i = 0; i < points.size(); i++) {
 		if (should_be_stored(points[i])) {
+
 			if (points[i]->get_SVtype() & TRA) {
 				final.insert(points[i], root_final);
 			} else {
@@ -254,7 +339,19 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 //	sweep->finalyze();
 	points.clear();
 	final.get_breakpoints(root_final, points);
-	polish_points(points, ref);
+
+	size_t points_size = points.size();
+	for (size_t i = 0; i < points_size; i++) { // its not nice, but I may alter the length of the vector within the loop.
+		if (points[i]->get_SVtype() & TRA) {
+			vector<Breakpoint *> new_points;
+			detect_merged_svs(points[i]->get_coordinates(), ref, new_points);
+			if (!new_points.empty()) {							// I only allow for 1 split!!
+				points[i] = new_points[0];
+				points.push_back(new_points[1]);
+			}
+		}
+	}
+
 	for (size_t i = 0; i < points.size(); i++) {
 		if (points[i]->get_SVtype() & TRA) {
 			points[i]->calc_support();
@@ -328,17 +425,16 @@ void add_events(Alignment *& tmp, std::vector<str_event> events, short type, lon
 			read.coordinates.second = svs.stop.max_pos;
 		}
 		/*if(read.SV & DEL){
-			std::cout<<"ADD DEL: "<<svs.start.min_pos<< " "<<svs.stop.max_pos<<" "<<tmp->getName()<<std::endl;
-		}*/
+		 std::cout<<"ADD DEL: "<<svs.start.min_pos<< " "<<svs.stop.max_pos<<" "<<tmp->getName()<<std::endl;
+		 }*/
 		/*if(read.SV & INS){
-			std::cout<<"ALN LEN: "<<events[i].length<<" Pos: "<<svs.start.min_pos<< " "<<svs.stop.max_pos<<" "<<tmp->getName()<<std::endl;
-		}*/
+		 std::cout<<"ALN LEN: "<<events[i].length<<" Pos: "<<svs.start.min_pos<< " "<<svs.stop.max_pos<<" "<<tmp->getName()<<std::endl;
+		 }*/
 		read.id = read_id;
 		svs.support[tmp->getName()] = read;
 		svs.support[tmp->getName()].length = events[i].length;
 		Breakpoint * point = new Breakpoint(svs, events[i].length);
 		bst.insert(point, root);
-
 		//std::cout<<"Print:"<<std::endl;
 		//bst.print(root);
 	}
@@ -376,28 +472,28 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 					read.strand.first = !events[i - 1].strand;
 					read.strand.second = events[i].strand;
 				}
-			//	int len1 = 0;
+				//	int len1 = 0;
 				//int len2 = 0;
 				svs.read_start = events[i - 1].read_pos_stop; // (short) events[i - 1].read_pos_start + (short) events[i - 1].length;
 				svs.read_stop = events[i].read_pos_start;
 				if (events[i - 1].strand) {
-				//	len1 = events[i - 1].pos;
-				//	len2 = events[i].pos - events[i].length;
+					//	len1 = events[i - 1].pos;
+					//	len2 = events[i].pos - events[i].length;
 					svs.start.min_pos = events[i - 1].pos + events[i - 1].length + get_ref_lengths(events[i - 1].RefID, ref);
 					svs.stop.max_pos = events[i].pos + get_ref_lengths(events[i].RefID, ref);
 				} else {
-				//	len1 = events[i].pos;
-				//	len2 = events[i - 1].pos - events[i - 1].length;
+					//	len1 = events[i].pos;
+					//	len2 = events[i - 1].pos - events[i - 1].length;
 					svs.start.min_pos = events[i].pos + events[i].length + get_ref_lengths(events[i].RefID, ref);
 					svs.stop.max_pos = events[i - 1].pos + get_ref_lengths(events[i - 1].RefID, ref);
 				}
 
 				if (flag) {
 					cout << "Debug: SV_Size: " << (svs.start.min_pos - svs.stop.max_pos) << " Ref_start: " << svs.start.min_pos - get_ref_lengths(events[i].RefID, ref) << " Ref_stop: " << svs.stop.max_pos - get_ref_lengths(events[i].RefID, ref) << " readstart: " << svs.read_start << " readstop: "
-							<< svs.read_stop<< std::endl;
+							<< svs.read_stop << std::endl;
 				}
 
-				if ((svs.stop.max_pos - svs.start.min_pos) > 0 && ((svs.stop.max_pos - svs.start.min_pos) + (Parameter::Instance()->min_length) < (svs.read_stop - svs.read_start) && (svs.read_stop - svs.read_start) > (Parameter::Instance()->min_length * 2))) {
+				if ((svs.stop.max_pos - svs.start.min_pos) > -1 && ((svs.stop.max_pos - svs.start.min_pos) + (Parameter::Instance()->min_length) < (svs.read_stop - svs.read_start) && (svs.read_stop - svs.read_start) > (Parameter::Instance()->min_length * 2))) {
 					if (flag) {
 						cout << "INS: " << endl;
 					}
@@ -419,18 +515,41 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 					read.SV = 'n';
 				}
 			} else { // if first part of read is in a different direction as the second part-> INV
-				if (flag) {
-					cout << "INV" << endl;
-				}
+
 				read.strand.first = events[i - 1].strand;
 				read.strand.second = !events[i].strand;
-				read.SV |= INV;
-				if (events[i - 1].strand) {
-					svs.start.min_pos = events[i - 1].pos + events[i - 1].length + get_ref_lengths(events[i - 1].RefID, ref);
-					svs.stop.max_pos = (events[i].pos + events[i].length) + get_ref_lengths(events[i].RefID, ref);
+				if (overlaps(events[i - 1], events[i])) {
+					if (flag) {
+						std::cout << "Overlap curr: " << events[i].pos << " " << events[i].pos + events[i].length << " prev: " << events[i - 1].pos << " " << events[i - 1].pos + events[i - 1].length << " " << tmp->getName() << std::endl;
+					}
+					read.SV |= NEST;
+
+					if (events[i - 1].strand) {
+						svs.start.min_pos = events[i - 1].pos + events[i - 1].length + get_ref_lengths(events[i - 1].RefID, ref);
+						svs.stop.max_pos = (events[i].pos + events[i].length) + get_ref_lengths(events[i].RefID, ref);
+					} else {
+						svs.start.min_pos = events[i - 1].pos + get_ref_lengths(events[i - 1].RefID, ref);
+						svs.stop.max_pos = events[i].pos + get_ref_lengths(events[i].RefID, ref);
+					}
+
+					if (svs.start.min_pos > svs.stop.max_pos) {
+						long tmp = svs.start.min_pos;
+						svs.start.min_pos = svs.stop.max_pos;
+						svs.stop.max_pos = tmp;
+					}
+					//	if(flag){
+					//		std::cout<<"NEST: "<<svs.start.min_pos- get_ref_lengths(events[i - 1].RefID, ref) << " "<<svs.stop.max_pos - get_ref_lengths(events[i - 1].RefID, ref)<<" "<<tmp->getName()<<std::endl;
+					//	}
+					//	svs.stop.max_pos = svs.start.min_pos + Parameter::Instance()->min_length * 2;
 				} else {
-					svs.start.min_pos = events[i - 1].pos + get_ref_lengths(events[i - 1].RefID, ref);
-					svs.stop.max_pos = events[i].pos + get_ref_lengths(events[i].RefID, ref);
+					read.SV |= INV;
+					if (events[i - 1].strand) {
+						svs.start.min_pos = events[i - 1].pos + events[i - 1].length + get_ref_lengths(events[i - 1].RefID, ref);
+						svs.stop.max_pos = (events[i].pos + events[i].length) + get_ref_lengths(events[i].RefID, ref);
+					} else {
+						svs.start.min_pos = events[i - 1].pos + get_ref_lengths(events[i - 1].RefID, ref);
+						svs.stop.max_pos = events[i].pos + get_ref_lengths(events[i].RefID, ref);
+					}
 				}
 			}
 
@@ -459,7 +578,7 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 
 		if (read.SV != 'n') {
 			if (flag) {
-				std::cout << "SPLIT: " << TRANS_type(read.SV) << " start: " << svs.start.min_pos << " stop: " << svs.stop.max_pos; //- get_ref_lengths(events[i].RefID, ref)
+				std::cout << "SPLIT: " << TRANS_type(read.SV) << " start: " << svs.start.min_pos - get_ref_lengths(events[i].RefID, ref) << " stop: " << svs.stop.max_pos - get_ref_lengths(events[i].RefID, ref);
 				if (events[i - 1].strand) {
 					std::cout << " +";
 				} else {
@@ -498,21 +617,21 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 				read.coordinates.second = svs.stop.max_pos;
 			}
 			/*if(read.SV & INS){
-				std::cout<<"Split LEN: "<<abs(read.coordinates.second-read.coordinates.first)<<" Pos: "<<read.coordinates.first-get_ref_lengths(events[i - 1].RefID, ref)<<tmp->getName()<<std::endl;
-			}*/
+			 std::cout<<"Split LEN: "<<abs(read.coordinates.second-read.coordinates.first)<<" Pos: "<<read.coordinates.first-get_ref_lengths(events[i - 1].RefID, ref)<<tmp->getName()<<std::endl;
+			 }*/
 			//if( abs(read.coordinates.second-read.coordinates.first)<10){
 			///	events[i].length=abs(read.coordinates.second-read.coordinates.first);//TODO try
 			//	std::cout<<"Split event ===1 "<<" "<<abs(read.coordinates.second-read.coordinates.first)<<" len: "<< events[i].length<<" Pos "<<events[i].pos <<" Name "<<tmp->getName() <<std::endl;
-		//	}
+			//	}
 			//pool out?
 			read.id = read_id;
 			svs.support[tmp->getName()] = read;
-			svs.support[tmp->getName()].length = abs(read.coordinates.second-read.coordinates.first);
-			Breakpoint * point = new Breakpoint(svs, abs(read.coordinates.second-read.coordinates.first));
+			svs.support[tmp->getName()].length = abs(read.coordinates.second - read.coordinates.first);
+			Breakpoint * point = new Breakpoint(svs, abs(read.coordinates.second - read.coordinates.first));
 			//std::cout<<"split ADD: " << <<" Name: "<<tmp->getName()<<" "<< svs.start.min_pos- get_ref_lengths(events[i].RefID, ref)<<"-"<<svs.stop.max_pos- get_ref_lengths(events[i].RefID, ref)<<std::endl;
 			bst.insert(point, root);
-		//	std::cout<<"Print:"<<std::endl;
-		//	bst.print(root);
+			//		std::cout<<"Print:"<<std::endl;
+			//		bst.print(root);
 		}
 	}
 }
@@ -537,7 +656,7 @@ void estimate_parameters(std::string read_filename) {
 	double avg_diffs_perwindow = 0;
 	vector<int> mis_per_window; //histogram over #differences
 	vector<int> scores;
-	std::string curr, prev = "";
+//	std::string curr, prev = "";
 	double avg_dist = 0;
 	while (!tmp_aln->getQueryBases().empty() && num < 1000) {				//1000
 		if (rand() % 100 < 20 && ((tmp_aln->getAlignment()->IsPrimaryAlignment()) && (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800)))) {				//}&& tmp_aln->get_is_save()))) {
@@ -562,13 +681,18 @@ void estimate_parameters(std::string read_filename) {
 			scores[score]++;
 			num++;
 		}
+
 		mapped_file->parseReadFast(Parameter::Instance()->min_mq, tmp_aln);
-		curr = tmp_aln->getName();
-		if (curr.size() == prev.size() && strcmp(prev.c_str(), curr.c_str()) == 0) {
-			std::cerr << "Read occurred twice with primary alignment marked. Possibly no eof recognized in bam file." << std::endl;
-			break;
-		}
-		prev = curr;
+		/*curr = tmp_aln->getName();
+		 if (curr.size() == prev.size() && strcmp(prev.c_str(), curr.c_str()) == 0) {
+		 std::cerr << "Read occurred twice with primary alignment marked. Possibly no eof recognized in bam file." << std::endl;
+		 break;
+		 }
+		 prev = curr;*/
+	}
+	if (num == 0) {
+		std::cerr << "No reads detected in " << Parameter::Instance()->bam_files[0] << std::endl;
+		exit(1);
 	}
 	vector<int> nums;
 	size_t pos = 0;
@@ -603,3 +727,15 @@ void estimate_parameters(std::string read_filename) {
 	std::cout << "\tMin score ratio: " << Parameter::Instance()->score_treshold << std::endl;
 }
 
+bool overlaps(aln_str prev, aln_str curr) {
+
+	double ratio = 0;
+	double overlap = 0;
+
+	if (prev.pos + Parameter::Instance()->min_length < curr.pos + curr.length && prev.pos + prev.length - Parameter::Instance()->min_length > curr.pos) {
+		overlap = min((curr.pos + curr.length), (prev.pos + prev.length)) - max(prev.pos, curr.pos);
+		ratio = overlap / (double) min(curr.length, prev.length);
+	}
+
+	return (ratio > 0.4 && overlap > 200);
+}

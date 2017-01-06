@@ -22,8 +22,8 @@ const unsigned char DUP = 0x02; // hex for 0000 0010
 const unsigned char INS = 0x04; // hex for 0000 0100
 const unsigned char INV = 0x08; // hex for 0000 1000
 const unsigned char TRA = 0x10; // hex for 0001 0000
-
-
+const unsigned char NEST =0x20; // hex for 0010 0000
+const unsigned char NA = 0x80;  // hex for 1000 0000
 
 using namespace BamTools;
 using namespace std;
@@ -73,6 +73,7 @@ private:
 	 bool overlapping_segments(vector<aln_str> entries);
 public:
 	Alignment(){
+		al=NULL;
 		ref_len=0;
 	    stop=0;
 		orig_length=0;
@@ -88,7 +89,7 @@ public:
 	void setAlignment(BamAlignment * al);
 	void setRef(string sequence);
 	void computeAlignment();
-
+	void clear_QueryBases();
 	pair<string,string> getSequence();
 	int32_t getPosition();
 	int32_t getRefID();

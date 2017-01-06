@@ -20,14 +20,7 @@ std::map<long, std::vector<int> > Cluster_SVS::parse_names_ids(int & max_ID) {
 	name_str tmp;
 	size_t nbytes = fread(&tmp, sizeof(struct name_str), 1, alt_allel_reads);
 	while (nbytes != 0) {
-		max_ID = std::max(max_ID, tmp.svs_id);
-		//if(strcmp("22_19990256",tmp.read_name.c_str())==0){
-		//	std::cout<<"Cluster: "<<tmp.svs_id<<std::endl;
-		//}
-		/*if (tmp.svs_id == 34 || tmp.svs_id == 35) {
-			std::cout << "Cluster: " << tmp.svs_id << " " << tmp.read_name << std::endl;
-		}*/
-
+		max_ID = std::max(max_ID, tmp.svs_id); //needs to be a long as we need to know the size prior to storing!
 		names[tmp.read_name].push_back(tmp.svs_id);
 		nbytes = fread(&tmp, sizeof(struct name_str), 1, alt_allel_reads);
 	}
@@ -68,7 +61,7 @@ void Cluster_SVS::update_SVs(std::vector<combine_str> & ids) {
 				if (count == col) { //if colum of id:
 					if (buffer[i - 1] == '\t') {
 						int id = atoi(&buffer[i]);
-						fprintf(file, "%i", find_id(id, ids));
+						fprintf(file, "%s", find_id(id, ids).c_str());
 						fprintf(file, "%c", '\t');
 					}
 				} else {
@@ -93,28 +86,39 @@ void Cluster_SVS::update_SVs(std::vector<combine_str> & ids) {
 	move += filename;
 	system(move.c_str());
 }
-void Cluster_SVS::add_id(int curr_id, int new_id, std::vector<combine_str> & ids) {
-	for (size_t i = 0; i < ids.size(); i++) {
+void Cluster_SVS::add_id(int curr_id, int new_id, std::vector<combine_str> & ids,int subkey) {
+
+	for (size_t i = 0; i < ids.size(); i++) {//check if already in the new array
 		if (ids[i].curr_id == curr_id && ids[i].alt_id == new_id) {
 			ids[i].support++;
+			ids[i].hit=subkey;
 			return;
 		}
 	}
+
+	//make new entry:
 	combine_str tmp;
 	tmp.curr_id = curr_id;
-	tmp.alt_id = new_id;
+	tmp.alt_id = new_id; //smallest ID of SVs
 	tmp.support = 1;
+	tmp.hit=subkey;
 	ids.push_back(tmp);
 }
-int Cluster_SVS::find_id(int curr_id, std::vector<combine_str> & ids) {
+std::string Cluster_SVS::find_id(int curr_id, std::vector<combine_str> & ids) {
+	std::stringstream ss ;
 	for (size_t i = 0; i < ids.size(); i++) {
 		if (ids[i].support > Parameter::Instance()->min_grouping_support) {
 			if (ids[i].curr_id == curr_id) {
-				return ids[i].alt_id;
+
+				ss<<ids[i].alt_id;
+				ss<<'_';
+				ss<<ids[i].hit;
+				return ss.str();
 			}
 		}
 	}
-	return curr_id;
+	ss<<curr_id;
+	return ss.str();
 }
 void Cluster_SVS::update_SVs() {
 //1: read in names + IDs -> store in map!
@@ -123,27 +127,28 @@ void Cluster_SVS::update_SVs() {
 	//TODO: restructure!
 	//id=svs_id;
 
-	std::map<long, std::vector<int> > names = parse_names_ids(max_ID);
+	std::map<long, std::vector<int> > names = parse_names_ids(max_ID); //key = read_id values: SVs id's
 
 //2: make array with ID as entry and value is the smalles ID in the colum of all storred readnames.
 	std::vector<combine_str> ids;
 	for (std::map<long, std::vector<int> >::iterator i = names.begin(); i != names.end(); i++) {
 		if ((*i).second.size() > 1) {
 			int min_id = max_ID + 1;
-			for (size_t j = 0; j < (*i).second.size(); j++) {
+			for (size_t j = 0; j < (*i).second.size(); j++) { // get the smallest ID of SVs associated with the read id.
 				min_id = std::min(min_id, (*i).second[j]);
 			}
-			for (size_t j = 0; j < (*i).second.size(); j++) {
-				if ((*i).second[j] != min_id) {
-					add_id((*i).second[j], min_id, ids);
-				}
+			//min_id is now the smallest SVs id that this read is associated with.
+			int subkey=0;
+			for (size_t j = 0; j < (*i).second.size(); j++) { // update the other SVs IDs
+				//if ((*i).second[j] != min_id) {
+					add_id((*i).second[j], min_id, ids,subkey);
+					subkey++;
+				//}
 			}
 		}
 	}
 	names.clear();
-/*	for (size_t i = 0; i < ids.size(); i++) {
-		std::cout << ids[i].curr_id << " " << ids[i].alt_id << " " << ids[i].support << std::endl;
-	}*/
+
 //3: Update the IDS in the VCF/Bedpe files.
 	update_SVs(ids);
 }

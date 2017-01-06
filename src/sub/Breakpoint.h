@@ -92,10 +92,13 @@ private:
 	std::string translate_strand(pair<bool, bool> strand);
 	bool is_same_strand(Breakpoint * tmp);
 	bool check_SVtype(Breakpoint * break1, Breakpoint * break2);
+	bool is_NEST(Breakpoint * next, Breakpoint * curr){
+		return (( (*next->get_coordinates().support.begin()).second.SV& NEST) ||( (*curr->get_coordinates().support.begin()).second.SV& NEST) );
+	}
 public:
 	Breakpoint(position_str sv,long len) {
 
-		sv_type=' ';
+		sv_type |= NA;
 		type.is_ALN=((*sv.support.begin()).second.type==0);
 		type.is_SR=((*sv.support.begin()).second.type==1);
 		type.is_Noise=((*sv.support.begin()).second.type==2);
@@ -155,8 +158,8 @@ public:
 	str_types get_types(){
 		return this->type;
 	}
-	std::vector< std::string> get_read_names(int num);
-	std::vector<int> get_read_ids();
+	std::vector<std::string> get_read_names(int num);
+	std::vector<long> get_read_ids();
 	std::string to_string();
 };
 

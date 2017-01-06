@@ -22,20 +22,19 @@
 #include "plane-sweep/PlaneSweep_slim.h"
 #include "print/BedpePrinter.h"
 
-Parameter* Parameter::m_pInstance = NULL;
 //cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
 
-// Think of method to filter out strange SV.
-// Think of multiple bam files -> setting genotypes
-// Think about overlapping SV, maybe flag to report if they share the same read -> phasing info?
-// Regular scan through the SV and move those where the end point lies far behind the current pos or reads. Eg. 1MB?
+
+//TODO:
+// Make hist of position%10. Take highest and if second highest that is at least Xbp away is over Parameter -> Split
+//Upload new version. Take care about version naming!
+
+Parameter* Parameter::m_pInstance = NULL;
 
 
 void read_parameters(int argc, char *argv[]) {
 
-	std::string lable="Sniffles version ";
-	lable+=Parameter::Instance()->version;
-	TCLAP::CmdLine cmd("Sniffles version 1.0.0", ' ', Parameter::Instance()->version);
+	TCLAP::CmdLine cmd("Sniffles version ", ' ', Parameter::Instance()->version);
 	TCLAP::ValueArg<std::string> arg_bamfile("m", "mapped_reads", "Sorted bam File", true, "", "string");
 	TCLAP::ValueArg<std::string> arg_vcf("v", "vcf", "VCF output file name", false, "", "string");
 	TCLAP::ValueArg<std::string> arg_bedpe("b", "bedpe", " bedpe output file name", false, "", "string");
@@ -45,9 +44,8 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<int> arg_threads("t", "threads", "Number of threads to use. Default: 3", false, 3, "int");
 	TCLAP::ValueArg<int> arg_minlength("l", "min_length", "Minimum length of SV to be reported. Default: 30", false, 30, "int");
 	TCLAP::ValueArg<int> arg_mq("q", "minmapping_qual", "Minimum Mapping Quality. Default: 20", false, 20, "int");
-	TCLAP::ValueArg<int> arg_numreads("n", "num_reads_report", "Report up to N reads that support the SV. Default: 0", false, 0, "int");
-	TCLAP::ValueArg<std::string> arg_tmp_file("", "tmp_file", "patht to temporary file otherwise Sniffles will use the current directory.", false, "", "string");
-	TCLAP::SwitchArg arg_MD_cigar("", "use_MD_Cigar", "Enables Sniffles to use the alignment information to screen for suspicious regions.", cmd, false);
+	TCLAP::ValueArg<int> arg_numreads("n", "num_reads_report", "Report up to N reads that support the SV in the vcf file. Default: 0", false, 0, "int");
+	TCLAP::ValueArg<std::string> arg_tmp_file("", "tmp_file", "path to temporary file otherwise Sniffles will use the current directory.", false, "", "string");
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
 
@@ -67,7 +65,7 @@ void read_parameters(int argc, char *argv[]) {
 
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
-	Parameter::Instance()->read_name = " ";//m141225_195223_00118_c100750772550000001823151707081513_s1_p0/62524/6888_19885";//0076373e-d278-4316-9967-9b4c0b74df57_Basecall_Alignment_template";//21_30705246";	;//just for debuging reasons!
+	Parameter::Instance()->read_name = " "; //just for debuging reasons!
 	Parameter::Instance()->bam_files.push_back(arg_bamfile.getValue());
 	Parameter::Instance()->min_mq = arg_mq.getValue();
 	Parameter::Instance()->output_vcf = arg_vcf.getValue();
@@ -80,12 +78,12 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->phase = arg_cluster.getValue();
 	Parameter::Instance()->num_threads = arg_threads.getValue();
 	Parameter::Instance()->output_bedpe = arg_bedpe.getValue();
-	Parameter::Instance()->tmp_file = "test.tmp";	//arg_tmp_file.getValue();
+	Parameter::Instance()->tmp_file = arg_tmp_file.getValue();
 	Parameter::Instance()->min_grouping_support = 1;
-
 
 	if (Parameter::Instance()->tmp_file.empty()) {
 		std::stringstream ss;
+		srand(time(NULL));
 		//ss<<"."; //TODO: User does not need to see this!
 		ss << rand();
 		ss << "_tmp";
@@ -117,9 +115,154 @@ void parse_binary() {
 	fclose(alt_allel_reads);
 }
 
+double comp_std(std::vector<int> pos, int start) {
+	double count = 0;
+	double std_start = 0;
+
+	for (size_t i = 0; i < pos.size(); i++) {
+		count++;
+		if (pos[i] != -1) {
+			long diff = (start - pos[i]);
+			//	std::cout << "DIFF Start: " << diff << std::endl;
+			std_start += std::pow((double) diff, 2.0);
+		}
+	}
+	return std::sqrt(std_start / count);
+}
+
+void test_sort_insert(int pos, std::vector<int> & positions) {
+
+	size_t i = 0;
+	while (i < positions.size() && positions[i] < pos) {
+		i++;
+	}
+	positions.insert(positions.begin() + i, pos);
+
+}
+
+double test_comp_std_quantile(std::vector<int> positions, int position) {
+	double count = 0;
+	std::vector<int> std_start_dists;
+	double std_start = 0;
+
+	for (std::vector<int>::iterator i = positions.begin(); i != positions.end(); i++) {
+
+		long diff = (position - (*i));
+		//	std::cout << "DIFF Start: " << diff << std::endl;
+		test_sort_insert(std::pow((double) diff, 2.0), std_start_dists);
+		//std_start += std::pow((double) diff, 2.0);
+
+	}
+
+	count = 0;
+	for (size_t i = 0; i < std_start_dists.size() / 2; i++) {
+		std_start += std_start_dists[i];
+		count++;
+	}
+
+	return std::sqrt(std_start / count);
+
+}
+
+void test_std() {
+	srand(time(NULL));
+	int start = rand() % 100000; /// sqrt(1/12) for ins. Plot TRA std vs. cov/support.
+	std::vector<int> positions;
+	double avg=0;
+	double num=0;
+	for (int t = 0; t < 1000; t++) {
+		for (int border = 100; border < 90001; border = border * 5) {
+			//for (int cov = 1; cov < 800; cov += 10) {
+			int cov = 100;
+			for (size_t i = 0; i < cov; i++) {
+				int pos = (rand() % border) + (start - (border / 2));
+				positions.push_back(pos);
+			}
+			avg+=comp_std(positions, start) / test_comp_std_quantile(positions, start);
+			std::cout << "Cov: " << cov << " border: " << border << " STD: " << comp_std(positions, start) / test_comp_std_quantile(positions, start) << std::endl;
+			positions.clear();
+			num++;
+			//}
+		}
+	}
+	std::cout<<"AVG: "<<avg/num<<std::endl;
+}
+
+void get_rand(int mean, int num, vector<int> & positions, int interval) {
+//std::cout << "sim " << num << std::endl;
+	for (size_t i = 0; i < num; i++) {
+		int pos = (rand() % interval) + (mean - (interval / 2));
+		positions.push_back(pos);
+	}
+}
+#include <stdlib.h>
+std::vector<int> sort_distance(std::vector<int> positions, int mean) {
+	std::vector<int> distances;
+	for (size_t i = 0; i < positions.size(); i++) {
+		int dist = std::abs(mean - positions[i]);
+		size_t j = 0;
+		while (j < distances.size()) {
+			if (std::abs(mean - distances[j]) < dist) {
+				distances.insert(distances.begin() + j, positions[i]);
+				break;
+			}
+			j++;
+		}
+		if (j == distances.size()) {
+			distances.push_back(positions[i]);
+		}
+	}
+	return distances;
+}
+void test_slimming() {
+	double fract = 0.2;
+	srand(time(NULL));
+	int mean = rand() % 100000; /// sqrt(1/12) for ins. Plot TRA std vs. cov/support.
+	int intervall = 1000;
+
+	std::vector<std::vector<double> > stds;
+	int key = 0;
+	int cov = 100;
+	for (double fract = 0.1; fract < 1; fract += 0.1) {
+
+		//std::cout<<fract<<std::endl;
+		std::vector<int> positions;
+		get_rand(mean, round(cov * fract), positions, intervall); //random process
+		get_rand(mean, round(cov * (1 - fract)), positions, 10); //focused calls
+		//	std::cout << "Cov: " << cov << " border: " << intervall << " STD: " << comp_std(positions, mean) << std::endl;
+		std::vector<int> dists;
+		dists = sort_distance(positions, mean);
+
+		/*		for (size_t i = 0; i < dists.size(); i++) {
+		 std::cout << abs(mean - dists[i]) << std::endl;
+		 }
+		 */
+		std::vector<double> std_tmp;
+		for (size_t i = 0; i < dists.size(); i++) {
+			std::vector<int> tmp;
+			tmp.assign(dists.rbegin(), dists.rend() - i);
+			double std = comp_std(tmp, mean);
+			//std::cout << "Points: " << tmp.size() << " STD: " << std << std::endl;
+			std_tmp.push_back(std);
+		}
+		stds.push_back(std_tmp);
+	}
+
+	for (size_t i = 0; i < stds.size(); i++) {
+		for (size_t j = 0; j < stds[i].size(); j++) {
+			std::cout << stds[i][j] << "\t";
+		}
+		std::cout << std::endl;
+	}
+}
 int main(int argc, char *argv[]) {
 
 	try {
+		//test_slimming();
+	//	test_std();
+	//	exit(0);
+
+
 		//init parameter and reads user defined parameter from command line.
 		read_parameters(argc, argv);
 
@@ -127,8 +270,8 @@ int main(int argc, char *argv[]) {
 		omp_set_dynamic(0);
 		omp_set_num_threads(Parameter::Instance()->num_threads);
 
-		if((!Parameter::Instance()->output_vcf.empty()) && (!Parameter::Instance()->output_bedpe.empty())){
-			std::cerr<<"Please select only vcf OR bedpe output format!"<<std::endl;
+		if ((!Parameter::Instance()->output_vcf.empty()) && (!Parameter::Instance()->output_bedpe.empty())) {
+			std::cerr << "Please select only vcf OR bedpe output format!" << std::endl;
 			exit(1);
 		}
 		//init printer:
@@ -145,7 +288,6 @@ int main(int argc, char *argv[]) {
 		}
 
 		printer->init();
-
 		detect_breakpoints(Parameter::Instance()->bam_files[0], printer); //we could write out all read names for each sVs
 		printer->close_file();
 
@@ -163,15 +305,6 @@ int main(int argc, char *argv[]) {
 			go->update_SVs();
 		}
 
-		//realignment: Using NGM???
-		if (!Parameter::Instance()->ref_seq.empty()) {
-			std::cout << "Realignment step activated:" << std::endl;
-			//1. parse in output file(s)
-			//2. extract reads from bam files (read groups?) //shellscript: picard/samtools??
-			//3. realign
-			//4. call Sniffles
-		}
-
 		cout << "Cleaning tmp files" << endl;
 		string del = "rm ";
 		del += Parameter::Instance()->tmp_file;
@@ -179,23 +312,7 @@ int main(int argc, char *argv[]) {
 
 	} catch (TCLAP::ArgException &e)  // catch any exceptions
 	{
-		std::cerr << "error: " << e.error() << " for arg " << e.argId() << std::endl;
+		std::cerr << "Sniffles error: " << e.error() << " for arg " << e.argId() << std::endl;
 	}
 	return 0;
 }
-/*
- * Input:
- * Regions to check
- *
- * Parameters
- *
- *
- */
-/*
- * 1. Detect strange regions
- * 		Using MD, Cigar, Split reads
- *
- * 2. Extract reads from region (?) The main read holds the whole sequence for BWA-MEM
- *
- * 3. Realign regions (?)
- */

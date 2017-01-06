@@ -8,7 +8,7 @@
 #include "BedpePrinter.h"
 
 void BedpePrinter::print_header() {
-	fprintf(file, "%s", "#Chrom\tstart\tstop\tchrom2\tstart2\tstop2\tvariant_name/ID\tscore (smaller is better)\tstrand1\tstrand2\ttype\tnumber_of_split_reads\tbest_chrom\tbest_pos\tbest_chrom2\tbest_pos2\tpredicted_length\n");
+	fprintf(file, "%s", "#Chrom\tstart\tstop\tchrom2\tstart2\tstop2\tvariant_name/ID\tscore (smaller is better)\tstrand1\tstrand2\ttype\tnumber_of_split_reads\tbest_chr1\tbest_start\tbest_chr2\tbest_stop\tpredicted_length\n");
 }
 void BedpePrinter::print_body(Breakpoint * &SV, RefVector ref) {
 	if (!this->bed_tree.is_in(SV->get_coordinates().start.most_support, this->root) && !this->bed_tree.is_in(SV->get_coordinates().stop.most_support, this->root)) {
