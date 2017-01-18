@@ -19,7 +19,6 @@
 
 double const uniform_variance = 0.2886751; //sqrt(1/12) see variance of uniform distribution -> std
 
-
 class IPrinter {
 protected:
 	FILE *file;
@@ -36,7 +35,7 @@ protected:
 	long calc_pos(long pos, RefVector ref, std::string &chr);
 	std::string get_chr(long pos, RefVector ref);
 	std::string get_type(char type);
-	void sort_insert(int pos,std::vector<int> & positons);
+	void sort_insert(int pos, std::vector<int> & positons);
 public:
 
 	IPrinter() {
@@ -53,10 +52,10 @@ public:
 		print_body(SV, ref);
 	}
 	void init() {
-		distances=fopen("distances.txt", "w");
-		if(!Parameter::Instance()->output_vcf.empty()){
+
+		if (!Parameter::Instance()->output_vcf.empty()) {
 			file = fopen(Parameter::Instance()->output_vcf.c_str(), "w");
-		}else if(!Parameter::Instance()->output_bedpe.empty()){
+		} else if (!Parameter::Instance()->output_bedpe.empty()) {
 			file = fopen(Parameter::Instance()->output_bedpe.c_str(), "w");
 		}
 		print_header();
@@ -67,18 +66,20 @@ public:
 			std::cout << "Cross checking..." << std::endl;
 			initialize_bed(bed_tree, root, ref);
 		}
-		string tmp_name_file=Parameter::Instance()->tmp_file;
-		tmp_name_file+="Names";
-		tmp_file=fopen(tmp_name_file.c_str(), "wb");
+		string tmp_name_file = Parameter::Instance()->tmp_file;
+		if (Parameter::Instance()->phase) {
+			tmp_name_file += "Names";
+			tmp_file = fopen(tmp_name_file.c_str(), "wb");
+		}
 	}
-	bool to_print(Breakpoint * &SV,double & std_start,double &std_stop);
+	bool to_print(Breakpoint * &SV, pair<double, double> &std, pair<double, double> & kurtosis, double & std_length);
 	void store_readnames(std::vector<long> names, int id);
-	void close_file(){
+	void close_file() {
 		fclose(this->file);
 	}
-	void comp_std(Breakpoint * &SV,double & std_start, double & std_stop);
+	void comp_std(Breakpoint * &SV, double & std_start, double & std_stop);
 	void comp_std_med(Breakpoint * &SV, double & std_start, double & std_stop);
-	void comp_std_quantile(Breakpoint * &SV, double & std_start, double & std_stop);
+	pair<double, double> comp_std_quantile(Breakpoint * &SV, pair<double, double>& std, double & std_lenght);
 	const std::string currentDateTime();
 };
 

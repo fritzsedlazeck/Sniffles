@@ -46,18 +46,21 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 		//temp. store read names supporting this SVs to later group the SVs together.
 		//double std_start = 0;
 		//double std_stop = 0;
-	//	double std_medstart = 0;
+		//	double std_medstart = 0;
 		//double std_medstop = 0;
 		double std_quant_start = 0;
 		double std_quant_stop = 0;
 		//comp_std(SV, std_start, std_stop);
 		//comp_std_med(SV, std_medstart, std_medstop);
 
-
-
 		/*	if ((SV->get_SVtype() & NEST) || ((std_start < SV->get_length() * 2 && std_stop < SV->get_length() * 2) && (std_start<400 && std_stop<400))) {
 		 */
-		if (to_print(SV,std_quant_start,std_quant_stop)) {
+
+		pair<double, double> kurtosis;
+		pair<double, double> std_quant;
+		double std_length = 0;
+
+		if (to_print(SV, std_quant, kurtosis, std_length)) {
 			if (Parameter::Instance()->phase) {
 				store_readnames(SV->get_read_ids(), id);
 			}
@@ -106,9 +109,9 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%c", '>');
 
 			fprintf(file, "%s", "\t.\tPASS\t");
-			if(std_quant_start<10 && std_quant_stop<10){
+			if (std_quant_start < 10 && std_quant_stop < 10) {
 				fprintf(file, "%s", "PRECISE");
-			}else{
+			} else {
 				fprintf(file, "%s", "IMPRECISE");
 			}
 
@@ -125,19 +128,16 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 				fprintf(file, "%i", end);
 			}
 
-			/*fprintf(file, "%s", ";STD_start=");
-			fprintf(file, "%f", std_start);
-			fprintf(file, "%s", ";STD_med_start=");
-			fprintf(file, "%f", std_medstart);*/
 			fprintf(file, "%s", ";STD_quant_start=");
-			fprintf(file, "%f", std_quant_start);
-			/*fprintf(file, "%s", ";STD_end=");
-			fprintf(file, "%f", std_stop);
-			fprintf(file, "%s", ";STD_med_stop=");
-			fprintf(file, "%f", std_medstop);*/
+			fprintf(file, "%f", std_quant.first);
 			fprintf(file, "%s", ";STD_quant_stop=");
-			fprintf(file, "%f", std_quant_stop);
-			//	}
+			fprintf(file, "%f", std_quant.second);
+			fprintf(file, "%s", ";Kurtosis_quant_start=");
+			fprintf(file, "%f", kurtosis.first);
+			fprintf(file, "%s", ";Kurtosis_quant_stop=");
+			fprintf(file, "%f", kurtosis.second);
+	//		fprintf(file, "%s", ";STD_length=");
+	//		fprintf(file, "%f", std_length);
 			fprintf(file, "%s", ";SVTYPE=");
 			fprintf(file, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());
 			if (Parameter::Instance()->report_n_reads > 0) {
@@ -156,14 +156,43 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			//	if (SV->get_SVtype() & NEST) {
 			//		fprintf(file, "%i", -1);
 			//	} else {
-			if(((SV->get_SVtype() & INS) && SV->get_length()== Parameter::Instance()->huge_ins) && !SV->get_types().is_SR ){
+			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && !SV->get_types().is_SR) {
 				fprintf(file, "%s", "NA");
-			}else{
+			} else {
 				fprintf(file, "%i", SV->get_length());
 			}
 			//	}
 			fprintf(file, "%s", ";STRANDS=");
 			fprintf(file, "%s", strands.c_str());
+			fprintf(file, "%s", ";STRANDS2=");
+
+			std::map<std::string, read_str> support = SV->get_coordinates().support;
+			pair<int, int> tmp_start;
+			pair<int, int> tmp_stop;
+			tmp_start.first = 0;
+			tmp_start.second = 0;
+			tmp_stop.first = 0;
+			tmp_stop.second = 0;
+			for (std::map<std::string, read_str>::iterator i = support.begin(); i != support.end(); i++) {
+				if ((*i).second.read_strand.first) {
+					tmp_start.first++;
+				} else {
+					tmp_start.second++;
+				}
+				if ((*i).second.read_strand.second) {
+					tmp_stop.first++;
+				} else {
+					tmp_stop.second++;
+				}
+			}
+			fprintf(file, "%i", tmp_start.first);
+			fprintf(file, "%s", ",");
+			fprintf(file, "%i", tmp_start.second);
+			fprintf(file, "%s", ",");
+			fprintf(file, "%i", tmp_stop.first);
+			fprintf(file, "%s", ",");
+			fprintf(file, "%i", tmp_stop.second);
+
 			fprintf(file, "%s", ";RE=");
 			fprintf(file, "%i", SV->get_support());
 			fprintf(file, "%s", "\tGT:DR:DV\t./.:.:");

@@ -1,5 +1,5 @@
 /*
- * Genotyper.cpp
+ / * Genotyper.cpp
  *
  *  Created on: Mar 28, 2016
  *      Author: fsedlaze
@@ -14,23 +14,29 @@ std::string Genotyper::mod_breakpoint_vcf(char *buffer, int ref) {
 	string entry;
 	string tmp = string(buffer);
 	int pos = 0;
-	pos = tmp.find_last_of('\t');
 
-	entry = tmp.substr(0, pos);
-	entry += '\t';
+	pos = tmp.find_last_of("GT");
+	//tab
+	entry = tmp.substr(0, pos-2);
 
-	tmp = tmp.substr(pos + 1);
+	tmp = tmp.substr(pos + 1);// the right part is only needed:
 	pos = tmp.find_last_of(':');
 	int support = atoi(tmp.substr(pos + 1).c_str());
+
 	double allele = (double) support / (double) (support + ref);
-	if (allele > 0.8) {
-		entry += "1/1:";
-	} else if (allele > 0.3) {
-		entry += "0/1:";
-	} else {
-		entry += "0/0:";
-	}
 	std::stringstream ss;
+	ss << ";AF=";
+	ss << allele;
+	ss << "\tGT:DR:DV\t";
+
+	if (allele > 0.8) {
+		ss << "1/1:";
+	} else if (allele > 0.3) {
+		ss << "0/1:";
+	} else {
+		ss << "0/0:";
+	}
+
 	ss << ref;
 	ss << ":";
 	ss << support;
@@ -58,8 +64,8 @@ std::string Genotyper::mod_breakpoint_bedpe(char *buffer, int ref) {
 }
 
 void Genotyper::parse_pos(char * buffer, int & pos, std::string & chr) {
-	chr="";
-	pos=-1;
+	chr = "";
+	pos = -1;
 	size_t i = 0;
 	int count = 0;
 	while (buffer[i] != '\t') {
@@ -91,7 +97,7 @@ variant_str Genotyper::get_breakpoint_vcf(char *buffer) {
 			tmp.pos = atoi(&buffer[i]);
 		}
 		if (tmp.pos2 == -1 && (count == 4 && (buffer[i - 1] == '[' || buffer[i - 1] == ']'))) {
-			parse_pos(&buffer[i - 1],tmp.pos2,tmp.chr2);
+			parse_pos(&buffer[i - 1], tmp.pos2, tmp.chr2);
 		}
 
 		if (count > 6 && strncmp(";CHR2=", &buffer[i], 6) == 0) {
@@ -166,8 +172,9 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 	char* buffer = new char[buffer_size];
 	myfile.getline(buffer, buffer_size);
 	//parse SVs breakpoints in file
-	while (!myfile.eof()) {
+	while (!myfile.eof()) { // TODO:if first -> we need to define AF!
 		if (buffer[0] != '#') {
+
 			std::string to_print;
 			// create binary tree to hold breakpoints!
 			variant_str tmp;
@@ -266,5 +273,9 @@ void Genotyper::update_SVs() {
 	read_SVs(this->tree, this->node);
 	compute_cov(this->tree, this->node);
 	update_file(this->tree, this->node);
+	cout << "Cleaning tmp files" << endl;
+	string del = "rm ";
+	del += Parameter::Instance()->tmp_file;
+	system(del.c_str());
 }
 

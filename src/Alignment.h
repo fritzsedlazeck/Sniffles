@@ -25,6 +25,12 @@ const unsigned char TRA = 0x10; // hex for 0001 0000
 const unsigned char NEST =0x20; // hex for 0010 0000
 const unsigned char NA = 0x80;  // hex for 1000 0000
 
+
+//NGM: choped alns:
+const unsigned int NOT_CLIPPED = 0x0;
+const unsigned int Ns_CLIPPED = 0x1;
+const unsigned int FULLY_EXPLAINED = 0x2;
+
 using namespace BamTools;
 using namespace std;
 typedef unsigned short ushort;

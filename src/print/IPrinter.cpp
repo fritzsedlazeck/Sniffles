@@ -7,16 +7,18 @@
 
 #include "IPrinter.h"
 
-bool IPrinter::to_print(Breakpoint * &SV, double & std_start, double & std_stop) {
+bool IPrinter::to_print(Breakpoint * &SV, pair<double, double>& std, pair<double, double> & kurtosis, double & std_length) {
 
-	std_start = 0;
-	std_stop = 0;
+	std.first = 0;
+	std.second = 0;
+
 	//comp_std(SV, std_start, std_stop);
-	comp_std_quantile(SV, std_start, std_stop);
+	std_length=0;
+	kurtosis = comp_std_quantile(SV, std,std_length);
 	bool to_print = true;
 
-	if(((SV->get_SVtype() & INS) && SV->get_coordinates().stop.most_support- SV->get_coordinates().start.most_support == Parameter::Instance()->huge_ins) && (SV->get_types().is_ALN)){
-		return (!SV->get_types().is_SR && (std_start<5 && std_stop<5));
+	if (((SV->get_SVtype() & INS) && SV->get_coordinates().stop.most_support - SV->get_coordinates().start.most_support == Parameter::Instance()->huge_ins) && (SV->get_types().is_ALN)) {
+		return (!SV->get_types().is_SR && (std.first < 5 && std.second < 5));
 	}
 
 	if ((SV->get_SVtype() & INS) || (SV->get_SVtype() & DEL)) { //for insertions  + deletions:
@@ -24,17 +26,20 @@ bool IPrinter::to_print(Breakpoint * &SV, double & std_start, double & std_stop)
 		//dist = (double)std::min(((int)dist * 4), Parameter::Instance()->max_dist);
 		dist = dist * 4.0 * (uniform_variance / 2); //because we test against corrected value!
 		//std::cout<<"DIST: "<<(SV->get_coordinates().stop.most_support - SV->get_coordinates().start.most_support)<<" "<<dist<<" STD: "<<std_start<<" "<<std_stop<<std::endl;
-		return ((std_start < dist && std_stop < dist)); //0.2886751
+		return ((std.first < dist && std.second < dist)); //0.2886751
 	}
 
 	//TODO test!
 	if (SV->get_SVtype() & NEST) {
 		return true;
 	}
-	double max_allowed=4*Parameter::Instance()->max_dist*(uniform_variance / 2);
+	double max_allowed = 4 * Parameter::Instance()->max_dist * (uniform_variance / 2);
 
-	return (std_start < max_allowed && std_stop < max_allowed);
+	if (SV->get_coordinates().support.size() < 8) { //not enough coverage
+		max_allowed = max_allowed * ((double) SV->get_coordinates().support.size()/10.0);
+	}
 
+	return (std.first < max_allowed && std.second < max_allowed);
 }
 
 std::string IPrinter::get_chr(long pos, RefVector ref) {
@@ -155,54 +160,76 @@ void IPrinter::comp_std_med(Breakpoint * &SV, double & std_start, double & std_s
 	std_stop = std::sqrt(std_stop_dists[median]);
 }
 
-void IPrinter::comp_std_quantile(Breakpoint * &SV, double & std_start, double & std_stop) {
+pair<double, double> IPrinter::comp_std_quantile(Breakpoint * &SV, pair<double, double> & std, double & std_length) {
 	double count = 0;
 	std::vector<int> std_start_dists;
 	std::vector<int> std_stop_dists;
+	std::vector<int> std_length_dists;
 
-	std::stringstream ss;
-
+	//std::stringstream ss;
+	double s4_start = 0;
+	double s4_stop = 0;
+	double s2_start = 0;
+	double s2_stop = 0;
+	std_length=0;
 	std::map<std::string, read_str> support = SV->get_coordinates().support;
-
-	fprintf(distances, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());
-	fprintf(distances, "%c", '\t');
-	fprintf(distances, "%i", SV->get_coordinates().stop.most_support-SV->get_coordinates().start.most_support);
-	fprintf(distances, "%c", '\t');
-	fprintf(distances, "%i", support.size());
-	fprintf(distances, "%c", '\t');
 	for (std::map<std::string, read_str>::iterator i = support.begin(); i != support.end(); i++) {
 		if ((*i).second.SV & SV->get_SVtype()) {
+				long diff=SV->get_length() -((*i).second.coordinates.second-(*i).second.coordinates.first);
+			//	sort_insert(std::pow((double) diff, 2.0), std_length_dists); //TODO think about that!!
+				std_length+=std::pow((double) diff, 2.0);
 			if ((*i).second.coordinates.first != -1) {
-				long diff = (SV->get_coordinates().start.most_support - (*i).second.coordinates.first);
-				ss << '\t';
-				ss << diff;
+				diff = (SV->get_coordinates().start.most_support - (*i).second.coordinates.first);
+				//ss << '\t';
+				//ss << diff;
 				sort_insert(std::pow((double) diff, 2.0), std_start_dists);
+				s4_start += std::pow((double) diff, 4.0);
+				s2_start += std::pow((double)diff, 2.0);;
 			}
 			if ((*i).second.coordinates.second != -1) {
-				long diff = (SV->get_coordinates().stop.most_support - (*i).second.coordinates.second);
-				ss << '\t';
-				ss << diff;
+				diff = (SV->get_coordinates().stop.most_support - (*i).second.coordinates.second);
+				//ss << '\t';
+				//ss << diff;
 
 				sort_insert(std::pow((double) diff, 2.0), std_stop_dists);
+				s4_stop += std::pow((double) diff, 4.0);
+				s2_stop += std::pow((double)diff, 2.0);
 			}
 		}
-	}
-
-	count = 0;
-	for (int i = 0; i < std::max((int)std_stop_dists.size() / 2,8); i++) {
-		std_start += std_start_dists[i];
-		std_stop += std_stop_dists[i];
 		count++;
 	}
+	std_length=std::sqrt(std_length/count);
 
-	std_start = std::sqrt(std_start / count);
-	std_stop = std::sqrt(std_stop / count);
-	fprintf(distances, "%f", std_start);
-	fprintf(distances, "%s",ss.str().c_str());
-	fprintf(distances, "%c", '\n');
+	s4_start = s4_start / count;
+	s4_stop = s4_stop / count;
+	s2_start = s2_start / count;
+	s2_stop = s2_stop / count;
 
+	count = 0;
+	for (int i = 0; i < std::max((int) std_stop_dists.size() / 2, 10) && i<std_start_dists.size(); i++) {
+		std.first += std_start_dists[i];
+		std.second += std_stop_dists[i];
+		count++;
 
+		/*s4_start += std::pow((double) std_start_dists[i], 2.0);
+		 s4_stop += std::pow((double) std_stop_dists[i], 2.0);
+		 s2_start += std_start_dists[i];
+		 s2_stop += std_stop_dists[i];*/
+	}
+
+	pair<double, double> kurtosis;
+	kurtosis.first = (s4_start / std::pow(s2_start, 2.0)) - 3;
+	kurtosis.second = (s4_stop / std::pow(s2_stop, 2.0)) - 3;
+
+	std.first = std::sqrt(std.first / count);
+	std.second = std::sqrt(std.second / count);
+
+	for(size_t i=0;i<std_length_dists.size();i++){
+
+	}
+	return kurtosis;
 }
+
 void IPrinter::comp_std(Breakpoint * &SV, double & std_start, double & std_stop) {
 	double count = 0;
 	std_start = 0;

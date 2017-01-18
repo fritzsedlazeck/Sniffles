@@ -42,6 +42,7 @@ struct read_str {
 	short type; //split reads, cigar or md string
 	//for later assessment:
 	pair<bool, bool> strand;
+	pair<bool, bool> read_strand;
 	pair<long,long> coordinates; // I could use the bin tree for that!
 	char SV; // bit vector
 	int length;

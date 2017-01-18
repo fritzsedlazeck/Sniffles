@@ -86,12 +86,12 @@ void Cluster_SVS::update_SVs(std::vector<combine_str> & ids) {
 	move += filename;
 	system(move.c_str());
 }
-void Cluster_SVS::add_id(int curr_id, int new_id, std::vector<combine_str> & ids,int subkey) {
+void Cluster_SVS::add_id(int curr_id, int new_id, std::vector<combine_str> & ids, int subkey) {
 
-	for (size_t i = 0; i < ids.size(); i++) {//check if already in the new array
+	for (size_t i = 0; i < ids.size(); i++) { //check if already in the new array
 		if (ids[i].curr_id == curr_id && ids[i].alt_id == new_id) {
 			ids[i].support++;
-			ids[i].hit=subkey;
+			ids[i].hit = subkey;
 			return;
 		}
 	}
@@ -101,23 +101,23 @@ void Cluster_SVS::add_id(int curr_id, int new_id, std::vector<combine_str> & ids
 	tmp.curr_id = curr_id;
 	tmp.alt_id = new_id; //smallest ID of SVs
 	tmp.support = 1;
-	tmp.hit=subkey;
+	tmp.hit = subkey;
 	ids.push_back(tmp);
 }
 std::string Cluster_SVS::find_id(int curr_id, std::vector<combine_str> & ids) {
-	std::stringstream ss ;
+	std::stringstream ss;
 	for (size_t i = 0; i < ids.size(); i++) {
 		if (ids[i].support > Parameter::Instance()->min_grouping_support) {
 			if (ids[i].curr_id == curr_id) {
 
-				ss<<ids[i].alt_id;
-				ss<<'_';
-				ss<<ids[i].hit;
+				ss << ids[i].alt_id;
+				ss << '_';
+				ss << ids[i].hit;
 				return ss.str();
 			}
 		}
 	}
-	ss<<curr_id;
+	ss << curr_id;
 	return ss.str();
 }
 void Cluster_SVS::update_SVs() {
@@ -138,11 +138,11 @@ void Cluster_SVS::update_SVs() {
 				min_id = std::min(min_id, (*i).second[j]);
 			}
 			//min_id is now the smallest SVs id that this read is associated with.
-			int subkey=0;
+			int subkey = 0;
 			for (size_t j = 0; j < (*i).second.size(); j++) { // update the other SVs IDs
 				//if ((*i).second[j] != min_id) {
-					add_id((*i).second[j], min_id, ids,subkey);
-					subkey++;
+				add_id((*i).second[j], min_id, ids, subkey);
+				subkey++;
 				//}
 			}
 		}
@@ -151,4 +151,11 @@ void Cluster_SVS::update_SVs() {
 
 //3: Update the IDS in the VCF/Bedpe files.
 	update_SVs(ids);
+	std::string tmp_name_file = Parameter::Instance()->tmp_file; // this file is created in IPrinter and stores the names and ID of SVS.
+	tmp_name_file += "Names";
+	std::cout << "Cleaning tmp files" << std::endl;
+	std::string del = "rm ";
+	del += tmp_name_file;
+	system(del.c_str());
+
 }

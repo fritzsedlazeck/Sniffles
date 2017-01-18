@@ -88,11 +88,11 @@ vector<differences_str> Alignment::summarizeAlignment() {
 			pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'N') {
 			pos += al->CigarData[i].Length;
-		}
-		/*else if (al->CigarData[i].Type == 'S' && al->CigarData[i].Length > Parameter::Instance()->huge_ins) { /// Used for reads ranging into an inser
+		}else if (al->CigarData[i].Type == 'S' && al->CigarData[i].Length > Parameter::Instance()->huge_ins) { /// Used for reads ranging into an inser
 			string sa;
 			al->GetTag("SA", sa);
-			if (sa.empty()) { // == no split reads!
+			uint32_t sv;
+			if ((al->GetTag("SV",sv) && sa.empty()) && (!(sv & Ns_CLIPPED)  && !(sv & FULLY_EXPLAINED))) { // TODO remove last )
 				if (flag) {
 					std::cout << "Chop: " << pos << " Rname: " << this->getName() << std::endl;
 				}
@@ -104,7 +104,7 @@ vector<differences_str> Alignment::summarizeAlignment() {
 				ev.type = Parameter::Instance()->huge_ins * -1; //insertion: WE have to fix the length since we cannot estimate it!]
 				events.push_back(ev);
 			}
-		}*/
+		}
 	}
 
 	if (flag) {
@@ -715,6 +715,11 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 		std::string cigar;
 		std::string chr;
 		bool nested = true;
+
+		uint32_t sv;
+		al->GetTag("SV",sv);
+
+
 		while (i < sa.size()) {
 			if (count == 0 && sa[i] != ',') {
 				chr += sa[i];
@@ -739,7 +744,8 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 				count++;
 			}
 			if (sa[i] == ';') {
-				if (tmp.mq > Parameter::Instance()->min_mq && entries.size() <= Parameter::Instance()->max_splits) {
+				//TODO: maybe check how often this happens per read!
+				if ((tmp.mq > Parameter::Instance()->min_mq || sv & FULLY_EXPLAINED ) && entries.size() <= Parameter::Instance()->max_splits) {
 					//TODO: check this!
 					tmp.cigar = translate_cigar(cigar); //translates the cigar (string) to a type vector
 					get_coords(tmp, tmp.read_pos_start, tmp.read_pos_stop); //get the coords on the read.
@@ -772,7 +778,7 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 			}
 			i++;
 		}
-		if (nested && entries.size() > 2 || overlapping_segments(entries)) {
+		if (nested && (entries.size() > 2 || overlapping_segments(entries))) {
 			check_entries(entries);
 		}
 		if (flag) {
@@ -793,13 +799,18 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 double Alignment::get_scrore_ratio() {
 	uint score = -1;
 	uint subscore = -1;
-	if (al->GetTag("AS", score) && al->GetTag("XS", subscore)) {
+	if (al->GetTag("AS", score)){
+		al->GetTag("XS", subscore);
 		if (subscore == 0) {
 			subscore = 1;
 		}
+
 		//cout<<'\t'<<score<<" "<<subscore<<endl;
 		return (double) score / (double) subscore;
 	}
+	/*else{
+		cout<<"READ: "<<this->getName()<<" ERROR!"<<std::endl;
+	}*/
 	return -1;
 }
 bool Alignment::get_is_save() {
@@ -814,7 +825,7 @@ bool Alignment::get_is_save() {
 	 std::cout<<this->getName()<<"XT"<<std::endl;
 	 }*/
 
-	return !((al->GetTag("XA", sa) && !sa.empty()) || (al->GetTag("XT", sa) && !sa.empty()));					//|| (score == -1 || score < Parameter::Instance()->score_treshold)); //TODO: 7.5
+	return !((al->GetTag("XA", sa) && !sa.empty()) || (al->GetTag("XT", sa) && !sa.empty()));					//|| (score == -1 || score > Parameter::Instance()->score_treshold)); //TODO: 7.5
 }
 
 std::vector<CigarOp> Alignment::translate_cigar(std::string cigar) {

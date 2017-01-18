@@ -24,13 +24,12 @@
 
 //cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
 
-
 //TODO:
-// Make hist of position%10. Take highest and if second highest that is at least Xbp away is over Parameter -> Split
-//Upload new version. Take care about version naming!
+// Check pseudo event introduction.
+// AF tag in genotyping.
+// strand bias??
 
 Parameter* Parameter::m_pInstance = NULL;
-
 
 void read_parameters(int argc, char *argv[]) {
 
@@ -48,7 +47,9 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<std::string> arg_tmp_file("", "tmp_file", "path to temporary file otherwise Sniffles will use the current directory.", false, "", "string");
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
+	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV. Default: 1", false, 1, "int");
 
+	cmd.add(arg_cluster_supp);
 	cmd.add(arg_numreads);
 	cmd.add(arg_tmp_file);
 	cmd.add(arg_dist);
@@ -65,7 +66,7 @@ void read_parameters(int argc, char *argv[]) {
 
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
-	Parameter::Instance()->read_name = " "; //just for debuging reasons!
+	Parameter::Instance()->read_name = "m150101_072407_00118_c100714652550000001823152704301530_s1_p0/78160/5348_24258";//"22_36746138"; //just for debuging reasons!
 	Parameter::Instance()->bam_files.push_back(arg_bamfile.getValue());
 	Parameter::Instance()->min_mq = arg_mq.getValue();
 	Parameter::Instance()->output_vcf = arg_vcf.getValue();
@@ -79,18 +80,18 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->num_threads = arg_threads.getValue();
 	Parameter::Instance()->output_bedpe = arg_bedpe.getValue();
 	Parameter::Instance()->tmp_file = arg_tmp_file.getValue();
-	Parameter::Instance()->min_grouping_support = 1;
+	Parameter::Instance()->min_grouping_support = arg_cluster_supp.getValue();
 
 	if (Parameter::Instance()->tmp_file.empty()) {
 		std::stringstream ss;
 		srand(time(NULL));
-		//ss<<"."; //TODO: User does not need to see this!
 		ss << rand();
 		ss << "_tmp";
 		Parameter::Instance()->tmp_file = ss.str();
 	}
 }
 
+//some toy/test functions:
 void parse_binary() {
 	std::string tmp_name_file = Parameter::Instance()->tmp_file; // this file is created in IPrinter and stores the names and ID of SVS.
 	tmp_name_file += "Names";
@@ -168,24 +169,25 @@ void test_std() {
 	srand(time(NULL));
 	int start = rand() % 100000; /// sqrt(1/12) for ins. Plot TRA std vs. cov/support.
 	std::vector<int> positions;
-	double avg=0;
-	double num=0;
-	for (int t = 0; t < 1000; t++) {
-		for (int border = 100; border < 90001; border = border * 5) {
-			//for (int cov = 1; cov < 800; cov += 10) {
-			int cov = 100;
+	double avg = 0;
+	double num = 0;
+
+		for (int border = 100; border < 9001; border = border * 10) {
+			for (int t = 0; t < 10; t++) {
+			for (int cov = 2; cov < 5; cov += 1) {
+
 			for (size_t i = 0; i < cov; i++) {
 				int pos = (rand() % border) + (start - (border / 2));
 				positions.push_back(pos);
 			}
-			avg+=comp_std(positions, start) / test_comp_std_quantile(positions, start);
-			std::cout << "Cov: " << cov << " border: " << border << " STD: " << comp_std(positions, start) / test_comp_std_quantile(positions, start) << std::endl;
+			avg += comp_std(positions, start) / test_comp_std_quantile(positions, start);
+			std::cout << "Cov: " << cov+1 << " border: " << border << " STD: " << comp_std(positions, start) << std::endl;// / test_comp_std_quantile(positions, start) << std::endl;
 			positions.clear();
 			num++;
-			//}
+			}
 		}
 	}
-	std::cout<<"AVG: "<<avg/num<<std::endl;
+	std::cout << "AVG: " << avg / num << std::endl;
 }
 
 void get_rand(int mean, int num, vector<int> & positions, int interval) {
@@ -255,14 +257,14 @@ void test_slimming() {
 		std::cout << std::endl;
 	}
 }
+
 int main(int argc, char *argv[]) {
 
 	try {
-		//test_slimming();
+		//	test_slimming();
 	//	test_std();
-	//	exit(0);
-
-
+		//
+		//exit(0);
 		//init parameter and reads user defined parameter from command line.
 		read_parameters(argc, argv);
 
@@ -304,11 +306,12 @@ int main(int argc, char *argv[]) {
 			Genotyper * go = new Genotyper();
 			go->update_SVs();
 		}
-
-		cout << "Cleaning tmp files" << endl;
-		string del = "rm ";
-		del += Parameter::Instance()->tmp_file;
-		//system(del.c_str());
+		/*if ( Parameter::Instance()->phase) {
+			cout << "Cleaning tmp files" << endl;
+			string del = "rm ";
+			del += Parameter::Instance()->tmp_file;
+			system(del.c_str());
+		}*/
 
 	} catch (TCLAP::ArgException &e)  // catch any exceptions
 	{

@@ -14,6 +14,8 @@
 #include <map>
 #include <sstream>
 #include "../Paramer.h"
+#include <string.h>
+#include <string>
 struct __attribute__((packed)) name_str{
 	long read_name; //needs to be a number to store in binary! (bit reservation!)
 	int svs_id;

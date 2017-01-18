@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 2.8)
 project(Sniffles)
 
-set( SNIF_VERSION_MAJOR 1 )
-set( SNIF_VERSION_MINOR 0 )
+ set( SNIF_VERSION_MAJOR 1 )
+ set( SNIF_VERSION_MINOR 0 )
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "Building in debug mode!")
-    set( SNIF_VERSION_BUILD 2-debug )
+    set( SNIF_VERSION_BUILD 3-debug )
 else()
-	set( SNIF_VERSION_BUILD 2 )
+	set( SNIF_VERSION_BUILD 3 )
 ENDIF()
 
 
