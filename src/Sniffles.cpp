@@ -10,6 +10,7 @@
 #include <iostream>
 #include "Paramer.h"
 #include <tclap/CmdLine.h>
+#include <unistd.h>
 #include <omp.h>
 #include "Genotyper/Genotyper.h"
 #include "realign/Realign.h"
@@ -21,6 +22,7 @@
 #include "Ignore_Regions.h"
 #include "plane-sweep/PlaneSweep_slim.h"
 #include "print/BedpePrinter.h"
+
 
 //cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
 
@@ -86,6 +88,8 @@ void read_parameters(int argc, char *argv[]) {
 		std::stringstream ss;
 		srand(time(NULL));
 		ss << rand();
+		sleep(5);
+		ss<< rand();
 		ss << "_tmp";
 		Parameter::Instance()->tmp_file = ss.str();
 	}

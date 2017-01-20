@@ -109,7 +109,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%c", '>');
 
 			fprintf(file, "%s", "\t.\tPASS\t");
-			if (std_quant_start < 10 && std_quant_stop < 10) {
+			if (std_quant.first < 10 && std_quant.second < 10) {
 				fprintf(file, "%s", "PRECISE");
 			} else {
 				fprintf(file, "%s", "IMPRECISE");

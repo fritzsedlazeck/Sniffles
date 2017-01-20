@@ -816,14 +816,7 @@ double Alignment::get_scrore_ratio() {
 bool Alignment::get_is_save() {
 	string sa;
 
-	double score = get_scrore_ratio();
-
-	/*if((al->GetTag("XA", sa) && !sa.empty())){
-	 std::cout<<this->getName()<<"XA"<<std::endl;
-	 }
-	 if( (al->GetTag("XT", sa) && !sa.empty()) ){
-	 std::cout<<this->getName()<<"XT"<<std::endl;
-	 }*/
+	double score = get_scrore_ratio(); //TODO should I use this again for bwa?
 
 	return !((al->GetTag("XA", sa) && !sa.empty()) || (al->GetTag("XT", sa) && !sa.empty()));					//|| (score == -1 || score > Parameter::Instance()->score_treshold)); //TODO: 7.5
 }
