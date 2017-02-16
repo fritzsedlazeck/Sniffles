@@ -804,13 +804,8 @@ double Alignment::get_scrore_ratio() {
 		if (subscore == 0) {
 			subscore = 1;
 		}
-
-		//cout<<'\t'<<score<<" "<<subscore<<endl;
 		return (double) score / (double) subscore;
 	}
-	/*else{
-		cout<<"READ: "<<this->getName()<<" ERROR!"<<std::endl;
-	}*/
 	return -1;
 }
 bool Alignment::get_is_save() {
@@ -818,7 +813,7 @@ bool Alignment::get_is_save() {
 
 	double score = get_scrore_ratio(); //TODO should I use this again for bwa?
 
-	return !((al->GetTag("XA", sa) && !sa.empty()) || (al->GetTag("XT", sa) && !sa.empty()));					//|| (score == -1 || score > Parameter::Instance()->score_treshold)); //TODO: 7.5
+	return !((al->GetTag("XA", sa) && !sa.empty()) || (al->GetTag("XT", sa) && !sa.empty())) && (score == -1 || score > Parameter::Instance()->score_treshold);					//|| //TODO: 7.5
 }
 
 std::vector<CigarOp> Alignment::translate_cigar(std::string cigar) {
