@@ -48,6 +48,7 @@ public:
 
 	double error_rate;
 	double score_treshold;
+	double min_allelel_frequency;
 	//double min_num_mismatches;
 
 	int window_thresh;

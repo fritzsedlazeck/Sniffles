@@ -17,13 +17,16 @@ std::string Genotyper::mod_breakpoint_vcf(char *buffer, int ref) {
 
 	pos = tmp.find_last_of("GT");
 	//tab
-	entry = tmp.substr(0, pos-2);
+	entry = tmp.substr(0, pos - 2);
 
-	tmp = tmp.substr(pos + 1);// the right part is only needed:
+	tmp = tmp.substr(pos + 1);	// the right part is only needed:
 	pos = tmp.find_last_of(':');
 	int support = atoi(tmp.substr(pos + 1).c_str());
-
 	double allele = (double) support / (double) (support + ref);
+
+	if (allele < Parameter::Instance()->min_allelel_frequency) {
+		return "";
+	}
 	std::stringstream ss;
 	ss << ";AF=";
 	ss << allele;
@@ -55,6 +58,12 @@ std::string Genotyper::mod_breakpoint_bedpe(char *buffer, int ref) {
 
 	int pos = tmp.find_last_of('\t'); //TODO!!
 	int support = atoi(tmp.substr(pos + 1).c_str());
+	double allele = (double) support / (double) (support + ref);
+
+	if (allele < Parameter::Instance()->min_allelel_frequency) {
+		return "";
+	}
+
 	std::stringstream ss;
 	ss << ref;
 	ss << "\t";
@@ -189,11 +198,15 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 			} else {
 				to_print = mod_breakpoint_bedpe(buffer, ref);
 			}
-			fprintf(file, "%s", to_print.c_str());
+			if (!to_print.empty()) {
+				fprintf(file, "%s", to_print.c_str());
+				fprintf(file, "%c", '\n');
+			}
 		} else {
 			fprintf(file, "%s", buffer);
+			fprintf(file, "%c", '\n');
 		}
-		fprintf(file, "%c", '\n');
+
 		myfile.getline(buffer, buffer_size);
 	}
 	myfile.close();

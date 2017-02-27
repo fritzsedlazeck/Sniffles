@@ -50,17 +50,20 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
 	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV. Default: 1", false, 1, "int");
+	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1).",false, 0.0, "float");
+
 
 	cmd.add(arg_cluster_supp);
 	cmd.add(arg_numreads);
 	cmd.add(arg_tmp_file);
 	cmd.add(arg_dist);
 	cmd.add(arg_threads);
-	cmd.add(arg_bedpe);
-	cmd.add(arg_vcf);
 	cmd.add(arg_minlength);
 	cmd.add(arg_mq);
 	cmd.add(arg_splits);
+	cmd.add(arg_bedpe);
+	cmd.add(arg_vcf);
+	cmd.add(arg_allelefreq);
 	cmd.add(arg_support);
 	cmd.add(arg_bamfile);
 	//parse cmd:
@@ -68,7 +71,7 @@ void read_parameters(int argc, char *argv[]) {
 
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
-	Parameter::Instance()->read_name = "m150101_072407_00118_c100714652550000001823152704301530_s1_p0/78160/5348_24258";//"22_36746138"; //just for debuging reasons!
+	Parameter::Instance()->read_name = " ";//"22_36746138"; //just for debuging reasons!
 	Parameter::Instance()->bam_files.push_back(arg_bamfile.getValue());
 	Parameter::Instance()->min_mq = arg_mq.getValue();
 	Parameter::Instance()->output_vcf = arg_vcf.getValue();
@@ -83,6 +86,12 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->output_bedpe = arg_bedpe.getValue();
 	Parameter::Instance()->tmp_file = arg_tmp_file.getValue();
 	Parameter::Instance()->min_grouping_support = arg_cluster_supp.getValue();
+	Parameter::Instance()->min_allelel_frequency=arg_allelefreq.getValue();
+
+	if(Parameter::Instance()->min_allelel_frequency>0){
+		std::cerr<<"Automatically enabling genotype mode"<<std::endl;
+		Parameter::Instance()->genotype=true;
+	}
 
 	if (Parameter::Instance()->tmp_file.empty()) {
 		std::stringstream ss;
@@ -91,7 +100,7 @@ void read_parameters(int argc, char *argv[]) {
 		sleep(5);
 		ss<< rand();
 		ss << "_tmp";
-		Parameter::Instance()->tmp_file = ss.str();
+		Parameter::Instance()->tmp_file = ss.str(); //check if file exists! -> if yes throw the dice again
 	}
 }
 
@@ -297,6 +306,7 @@ int main(int argc, char *argv[]) {
 		detect_breakpoints(Parameter::Instance()->bam_files[0], printer); //we could write out all read names for each sVs
 		printer->close_file();
 
+	//std::cout<<"Fin"<<std::endl;
 		//cluster the SVs together:
 		if (Parameter::Instance()->phase) {
 			std::cout << "Start phasing: " << std::endl;

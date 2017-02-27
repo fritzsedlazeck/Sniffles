@@ -67,8 +67,9 @@ long IPrinter::calc_pos(long pos, RefVector ref, std::string &chr) {
 	size_t i = 0;
 	pos -= (ref[i].RefLength + Parameter::Instance()->max_dist);
 
-	while (i < ref.size() && pos >= 0) {
+	while (i+1 < ref.size() && pos >= 0) {
 		i++;
+	//	std::cout<<i<<" "<<ref.size()<<" "<<pos<<" "<<pos-Parameter::Instance()->max_dist<<std::endl;
 		pos -= ((long) ref[i].RefLength + (long) Parameter::Instance()->max_dist);
 	}
 	chr = ref[i].RefName;

@@ -296,26 +296,33 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	std::cout << "Finalizing  .." << std::endl;
 	std::vector<Breakpoint *> points;
 	bst.get_breakpoints(root, points);
+	//std::cout<<"got breakpoints"<<std::endl;
 
-
-	polish_points(points, ref);
+	//polish_points(points, ref);
 	for (int i = 0; i < points.size(); i++) {
+		//std::cout<<"start check"<<" "<<i<<std::endl;
 		if (should_be_stored(points[i])) {
 			if (points[i]->get_SVtype() & TRA) {
+		//		std::cout<<"start store"<<" "<<i<<std::endl;
 				final.insert(points[i], root_final);
+		//		std::cout<<"Done insert"<<" "<<i<<std::endl;
 			} else {
+		//		std::cout<<"start print"<<" "<<i<<std::endl;
 				printer->printSV(points[i]);
+		//		std::cout<<"Done print"<<" "<<i<<std::endl;
 			}
 		}
 	}
+	//std::cout<<"Fine"<<std::endl;
 	bst.clear(root);
 	if (Parameter::Instance()->genotype) {
 		fclose(ref_allel_reads);
 	}
 //	sweep->finalyze();
+
 	points.clear();
 	final.get_breakpoints(root_final, points);
-
+	//std::cout<<"Detect merged tra"<<std::endl;
 	size_t points_size = points.size();
 	for (size_t i = 0; i < points_size; i++) { // its not nice, but I may alter the length of the vector within the loop.
 		if (points[i]->get_SVtype() & TRA) {
@@ -327,7 +334,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 			}
 		}
 	}
-
+	//std::cout<<"fin up"<<std::endl;
 	for (size_t i = 0; i < points.size(); i++) {
 		if (points[i]->get_SVtype() & TRA) {
 			points[i]->calc_support();
@@ -337,6 +344,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 			printer->printSV(points[i]);
 		}
 	}
+	//std::cout<<"Done"<<std::endl;
 }
 
 void add_events(Alignment *& tmp, std::vector<str_event> events, short type, long ref_space, IntervallContainer & bst, TNode *&root, long read_id) {
