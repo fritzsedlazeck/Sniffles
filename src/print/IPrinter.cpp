@@ -36,7 +36,8 @@ bool IPrinter::to_print(Breakpoint * &SV, pair<double, double>& std, pair<double
 	double max_allowed = 4 * Parameter::Instance()->max_dist * (uniform_variance / 2);
 
 	if (SV->get_coordinates().support.size() < 8) { //not enough coverage
-		max_allowed = max_allowed * ((double) SV->get_coordinates().support.size()/10.0);
+//		max_allowed = 4 * Parameter::Instance()->max_dist * (uniform_variance);
+		//max_allowed = max_allowed * ((double) SV->get_coordinates().support.size()/10.0);
 	}
 
 	return (std.first < max_allowed && std.second < max_allowed);

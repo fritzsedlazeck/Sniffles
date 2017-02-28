@@ -52,12 +52,21 @@ public:
 		print_body(SV, ref);
 	}
 	void init() {
-
-		if (!Parameter::Instance()->output_vcf.empty()) {
-			file = fopen(Parameter::Instance()->output_vcf.c_str(), "w");
-		} else if (!Parameter::Instance()->output_bedpe.empty()) {
-			file = fopen(Parameter::Instance()->output_bedpe.c_str(), "w");
+		try {
+			if (!Parameter::Instance()->output_vcf.empty()) {
+				file = fopen(Parameter::Instance()->output_vcf.c_str(), "w");
+			} else if (!Parameter::Instance()->output_bedpe.empty()) {
+				file = fopen(Parameter::Instance()->output_bedpe.c_str(), "w");
+			}
+		} catch (...) {
+			std::cerr << "Output file could not be created. Please check if path exists and if you have write permissions." << std::endl;
+			exit(0);
 		}
+		if (file == NULL) {
+			std::cerr << "Output file could not be created. Please check if path exists and if you have write permissions." << std::endl;
+			exit(EXIT_FAILURE);
+		}
+
 		print_header();
 		BamParser *mapped_file = new BamParser(Parameter::Instance()->bam_files[0]);
 		this->ref = mapped_file->get_refInfo();

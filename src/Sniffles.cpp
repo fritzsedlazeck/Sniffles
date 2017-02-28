@@ -291,9 +291,7 @@ int main(int argc, char *argv[]) {
 		}
 		//init printer:
 		IPrinter * printer;
-		if (!Parameter::Instance()->ref_seq.empty()) {
-			printer = new NGMPrinter();
-		} else if (!Parameter::Instance()->output_vcf.empty()) {
+		if (!Parameter::Instance()->output_vcf.empty()) {
 			printer = new VCFPrinter();
 		} else if (!Parameter::Instance()->output_bedpe.empty()) {
 			printer = new BedpePrinter();

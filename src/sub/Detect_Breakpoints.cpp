@@ -148,7 +148,7 @@ bool should_be_stored(Breakpoint *& point) {
 	point->calc_support(); // we need that before:
 	//std::cout << "Stored: " << point->get_support() << " " << point->get_length() << std::endl;
 	if (point->get_SVtype() & TRA) { // we cannot make assumptions abut support yet.
-		return (point->get_support() > 2); // this is needed as we take each chr independently and just look at the primary alignment
+		return (point->get_support() > 1); // this is needed as we take each chr independently and just look at the primary alignment
 	} else if (point->get_support() >= Parameter::Instance()->min_support) {
 		point->predict_SV();
 		return (point->get_support() >= Parameter::Instance()->min_support && point->get_length() > Parameter::Instance()->min_length);
@@ -224,6 +224,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 				bst.get_breakpoints(root, points);
 				polish_points(points, ref);
 				for (int i = 0; i < points.size(); i++) {
+
 					if (should_be_stored(points[i])) {
 						//detect_merged_svs(points[i]);
 						if (points[i]->get_SVtype() & TRA) {
@@ -303,7 +304,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 		//std::cout<<"start check"<<" "<<i<<std::endl;
 		if (should_be_stored(points[i])) {
 			if (points[i]->get_SVtype() & TRA) {
-		//		std::cout<<"start store"<<" "<<i<<std::endl;
+
 				final.insert(points[i], root_final);
 		//		std::cout<<"Done insert"<<" "<<i<<std::endl;
 			} else {
@@ -326,6 +327,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	size_t points_size = points.size();
 	for (size_t i = 0; i < points_size; i++) { // its not nice, but I may alter the length of the vector within the loop.
 		if (points[i]->get_SVtype() & TRA) {
+
 			vector<Breakpoint *> new_points;
 			detect_merged_svs(points[i]->get_coordinates(), ref, new_points);
 			if (!new_points.empty()) {							// I only allow for 1 split!!
@@ -340,7 +342,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 			points[i]->calc_support();
 			points[i]->predict_SV();
 		}
-		if (points[i]->get_support() > Parameter::Instance()->min_support && points[i]->get_length() > Parameter::Instance()->min_length) {
+		if (points[i]->get_support() >= Parameter::Instance()->min_support && points[i]->get_length() > Parameter::Instance()->min_length) {
 			printer->printSV(points[i]);
 		}
 	}
@@ -631,8 +633,8 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 			Breakpoint * point = new Breakpoint(svs, abs(read.coordinates.second - read.coordinates.first));
 			//std::cout<<"split ADD: " << <<" Name: "<<tmp->getName()<<" "<< svs.start.min_pos- get_ref_lengths(events[i].RefID, ref)<<"-"<<svs.stop.max_pos- get_ref_lengths(events[i].RefID, ref)<<std::endl;
 			bst.insert(point, root);
-			//		std::cout<<"Print:"<<std::endl;
-			//		bst.print(root);
+				//	std::cout<<"Print:"<<std::endl;
+				//	bst.print(root);
 		}
 	}
 }

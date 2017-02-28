@@ -8,7 +8,6 @@
 #include "VCFPrinter.h"
 
 void VCFPrinter::print_header() {
-
 	fprintf(file, "%s", "##fileformat=VCFv4.2\n");
 	fprintf(file, "%s", "##source=Sniffles\n");
 	string time = currentDateTime();
@@ -40,6 +39,7 @@ void VCFPrinter::print_header() {
 		fprintf(file, "%s", Parameter::Instance()->bam_files[i].c_str());
 	}
 	fprintf(file, "%c", '\n');
+
 }
 void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 	if (!this->bed_tree.is_in(SV->get_coordinates().start.most_support, this->root) && !this->bed_tree.is_in(SV->get_coordinates().stop.most_support, this->root)) {
@@ -136,8 +136,8 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%f", kurtosis.first);
 			fprintf(file, "%s", ";Kurtosis_quant_stop=");
 			fprintf(file, "%f", kurtosis.second);
-	//		fprintf(file, "%s", ";STD_length=");
-	//		fprintf(file, "%f", std_length);
+			//		fprintf(file, "%s", ";STD_length=");
+			//		fprintf(file, "%f", std_length);
 			fprintf(file, "%s", ";SVTYPE=");
 			fprintf(file, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());
 			if (Parameter::Instance()->report_n_reads > 0) {
