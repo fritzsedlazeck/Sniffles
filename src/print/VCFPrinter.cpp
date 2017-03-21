@@ -44,17 +44,8 @@ void VCFPrinter::print_header() {
 void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 	if (!this->bed_tree.is_in(SV->get_coordinates().start.most_support, this->root) && !this->bed_tree.is_in(SV->get_coordinates().stop.most_support, this->root)) {
 		//temp. store read names supporting this SVs to later group the SVs together.
-		//double std_start = 0;
-		//double std_stop = 0;
-		//	double std_medstart = 0;
-		//double std_medstop = 0;
 		double std_quant_start = 0;
 		double std_quant_stop = 0;
-		//comp_std(SV, std_start, std_stop);
-		//comp_std_med(SV, std_medstart, std_medstop);
-
-		/*	if ((SV->get_SVtype() & NEST) || ((std_start < SV->get_length() * 2 && std_stop < SV->get_length() * 2) && (std_start<400 && std_stop<400))) {
-		 */
 
 		pair<double, double> kurtosis;
 		pair<double, double> std_quant;

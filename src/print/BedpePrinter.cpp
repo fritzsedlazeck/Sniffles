@@ -16,49 +16,62 @@ void BedpePrinter::print_body(Breakpoint * &SV, RefVector ref) {
 		if (Parameter::Instance()->phase) {
 			store_readnames(SV->get_read_ids(), id);
 		}
+		double std_quant_start = 0;
+		double std_quant_stop = 0;
 
-		std::string chr;
-		std::string strands = SV->get_strand(2);
-		int pos = IPrinter::calc_pos(SV->get_coordinates().start.min_pos, ref, chr);
-		fprintf(file, "%s", chr.c_str());
-		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", pos);
-		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", IPrinter::calc_pos(SV->get_coordinates().start.max_pos, ref, chr));
-		fprintf(file, "%c", '\t');
-		pos = IPrinter::calc_pos(SV->get_coordinates().stop.min_pos, ref, chr);
-		fprintf(file, "%s", chr.c_str());
-		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", pos);
-		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", IPrinter::calc_pos(SV->get_coordinates().stop.max_pos, ref, chr));
-		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", id);
-		id++;
-		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", -1); //TODO: score
-		fprintf(file, "%c", '\t');
-		fprintf(file, "%c", strands[0]);
-		fprintf(file, "%c", '\t');
-		fprintf(file, "%c", strands[1]);
-		fprintf(file, "%c", '\t');
-		fprintf(file, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());
-		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", SV->get_support());
-		fprintf(file, "%c", '\t');
-		pos = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr);
-		fprintf(file, "%s", chr.c_str());
-		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", pos);
-		fprintf(file, "%c", '\t');
-		pos = IPrinter::calc_pos(SV->get_coordinates().stop.most_support, ref, chr);
-		fprintf(file, "%s", chr.c_str());
-		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", pos);
-		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", SV->get_length());
-		fprintf(file, "%c", '\t');
-		fprintf(file, "%i", SV->get_support());
-		fprintf(file, "%c", '\n');
+		pair<double, double> kurtosis;
+		pair<double, double> std_quant;
+		double std_length = 0;
+
+		if (to_print(SV, std_quant, kurtosis, std_length)) {
+
+			std::string chr;
+			std::string strands = SV->get_strand(2);
+			int pos = IPrinter::calc_pos(SV->get_coordinates().start.min_pos, ref, chr);
+			fprintf(file, "%s", chr.c_str());
+			fprintf(file, "%c", '\t');
+			fprintf(file, "%i", pos);
+			fprintf(file, "%c", '\t');
+			fprintf(file, "%i", IPrinter::calc_pos(SV->get_coordinates().start.max_pos, ref, chr));
+			fprintf(file, "%c", '\t');
+			pos = IPrinter::calc_pos(SV->get_coordinates().stop.min_pos, ref, chr);
+			fprintf(file, "%s", chr.c_str());
+			fprintf(file, "%c", '\t');
+			fprintf(file, "%i", pos);
+			fprintf(file, "%c", '\t');
+			fprintf(file, "%i", IPrinter::calc_pos(SV->get_coordinates().stop.max_pos, ref, chr));
+			fprintf(file, "%c", '\t');
+			fprintf(file, "%i", id);
+			id++;
+			fprintf(file, "%c", '\t');
+			fprintf(file, "%i", -1); //TODO: score
+			fprintf(file, "%c", '\t');
+			fprintf(file, "%c", strands[0]);
+			fprintf(file, "%c", '\t');
+			fprintf(file, "%c", strands[1]);
+			fprintf(file, "%c", '\t');
+			fprintf(file, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());
+			fprintf(file, "%c", '\t');
+			fprintf(file, "%i", SV->get_support());
+			fprintf(file, "%c", '\t');
+			pos = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr);
+			fprintf(file, "%s", chr.c_str());
+			fprintf(file, "%c", '\t');
+			fprintf(file, "%i", pos);
+			fprintf(file, "%c", '\t');
+			pos = IPrinter::calc_pos(SV->get_coordinates().stop.most_support, ref, chr);
+			fprintf(file, "%s", chr.c_str());
+			fprintf(file, "%c", '\t');
+			fprintf(file, "%i", pos);
+			fprintf(file, "%c", '\t');
+			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && !SV->get_types().is_SR) {
+				fprintf(file, "%s", "NA");
+			} else {
+				fprintf(file, "%i", SV->get_length());
+			}
+			//fprintf(file, "%c", '\t');
+			//fprintf(file, "%i", SV->get_support());
+			fprintf(file, "%c", '\n');
+		}
 	}
 }
