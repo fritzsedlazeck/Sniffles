@@ -289,6 +289,7 @@ void Genotyper::update_SVs() {
 	cout << "Cleaning tmp files" << endl;
 	string del = "rm ";
 	del += Parameter::Instance()->tmp_file;
+	del += "ref_allele";
 	system(del.c_str());
 }
 

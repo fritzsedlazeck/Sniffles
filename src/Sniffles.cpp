@@ -23,7 +23,6 @@
 #include "plane-sweep/PlaneSweep_slim.h"
 #include "print/BedpePrinter.h"
 
-
 //cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
 
 //TODO:
@@ -50,8 +49,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
 	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV. Default: 1", false, 1, "int");
-	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1).",false, 0.0, "float");
-
+	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1).", false, 0.0, "float");
 
 	cmd.add(arg_cluster_supp);
 	cmd.add(arg_numreads);
@@ -71,7 +69,7 @@ void read_parameters(int argc, char *argv[]) {
 
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
-	Parameter::Instance()->read_name = " ";//"22_36746138"; //just for debuging reasons!
+	Parameter::Instance()->read_name = " "; //"22_36746138"; //just for debuging reasons!
 	Parameter::Instance()->bam_files.push_back(arg_bamfile.getValue());
 	Parameter::Instance()->min_mq = arg_mq.getValue();
 	Parameter::Instance()->output_vcf = arg_vcf.getValue();
@@ -86,11 +84,11 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->output_bedpe = arg_bedpe.getValue();
 	Parameter::Instance()->tmp_file = arg_tmp_file.getValue();
 	Parameter::Instance()->min_grouping_support = arg_cluster_supp.getValue();
-	Parameter::Instance()->min_allelel_frequency=arg_allelefreq.getValue();
+	Parameter::Instance()->min_allelel_frequency = arg_allelefreq.getValue();
 
-	if(Parameter::Instance()->min_allelel_frequency>0){
-		std::cerr<<"Automatically enabling genotype mode"<<std::endl;
-		Parameter::Instance()->genotype=true;
+	if (Parameter::Instance()->min_allelel_frequency > 0) {
+		std::cerr << "Automatically enabling genotype mode" << std::endl;
+		Parameter::Instance()->genotype = true;
 	}
 
 	if (Parameter::Instance()->tmp_file.empty()) {
@@ -98,7 +96,7 @@ void read_parameters(int argc, char *argv[]) {
 		srand(time(NULL));
 		ss << rand();
 		sleep(5);
-		ss<< rand();
+		ss << rand();
 		ss << "_tmp";
 		Parameter::Instance()->tmp_file = ss.str(); //check if file exists! -> if yes throw the dice again
 	}
@@ -185,18 +183,18 @@ void test_std() {
 	double avg = 0;
 	double num = 0;
 
-		for (int border = 100; border < 9001; border = border * 10) {
-			for (int t = 0; t < 10; t++) {
+	for (int border = 100; border < 9001; border = border * 10) {
+		for (int t = 0; t < 10; t++) {
 			for (int cov = 2; cov < 5; cov += 1) {
 
-			for (size_t i = 0; i < cov; i++) {
-				int pos = (rand() % border) + (start - (border / 2));
-				positions.push_back(pos);
-			}
-			avg += comp_std(positions, start) / test_comp_std_quantile(positions, start);
-			std::cout << "Cov: " << cov+1 << " border: " << border << " STD: " << comp_std(positions, start) << std::endl;// / test_comp_std_quantile(positions, start) << std::endl;
-			positions.clear();
-			num++;
+				for (size_t i = 0; i < cov; i++) {
+					int pos = (rand() % border) + (start - (border / 2));
+					positions.push_back(pos);
+				}
+				avg += comp_std(positions, start) / test_comp_std_quantile(positions, start);
+				std::cout << "Cov: " << cov + 1 << " border: " << border << " STD: " << comp_std(positions, start) << std::endl; // / test_comp_std_quantile(positions, start) << std::endl;
+				positions.clear();
+				num++;
 			}
 		}
 	}
@@ -275,7 +273,7 @@ int main(int argc, char *argv[]) {
 
 	try {
 		//	test_slimming();
-	//	test_std();
+		//	test_std();
 		//
 		//exit(0);
 		//init parameter and reads user defined parameter from command line.
@@ -304,7 +302,6 @@ int main(int argc, char *argv[]) {
 		detect_breakpoints(Parameter::Instance()->bam_files[0], printer); //we could write out all read names for each sVs
 		printer->close_file();
 
-	//std::cout<<"Fin"<<std::endl;
 		//cluster the SVs together:
 		if (Parameter::Instance()->phase) {
 			std::cout << "Start phasing: " << std::endl;
@@ -318,12 +315,7 @@ int main(int argc, char *argv[]) {
 			Genotyper * go = new Genotyper();
 			go->update_SVs();
 		}
-		/*if ( Parameter::Instance()->phase) {
-			cout << "Cleaning tmp files" << endl;
-			string del = "rm ";
-			del += Parameter::Instance()->tmp_file;
-			system(del.c_str());
-		}*/
+
 
 	} catch (TCLAP::ArgException &e)  // catch any exceptions
 	{
