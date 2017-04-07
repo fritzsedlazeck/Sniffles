@@ -122,13 +122,13 @@ long Breakpoint::overlap(Breakpoint * tmp) {
 	}
 //merging two robust calls:
 	/*if (is_same_strand(tmp) && (abs(tmp->get_coordinates().start.min_pos - positions.start.min_pos) < max_dist || abs(tmp->get_coordinates().stop.max_pos - positions.stop.max_pos) < max_dist)) {
-		if (tmp->get_coordinates().stop.max_pos - tmp->get_coordinates().start.min_pos == Parameter::Instance()->huge_ins || positions.stop.max_pos - positions.start.min_pos == Parameter::Instance()->huge_ins) {
-			if (flag) {
-				cout << "\tHIT" << endl;
-			}
-			return 0;
-		}
-	}*/
+	 if (tmp->get_coordinates().stop.max_pos - tmp->get_coordinates().start.min_pos == Parameter::Instance()->huge_ins || positions.stop.max_pos - positions.start.min_pos == Parameter::Instance()->huge_ins) {
+	 if (flag) {
+	 cout << "\tHIT" << endl;
+	 }
+	 return 0;
+	 }
+	 }*/
 
 	if (is_same_strand(tmp) && (abs(tmp->get_coordinates().start.min_pos - positions.start.min_pos) < max_dist && abs(tmp->get_coordinates().stop.max_pos - positions.stop.max_pos) < max_dist)) {
 		if (flag) {
@@ -349,30 +349,35 @@ void Breakpoint::predict_SV() {
 
 	for (std::map<std::string, read_str>::iterator i = positions.support.begin(); i != positions.support.end(); i++) {
 		if ((*i).second.SV & this->sv_type) {			// && !((*i).second.SV & INS && (*i).second.length==Parameter::Instance()->huge_ins)) { ///check type
-			//cout << "Hit" << endl;
+
 			if ((*i).second.coordinates.first != -1) {
-				if (starts.find((*i).second.coordinates.first) == starts.end()) {
-					starts[(*i).second.coordinates.first] = 1;
-				} else {
-					starts[(*i).second.coordinates.first]++;
+				if ((*i).second.length != Parameter::Instance()->huge_ins) {
+					if (starts.find((*i).second.coordinates.first) == starts.end()) {
+						starts[(*i).second.coordinates.first] = 1;
+					} else {
+						starts[(*i).second.coordinates.first]++;
+					}
 				}
 				start2.push_back((*i).second.coordinates.first);
 			}
 			if ((*i).second.coordinates.second != -1) { //TODO test
-				if (stops.find((*i).second.coordinates.second) == stops.end()) {
-					stops[(*i).second.coordinates.second] = 1;
-				} else {
-					stops[(*i).second.coordinates.second]++;
+				if ((*i).second.length != Parameter::Instance()->huge_ins) {
+					if (stops.find((*i).second.coordinates.second) == stops.end()) {
+						stops[(*i).second.coordinates.second] = 1;
+					} else {
+						stops[(*i).second.coordinates.second]++;
+					}
 				}
 				stops2.push_back((*i).second.coordinates.second);
 			}
-			if ((*i).second.SV & INS) { //check lenght for ins only!
-				//	std::cout<<"LENGTH 1st: "<<(*i).second.length<<" "<<(*i).first<<std::endl;
-				if (lengths.find((*i).second.length) == lengths.end()) {
-					lengths[(*i).second.length] = 1;
-				} else {
+			if (((*i).second.SV & INS) ) { //check lenght for ins only!
+				if ((*i).second.length != Parameter::Instance()->huge_ins) {
+					if (lengths.find((*i).second.length) == lengths.end()) {
+						lengths[(*i).second.length] = 1;
+					} else {
 
-					lengths[(*i).second.length]++;
+						lengths[(*i).second.length]++;
+					}
 				}
 				lengths2.push_back((*i).second.length);
 			}

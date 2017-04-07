@@ -62,6 +62,7 @@ public:
 	int min_grouping_support; //min num reads supporting the overlap of two SVs
 	int huge_ins;
 	int max_dist_alns;
+	int min_segment_size;
 
 //	bool splitthreader_output;
 	bool debug;

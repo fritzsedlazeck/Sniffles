@@ -45,6 +45,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<int> arg_minlength("l", "min_length", "Minimum length of SV to be reported. Default: 30", false, 30, "int");
 	TCLAP::ValueArg<int> arg_mq("q", "minmapping_qual", "Minimum Mapping Quality. Default: 20", false, 20, "int");
 	TCLAP::ValueArg<int> arg_numreads("n", "num_reads_report", "Report up to N reads that support the SV in the vcf file. Default: 0", false, 0, "int");
+	TCLAP::ValueArg<int> arg_segsize("r","min_seq_size","Discard read if non of its segment is larger then this. Default: 2kb",false,2000,"int");
 	TCLAP::ValueArg<std::string> arg_tmp_file("", "tmp_file", "path to temporary file otherwise Sniffles will use the current directory.", false, "", "string");
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
@@ -53,6 +54,7 @@ void read_parameters(int argc, char *argv[]) {
 
 	cmd.add(arg_cluster_supp);
 	cmd.add(arg_numreads);
+	cmd.add(arg_segsize);
 	cmd.add(arg_tmp_file);
 	cmd.add(arg_dist);
 	cmd.add(arg_threads);
@@ -64,12 +66,13 @@ void read_parameters(int argc, char *argv[]) {
 	cmd.add(arg_allelefreq);
 	cmd.add(arg_support);
 	cmd.add(arg_bamfile);
+
 	//parse cmd:
 	cmd.parse(argc, argv);
 
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
-	Parameter::Instance()->read_name = " "; //"22_36746138"; //just for debuging reasons!
+	Parameter::Instance()->read_name = "m151104_233737_42291_c100924012550000001823194105121673_s1_p0/122462/0_24344";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
 	Parameter::Instance()->bam_files.push_back(arg_bamfile.getValue());
 	Parameter::Instance()->min_mq = arg_mq.getValue();
 	Parameter::Instance()->output_vcf = arg_vcf.getValue();
@@ -85,7 +88,7 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->tmp_file = arg_tmp_file.getValue();
 	Parameter::Instance()->min_grouping_support = arg_cluster_supp.getValue();
 	Parameter::Instance()->min_allelel_frequency = arg_allelefreq.getValue();
-
+	Parameter::Instance()->min_segment_size = arg_segsize.getValue();
 	if (Parameter::Instance()->min_allelel_frequency > 0) {
 		std::cerr << "Automatically enabling genotype mode" << std::endl;
 		Parameter::Instance()->genotype = true;
@@ -94,9 +97,10 @@ void read_parameters(int argc, char *argv[]) {
 	if (Parameter::Instance()->tmp_file.empty()) {
 		std::stringstream ss;
 		srand(time(NULL));
-		ss << rand();
-		sleep(5);
-		ss << rand();
+		//ss << rand();
+		//sleep(5);
+		//ss << rand();
+		ss << arg_bamfile.getValue();
 		ss << "_tmp";
 		Parameter::Instance()->tmp_file = ss.str(); //check if file exists! -> if yes throw the dice again
 	}

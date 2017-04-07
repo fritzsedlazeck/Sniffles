@@ -19,6 +19,8 @@ long fuck_off(long pos, RefVector ref, std::string &chr) {
 	chr = ref[i].RefName;
 	return pos + ref[i].RefLength + (long) Parameter::Instance()->max_dist;
 }
+
+
 void store_pos(vector<hist_str> &positions, long pos, std::string read_name) {
 	for (size_t i = 0; i < positions.size(); i++) {
 		if (abs(positions[i].position - pos) < Parameter::Instance()->min_length) {
@@ -424,7 +426,7 @@ void add_events(Alignment *& tmp, std::vector<str_event> events, short type, lon
 		Breakpoint * point = new Breakpoint(svs, events[i].length);
 		bst.insert(point, root);
 		//std::cout<<"Print:"<<std::endl;
-		//bst.print(root);
+	//	bst.print(root);
 	}
 }
 
@@ -442,6 +444,7 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 			}
 		}
 	}
+
 	for (size_t i = 1; i < events.size(); i++) {
 		position_str svs;
 		//position_str stop;
@@ -505,7 +508,9 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 
 				read.strand.first = events[i - 1].strand;
 				read.strand.second = !events[i].strand;
-				if (overlaps(events[i - 1], events[i])) {
+
+				bool is_overlapping=overlaps(events[i - 1], events[i]) ;
+				if (is_overlapping&& (events[i - 1].length > Parameter::Instance()->min_segment_size ||events[i].length > Parameter::Instance()->min_segment_size  )) {
 					if (flag) {
 						std::cout << "Overlap curr: " << events[i].pos << " " << events[i].pos + events[i].length << " prev: " << events[i - 1].pos << " " << events[i - 1].pos + events[i - 1].length << " " << tmp->getName() << std::endl;
 					}
@@ -528,7 +533,7 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 					//		std::cout<<"NEST: "<<svs.start.min_pos- get_ref_lengths(events[i - 1].RefID, ref) << " "<<svs.stop.max_pos - get_ref_lengths(events[i - 1].RefID, ref)<<" "<<tmp->getName()<<std::endl;
 					//	}
 					//	svs.stop.max_pos = svs.start.min_pos + Parameter::Instance()->min_length * 2;
-				} else {
+				} else if(!is_overlapping){
 					read.SV |= INV;
 					if (events[i - 1].strand) {
 						svs.start.min_pos = events[i - 1].pos + events[i - 1].length + get_ref_lengths(events[i - 1].RefID, ref);

@@ -72,9 +72,12 @@ vector<differences_str> Alignment::summarizeAlignment() {
 	vector<differences_str> events;
 	int pos = this->getPosition();
 	differences_str ev;
-	bool flag = false; // (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 
 	for (size_t i = 0; i < al->CigarData.size(); i++) {
+		if(flag){
+		//	cout<<al->CigarData[i].Type<<al->CigarData[i].Length<<std::endl;
+		}
 		if (al->CigarData[i].Type == 'D') {
 			ev.position = pos;
 			ev.type = al->CigarData[i].Length; //deletion
@@ -88,7 +91,7 @@ vector<differences_str> Alignment::summarizeAlignment() {
 			pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'N') {
 			pos += al->CigarData[i].Length;
-		}else if (al->CigarData[i].Type == 'S' && al->CigarData[i].Length > Parameter::Instance()->huge_ins) { /// Used for reads ranging into an inser
+		} else if (al->CigarData[i].Type == 'S' && al->CigarData[i].Length > Parameter::Instance()->huge_ins) { /// Used for reads ranging into an inser
 			string sa;
 			al->GetTag("SA", sa);
 			uint32_t sv;
@@ -108,8 +111,9 @@ vector<differences_str> Alignment::summarizeAlignment() {
 	}
 
 	if (flag) {
+		std::cout<<"FIRST:"<<std::endl;
 		for (size_t i = 0; i < events.size(); i++) {
-			if (abs(events[i].type) > 3000) {
+			if (abs(events[i].type) > 200) {
 				cout << events[i].position << " " << events[i].type << endl;
 			}
 		}
@@ -158,8 +162,9 @@ vector<differences_str> Alignment::summarizeAlignment() {
 	}
 
 	if (flag) {
+		std::cout<<"SECOND:"<<std::endl;
 		for (size_t i = 0; i < events.size(); i++) {
-			if (abs(events[i].type) > 3000) {
+			if (abs(events[i].type) > 200) {
 				cout << events[i].position << " " << events[i].type << endl;
 			}
 		}
@@ -170,7 +175,7 @@ vector<differences_str> Alignment::summarizeAlignment() {
 //	comp_aln = clock();
 	size_t i = 0;
 	//to erase stretches of consecutive mismatches == N in the ref
-	int break_point = 0;
+	/*int break_point = 0;
 	while (i < events.size()) {
 		if (events[i].position > max_size) {
 			while (i < events.size()) {
@@ -195,18 +200,19 @@ vector<differences_str> Alignment::summarizeAlignment() {
 		} else {
 			i++;
 		}
-	}
+	}*/
 //	Parameter::Instance()->meassure_time(comp_aln, "\t\terrase N: ");
 	if (flag) {
 		cout << "LAST:" << endl;
 		for (size_t i = 0; i < events.size(); i++) {
-			if (abs(events[i].type) > 3000) {
+			if (abs(events[i].type) > 200) {
 				cout << events[i].position << " " << events[i].type << endl;
 			}
 		}
 		cout << endl;
-	}
 
+		cout << "total: "<< events.size()<< endl;
+	}
 	return events;
 }
 void Alignment::computeAlignment() {
@@ -1082,8 +1088,13 @@ vector<int> Alignment::get_avg_diff(double & dist) {
 
 vector<str_event> Alignment::get_events_Aln() {
 
+	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+
 //clock_t comp_aln = clock();
 	vector<differences_str> event_aln = summarizeAlignment();
+	if(flag){
+		std::cout<<"test size: "<<event_aln.size()<<std::endl;
+	}
 //double time2 = Parameter::Instance()->meassure_time(comp_aln, "\tcompAln Events: ");
 
 	vector<str_event> events;
@@ -1091,11 +1102,12 @@ vector<str_event> Alignment::get_events_Aln() {
 	vector<pair_str> profile;
 //	comp_aln = clock();
 
-	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+
 
 	int noise_events = 0;
 //compute the profile of differences:
 	for (size_t i = 0; i < event_aln.size(); i++) {
+
 		pair_str tmp;
 		tmp.position = -1;
 		if (event_aln[i].type == 0) {

@@ -7,6 +7,7 @@
 
 #include "IPrinter.h"
 
+
 bool IPrinter::to_print(Breakpoint * &SV, pair<double, double>& std, pair<double, double> & kurtosis, double & std_length) {
 
 	std.first = 0;
@@ -25,7 +26,7 @@ bool IPrinter::to_print(Breakpoint * &SV, pair<double, double>& std, pair<double
 		double dist = (double) (SV->get_coordinates().stop.most_support - SV->get_coordinates().start.most_support);
 		//dist = (double)std::min(((int)dist * 4), Parameter::Instance()->max_dist);
 		dist = dist * 4.0 * (uniform_variance / 2); //because we test against corrected value!
-		//std::cout<<"DIST: "<<(SV->get_coordinates().stop.most_support - SV->get_coordinates().start.most_support)<<" "<<dist<<" STD: "<<std_start<<" "<<std_stop<<std::endl;
+//		std::cout<<"DIST: "<<(SV->get_coordinates().stop.most_support - SV->get_coordinates().start.most_support)<<" "<<dist<<" STD: "<<std.first<<" "<<std.second<<std::endl;
 		return ((std.first < dist && std.second < dist)); //0.2886751
 	}
 
