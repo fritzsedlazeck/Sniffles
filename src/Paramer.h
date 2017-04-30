@@ -68,6 +68,7 @@ public:
 	bool debug;
 	bool genotype;
 	bool phase;
+	bool ignore_std;
 
 	void set_regions(std::string reg) {
 		size_t i = 0;

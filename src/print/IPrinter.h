@@ -36,6 +36,7 @@ protected:
 	std::string get_chr(long pos, RefVector ref);
 	std::string get_type(char type);
 	void sort_insert(int pos, std::vector<int> & positons);
+	bool is_huge_ins(Breakpoint * &SV);
 public:
 
 	IPrinter() {

@@ -130,6 +130,7 @@ long Breakpoint::overlap(Breakpoint * tmp) {
 	 }
 	 }*/
 
+	//Standard merging.
 	if (is_same_strand(tmp) && (abs(tmp->get_coordinates().start.min_pos - positions.start.min_pos) < max_dist && abs(tmp->get_coordinates().stop.max_pos - positions.stop.max_pos) < max_dist)) {
 		if (flag) {
 			cout << "\tHIT" << endl;
@@ -137,9 +138,16 @@ long Breakpoint::overlap(Breakpoint * tmp) {
 		return 0;
 	}
 
+	//merging "huge ins" and observed ins:
+	if(is_same_strand(tmp) && (abs(tmp->get_coordinates().start.min_pos -tmp->get_coordinates().stop.max_pos) == Parameter::Instance()->huge_ins || abs(positions.start.min_pos -positions.stop.max_pos) == Parameter::Instance()->huge_ins) && (abs(tmp->get_coordinates().start.min_pos - positions.start.min_pos) < max_dist || abs(tmp->get_coordinates().stop.max_pos - positions.stop.max_pos) < max_dist)){
+		return 0;
+	}
+
+	//If there is an INVDUP:
 	if ((is_NEST(tmp, this) && is_same_strand(tmp)) && (abs(tmp->get_coordinates().start.min_pos - positions.start.min_pos) < Parameter::Instance()->max_dist || abs(tmp->get_coordinates().start.min_pos - positions.stop.min_pos) < Parameter::Instance()->max_dist)) {
 		return 0;
 	}
+
 //extend Split read by noisy region: //not longer needed??
 	/*	if (((tmp->get_types().is_Noise || this->get_types().is_Noise) && !(tmp->get_types().is_Noise && this->get_types().is_Noise))
 	 && (abs(tmp->get_coordinates().start.min_pos - positions.stop.min_pos) < max_dist / 2 || abs(tmp->get_coordinates().stop.max_pos - positions.start.max_pos) < max_dist / 2)) { //TODO maybe add SV type check!

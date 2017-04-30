@@ -20,7 +20,6 @@ long fuck_off(long pos, RefVector ref, std::string &chr) {
 	return pos + ref[i].RefLength + (long) Parameter::Instance()->max_dist;
 }
 
-
 void store_pos(vector<hist_str> &positions, long pos, std::string read_name) {
 	for (size_t i = 0; i < positions.size(); i++) {
 		if (abs(positions[i].position - pos) < Parameter::Instance()->min_length) {
@@ -53,17 +52,16 @@ void detect_merged_svs(position_str point, RefVector ref, vector<Breakpoint *> &
 	new_points.clear(); //just in case!
 	vector<hist_str> pos_start;
 	vector<hist_str> pos_stop;
-
 	for (std::map<std::string, read_str>::iterator i = point.support.begin(); i != point.support.end(); i++) {
-		long pos = (*i).second.coordinates.first;
-		//std::cout<<(*i).second.coordinates.first<<" "<<(*i).second.coordinates.second<<std::endl;
-		store_pos(pos_start, pos, (*i).first);
-		pos = (*i).second.coordinates.second;
-		store_pos(pos_stop, pos, (*i).first);
+		//	std::cout << (*i).second.coordinates.first << "," << (*i).second.coordinates.second << std::endl;
+		store_pos(pos_start, (*i).second.coordinates.first, (*i).first);
+		store_pos(pos_stop, (*i).second.coordinates.second, (*i).first);
 	}
 //	std::cout << "Start: " << std::endl;
 	int start_count = 0;
+	//std::cout<<"Start pos: ";
 	for (size_t i = 0; i < pos_start.size(); i++) {
+		//std::cout<<pos_start[i].hits <<",";
 		if (pos_start[i].hits > Parameter::Instance()->min_support) {
 			start_count++;
 			/*		std::string chr = "";
@@ -76,6 +74,7 @@ void detect_merged_svs(position_str point, RefVector ref, vector<Breakpoint *> &
 //	std::cout << "Stop: " << std::endl;
 	int stop_count = 0;
 	for (size_t i = 0; i < pos_stop.size(); i++) {
+	//	std::cout << pos_stop[i].hits << ",";
 		if (pos_stop[i].hits > Parameter::Instance()->min_support) {
 			stop_count++;
 			/*	std::string chr = "";
@@ -84,8 +83,8 @@ void detect_merged_svs(position_str point, RefVector ref, vector<Breakpoint *> &
 			 */
 		}
 	}
-//	std::cout << std::endl;
-//	std::cout << std::endl;
+	//std::cout << std::endl;
+	//std::cout << std::endl;
 
 	if (stop_count > 1 || start_count > 1) {
 		std::cout << "\tprocessing merged TRA" << std::endl;
@@ -153,7 +152,13 @@ bool should_be_stored(Breakpoint *& point) {
 		return (point->get_support() > 1); // this is needed as we take each chr independently and just look at the primary alignment
 	} else if (point->get_support() >= Parameter::Instance()->min_support) {
 		point->predict_SV();
-		return (point->get_support() >= Parameter::Instance()->min_support && point->get_length() > Parameter::Instance()->min_length);
+		/*	std::cout<<"LEN check: "<<point->get_length()
+		 if(point->get_length() > Parameter::Instance()->min_length){
+		 cout<<" T "<<std::endl;
+		 }else{
+		 cout<<" T "<<std::endl;
+		 }*/
+		return (point->get_length() > Parameter::Instance()->min_length);
 	}
 
 	return false;
@@ -308,11 +313,11 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 			if (points[i]->get_SVtype() & TRA) {
 
 				final.insert(points[i], root_final);
-		//		std::cout<<"Done insert"<<" "<<i<<std::endl;
+				//		std::cout<<"Done insert"<<" "<<i<<std::endl;
 			} else {
-		//		std::cout<<"start print"<<" "<<i<<std::endl;
+				//		std::cout<<"start print"<<" "<<i<<std::endl;
 				printer->printSV(points[i]);
-		//		std::cout<<"Done print"<<" "<<i<<std::endl;
+				//		std::cout<<"Done print"<<" "<<i<<std::endl;
 			}
 		}
 	}
@@ -426,7 +431,7 @@ void add_events(Alignment *& tmp, std::vector<str_event> events, short type, lon
 		Breakpoint * point = new Breakpoint(svs, events[i].length);
 		bst.insert(point, root);
 		//std::cout<<"Print:"<<std::endl;
-	//	bst.print(root);
+		//bst.print(root);
 	}
 }
 
@@ -509,8 +514,8 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 				read.strand.first = events[i - 1].strand;
 				read.strand.second = !events[i].strand;
 
-				bool is_overlapping=overlaps(events[i - 1], events[i]) ;
-				if (is_overlapping&& (events[i - 1].length > Parameter::Instance()->min_segment_size ||events[i].length > Parameter::Instance()->min_segment_size  )) {
+				bool is_overlapping = overlaps(events[i - 1], events[i]);
+				if (is_overlapping && (events[i - 1].length > Parameter::Instance()->min_segment_size || events[i].length > Parameter::Instance()->min_segment_size)) {
 					if (flag) {
 						std::cout << "Overlap curr: " << events[i].pos << " " << events[i].pos + events[i].length << " prev: " << events[i - 1].pos << " " << events[i - 1].pos + events[i - 1].length << " " << tmp->getName() << std::endl;
 					}
@@ -533,7 +538,7 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 					//		std::cout<<"NEST: "<<svs.start.min_pos- get_ref_lengths(events[i - 1].RefID, ref) << " "<<svs.stop.max_pos - get_ref_lengths(events[i - 1].RefID, ref)<<" "<<tmp->getName()<<std::endl;
 					//	}
 					//	svs.stop.max_pos = svs.start.min_pos + Parameter::Instance()->min_length * 2;
-				} else if(!is_overlapping){
+				} else if (!is_overlapping) {
 					read.SV |= INV;
 					if (events[i - 1].strand) {
 						svs.start.min_pos = events[i - 1].pos + events[i - 1].length + get_ref_lengths(events[i - 1].RefID, ref);
@@ -638,8 +643,8 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 			Breakpoint * point = new Breakpoint(svs, abs(read.coordinates.second - read.coordinates.first));
 			//std::cout<<"split ADD: " << <<" Name: "<<tmp->getName()<<" "<< svs.start.min_pos- get_ref_lengths(events[i].RefID, ref)<<"-"<<svs.stop.max_pos- get_ref_lengths(events[i].RefID, ref)<<std::endl;
 			bst.insert(point, root);
-				//	std::cout<<"Print:"<<std::endl;
-				//	bst.print(root);
+			//	std::cout<<"Print:"<<std::endl;
+			//	bst.print(root);
 		}
 	}
 }
@@ -667,34 +672,34 @@ void estimate_parameters(std::string read_filename) {
 //	std::string curr, prev = "";
 	double avg_dist = 0;
 	while (!tmp_aln->getQueryBases().empty() && num < 1000) {	//1000
-	//	std::cout<<"test "<<tmp_aln->getName()<<std::endl;
-		//if (rand() % 100 < 20 && ((tmp_aln->getAlignment()->IsPrimaryAlignment()) && (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800)))) {				//}&& tmp_aln->get_is_save()))) {
+		//	std::cout<<"test "<<tmp_aln->getName()<<std::endl;
+		if (rand() % 100 < 20 && ((tmp_aln->getAlignment()->IsPrimaryAlignment()) && (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800)))) {				//}&& tmp_aln->get_is_save()))) {
 			//1. check differences in window => min_treshold for scanning!
 			//2. get score ration without checking before hand! (above if!)
 			double dist = 0;
 			vector<int> tmp = tmp_aln->get_avg_diff(dist);
 			//std::cout<<"Debug:\t"<<dist<<"\t";
 			avg_dist += dist;
-			double avg_mis=0;
+			double avg_mis = 0;
 			for (size_t i = 0; i < tmp.size(); i++) {
 				while (tmp[i] + 1 > mis_per_window.size()) { //adjust length
 					mis_per_window.push_back(0);
 				}
-				avg_mis+=tmp[i];
+				avg_mis += tmp[i];
 				mis_per_window[tmp[i]]++;
 			}
-		//	std::cout <<avg_mis/tmp.size()<<"\t";
+			//	std::cout <<avg_mis/tmp.size()<<"\t";
 			//get score ratio
 			double score = round(tmp_aln->get_scrore_ratio());
-		//	std::cout<<score<<"\t"<<std::endl;;
-			if(score>-1){
+			//	std::cout<<score<<"\t"<<std::endl;;
+			if (score > -1) {
 				while (score + 1 > scores.size()) {
 					scores.push_back(0);
 				}
 				scores[score]++;
 			}
 			num++;
-		//}
+		}
 
 		mapped_file->parseReadFast(Parameter::Instance()->min_mq, tmp_aln);
 	}
@@ -717,7 +722,7 @@ void estimate_parameters(std::string read_filename) {
 			}
 		}
 		pos = nums.size() * 0.95; //the highest 5% cutoff
-		if (pos>0 && pos <= nums.size()) {
+		if (pos > 0 && pos <= nums.size()) {
 			Parameter::Instance()->window_thresh = std::max(Parameter::Instance()->window_thresh, nums[pos]); //just in case we have too clean data! :)
 		}
 		nums.clear();
@@ -745,6 +750,7 @@ bool overlaps(aln_str prev, aln_str curr) {
 		overlap = min((curr.pos + curr.length), (prev.pos + prev.length)) - max(prev.pos, curr.pos);
 		ratio = overlap / (double) min(curr.length, prev.length);
 	}
+//	std::cout<<overlap<<" "<<ratio<<std::endl;
 
 	return (ratio > 0.4 && overlap > 200);
 }

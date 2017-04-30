@@ -50,8 +50,9 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 		pair<double, double> kurtosis;
 		pair<double, double> std_quant;
 		double std_length = 0;
-
-		if (to_print(SV, std_quant, kurtosis, std_length)) {
+	//to_print(SV, std_quant, kurtosis, std_length);
+		bool ok_to_print=(to_print(SV, std_quant, kurtosis, std_length) || Parameter::Instance()->ignore_std);
+		if (ok_to_print) {
 			if (Parameter::Instance()->phase) {
 				store_readnames(SV->get_read_ids(), id);
 			}

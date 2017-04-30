@@ -49,6 +49,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<std::string> arg_tmp_file("", "tmp_file", "path to temporary file otherwise Sniffles will use the current directory.", false, "", "string");
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
+	TCLAP::SwitchArg arg_std("", "ignore_std", "Ignores the std based filtering. (default: false)", cmd, false);
 	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV. Default: 1", false, 1, "int");
 	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1).", false, 0.0, "float");
 
@@ -72,7 +73,7 @@ void read_parameters(int argc, char *argv[]) {
 
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
-	Parameter::Instance()->read_name = "m151104_233737_42291_c100924012550000001823194105121673_s1_p0/122462/0_24344";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
+	Parameter::Instance()->read_name = "m151102_061230_42286_c100922632550000001823194205121664_s1_p0/86232/0_9276";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
 	Parameter::Instance()->bam_files.push_back(arg_bamfile.getValue());
 	Parameter::Instance()->min_mq = arg_mq.getValue();
 	Parameter::Instance()->output_vcf = arg_vcf.getValue();
@@ -89,6 +90,9 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->min_grouping_support = arg_cluster_supp.getValue();
 	Parameter::Instance()->min_allelel_frequency = arg_allelefreq.getValue();
 	Parameter::Instance()->min_segment_size = arg_segsize.getValue();
+
+	Parameter::Instance()->ignore_std=arg_std.getValue();
+
 	if (Parameter::Instance()->min_allelel_frequency > 0) {
 		std::cerr << "Automatically enabling genotype mode" << std::endl;
 		Parameter::Instance()->genotype = true;
@@ -97,9 +101,6 @@ void read_parameters(int argc, char *argv[]) {
 	if (Parameter::Instance()->tmp_file.empty()) {
 		std::stringstream ss;
 		srand(time(NULL));
-		//ss << rand();
-		//sleep(5);
-		//ss << rand();
 		ss << arg_bamfile.getValue();
 		ss << "_tmp";
 		Parameter::Instance()->tmp_file = ss.str(); //check if file exists! -> if yes throw the dice again

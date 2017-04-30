@@ -75,8 +75,8 @@ vector<differences_str> Alignment::summarizeAlignment() {
 	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 
 	for (size_t i = 0; i < al->CigarData.size(); i++) {
-		if(flag){
-		//	cout<<al->CigarData[i].Type<<al->CigarData[i].Length<<std::endl;
+		if (flag) {
+			//	cout<<al->CigarData[i].Type<<al->CigarData[i].Length<<std::endl;
 		}
 		if (al->CigarData[i].Type == 'D') {
 			ev.position = pos;
@@ -95,12 +95,12 @@ vector<differences_str> Alignment::summarizeAlignment() {
 			string sa;
 			al->GetTag("SA", sa);
 			uint32_t sv;
-			if ((al->GetTag("SV",sv) && sa.empty()) && (!(sv & Ns_CLIPPED)  && !(sv & FULLY_EXPLAINED))) { // TODO remove last )
+			if ((al->GetTag("SV", sv) && sa.empty()) && (!(sv & Ns_CLIPPED) && !(sv & FULLY_EXPLAINED))) { // TODO remove last )
 				if (flag) {
 					std::cout << "Chop: " << pos << " Rname: " << this->getName() << std::endl;
 				}
 				if (pos == this->getPosition()) {
-					ev.position = pos - Parameter::Instance()->huge_ins;
+					ev.position = pos; // - Parameter::Instance()->huge_ins;
 				} else {
 					ev.position = pos;
 				}
@@ -111,7 +111,7 @@ vector<differences_str> Alignment::summarizeAlignment() {
 	}
 
 	if (flag) {
-		std::cout<<"FIRST:"<<std::endl;
+		std::cout << "FIRST:" << std::endl;
 		for (size_t i = 0; i < events.size(); i++) {
 			if (abs(events[i].type) > 200) {
 				cout << events[i].position << " " << events[i].type << endl;
@@ -162,7 +162,7 @@ vector<differences_str> Alignment::summarizeAlignment() {
 	}
 
 	if (flag) {
-		std::cout<<"SECOND:"<<std::endl;
+		std::cout << "SECOND:" << std::endl;
 		for (size_t i = 0; i < events.size(); i++) {
 			if (abs(events[i].type) > 200) {
 				cout << events[i].position << " " << events[i].type << endl;
@@ -176,31 +176,31 @@ vector<differences_str> Alignment::summarizeAlignment() {
 	size_t i = 0;
 	//to erase stretches of consecutive mismatches == N in the ref
 	/*int break_point = 0;
-	while (i < events.size()) {
-		if (events[i].position > max_size) {
-			while (i < events.size()) {
-				if (abs(events[events.size() - 1].type) == Parameter::Instance()->huge_ins) {
-					i++;
-				} else {
-					events.erase(events.begin() + i, events.begin() + i + 1);
-				}
-			}
-			break;
-		}
-		if (events[i].type == 0) {
-			size_t j = 1;
-			while (i + j < events.size() && ((events[i + j].position - events[i + (j - 1)].position) == 1 && events[i + j].type == 0)) {
-				j++;
-			}
-			if (j > 10) { //if stetch is at least 3 consecutive mismatches
-				events.erase(events.begin() + i, events.begin() + i + j);
-			} else {
-				i += j;
-			}
-		} else {
-			i++;
-		}
-	}*/
+	 while (i < events.size()) {
+	 if (events[i].position > max_size) {
+	 while (i < events.size()) {
+	 if (abs(events[events.size() - 1].type) == Parameter::Instance()->huge_ins) {
+	 i++;
+	 } else {
+	 events.erase(events.begin() + i, events.begin() + i + 1);
+	 }
+	 }
+	 break;
+	 }
+	 if (events[i].type == 0) {
+	 size_t j = 1;
+	 while (i + j < events.size() && ((events[i + j].position - events[i + (j - 1)].position) == 1 && events[i + j].type == 0)) {
+	 j++;
+	 }
+	 if (j > 10) { //if stetch is at least 3 consecutive mismatches
+	 events.erase(events.begin() + i, events.begin() + i + j);
+	 } else {
+	 i += j;
+	 }
+	 } else {
+	 i++;
+	 }
+	 }*/
 //	Parameter::Instance()->meassure_time(comp_aln, "\t\terrase N: ");
 	if (flag) {
 		cout << "LAST:" << endl;
@@ -211,7 +211,7 @@ vector<differences_str> Alignment::summarizeAlignment() {
 		}
 		cout << endl;
 
-		cout << "total: "<< events.size()<< endl;
+		cout << "total: " << events.size() << endl;
 	}
 	return events;
 }
@@ -488,7 +488,7 @@ void Alignment::check_entries(vector<aln_str> &entries) {
 	int strands = 1;
 	int valid = 1;
 	for (size_t i = 1; i < entries.size(); i++) {
-		if (entries[i].read_pos_stop - entries[i].read_pos_start > 200) {
+		if (entries[i].read_pos_stop - entries[i].read_pos_start > 200) { //only consider segments > 200bp.
 			valid++;
 			if (chr != entries[i].RefID) {
 				return;
@@ -723,8 +723,7 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 		bool nested = true;
 
 		uint32_t sv;
-		al->GetTag("SV",sv);
-
+		al->GetTag("SV", sv);
 
 		while (i < sa.size()) {
 			if (count == 0 && sa[i] != ',') {
@@ -751,7 +750,7 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 			}
 			if (sa[i] == ';') {
 				//TODO: maybe check how often this happens per read!
-				if ((tmp.mq > Parameter::Instance()->min_mq || sv & FULLY_EXPLAINED ) && entries.size() <= Parameter::Instance()->max_splits) {
+				if ((tmp.mq > Parameter::Instance()->min_mq || sv & FULLY_EXPLAINED) && entries.size() <= Parameter::Instance()->max_splits) {
 					//TODO: check this!
 					tmp.cigar = translate_cigar(cigar); //translates the cigar (string) to a type vector
 					get_coords(tmp, tmp.read_pos_start, tmp.read_pos_stop); //get the coords on the read.
@@ -805,7 +804,7 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 double Alignment::get_scrore_ratio() {
 	uint score = -1;
 	uint subscore = -1;
-	if (al->GetTag("AS", score)){
+	if (al->GetTag("AS", score)) {
 		al->GetTag("XS", subscore);
 		if (subscore == 0) {
 			subscore = 1;
@@ -1092,8 +1091,8 @@ vector<str_event> Alignment::get_events_Aln() {
 
 //clock_t comp_aln = clock();
 	vector<differences_str> event_aln = summarizeAlignment();
-	if(flag){
-		std::cout<<"test size: "<<event_aln.size()<<std::endl;
+	if (flag) {
+		std::cout << "test size: " << event_aln.size() << std::endl;
 	}
 //double time2 = Parameter::Instance()->meassure_time(comp_aln, "\tcompAln Events: ");
 
@@ -1102,12 +1101,9 @@ vector<str_event> Alignment::get_events_Aln() {
 	vector<pair_str> profile;
 //	comp_aln = clock();
 
-
-
 	int noise_events = 0;
 //compute the profile of differences:
 	for (size_t i = 0; i < event_aln.size(); i++) {
-
 		pair_str tmp;
 		tmp.position = -1;
 		if (event_aln[i].type == 0) {
@@ -1126,11 +1122,15 @@ vector<str_event> Alignment::get_events_Aln() {
 		}
 	}
 
+	
 //comp_aln = clock();
-	size_t stop = 0;
+	int stop = 0;
 	size_t start = 0;
-	for (size_t i = 0; i < profile.size(); i++) {
-		if (profile[i].position > event_aln[stop].position) {
+	for (size_t i = 0; i < profile.size() && stop < event_aln.size(); i++) {
+		if (flag) {
+			std::cout << "Prof: " << profile[i].position << " " << event_aln[stop].position << std::endl;
+		}
+		if (profile[i].position >= event_aln[stop].position) {
 			//find the postion:
 			size_t pos = 0;
 			while (pos < event_aln.size() && event_aln[pos].position != profile[i].position) {
@@ -1141,6 +1141,9 @@ vector<str_event> Alignment::get_events_Aln() {
 			int prev = event_aln[pos].position;
 			start = pos;
 			int prev_type = 1;
+			if (flag) {
+				std::cout << "check start" << std::endl;
+			}
 			//todo it is actually pos + type and not *type
 			while (start > 0 && (prev - event_aln[start].position) < (Parameter::Instance()->max_dist_alns)) {	//13		//} * abs(event_aln[start].type) + 1)) { //TODO I  dont like 13!??
 				prev = event_aln[start].position;
@@ -1158,7 +1161,9 @@ vector<str_event> Alignment::get_events_Aln() {
 			prev = event_aln[pos].position;
 			stop = pos;
 			prev_type = 1;
-
+			if (flag) {
+				std::cout << "check stop" << std::endl;
+			}
 			while (stop < event_aln.size() && (event_aln[stop].position - prev) < (Parameter::Instance()->max_dist_alns)) {		// * abs(event_aln[stop].type) + 1)) {
 				prev = event_aln[stop].position;
 
@@ -1169,8 +1174,9 @@ vector<str_event> Alignment::get_events_Aln() {
 				}
 				prev += prev_type;
 			}
-			stop--;
-
+			if (stop > 0) {
+				stop--;
+			}
 			int insert_max_pos = 0;
 			int insert_max = 0;
 			if (event_aln[start].type < 0) {
@@ -1184,13 +1190,16 @@ vector<str_event> Alignment::get_events_Aln() {
 			double insert = 0;
 			double del = 0;
 			double mismatch = 0;
+//			if (flag) {
+//				cout << start << " " << stop << endl;
+//			}
 			if (flag) {
-				cout << start << " " << stop << endl;
+				std::cout << "check total len: " << start << " " << stop << std::endl;
 			}
 			for (size_t k = start; k <= stop; k++) {
-				if (flag) {
-					cout << event_aln[k].position << " " << event_aln[k].type << endl;
-				}
+				//		if (flag) {
+				//			cout << event_aln[k].position << " " << event_aln[k].type << endl;
+				//		}
 				if (event_aln[k].type == 0) {
 					mismatch++;
 				} else if (event_aln[k].type > 0) {
@@ -1216,6 +1225,9 @@ vector<str_event> Alignment::get_events_Aln() {
 			}
 			tmp.length = (tmp.length - event_aln[start].position);
 
+			if (flag) {
+				std::cout << "decide" << std::endl;
+			}
 			tmp.type = 0;
 			if (insert_max > Parameter::Instance()->min_length && insert > (del + del)) { //we have an insertion! //todo check || vs. &&
 				if (flag) {
@@ -1232,7 +1244,7 @@ vector<str_event> Alignment::get_events_Aln() {
 				tmp.length = del_max;
 				tmp.type |= DEL;
 				tmp.is_noise = false;
-			} else if ((mismatch+del+insert)/2 > Parameter::Instance()->min_length) { //TODO
+			} else if ((mismatch + del + insert) / 2 > Parameter::Instance()->min_length) { //TODO
 				if (flag) {
 					cout << "store Noise" << endl;
 				}
