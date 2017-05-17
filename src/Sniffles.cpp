@@ -26,8 +26,6 @@
 //cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
 
 //TODO:
-// Check pseudo event introduction.
-// AF tag in genotyping.
 // strand bias??
 
 Parameter* Parameter::m_pInstance = NULL;
