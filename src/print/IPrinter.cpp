@@ -29,7 +29,6 @@ bool IPrinter::to_print(Breakpoint * &SV, pair<double, double>& std, pair<double
 	bool to_print = true;
 
 	if ((SV->get_SVtype() & INS) && is_huge_ins(SV)) {
-
 		return (std.first < 5 || std.second < 5);
 	}
 

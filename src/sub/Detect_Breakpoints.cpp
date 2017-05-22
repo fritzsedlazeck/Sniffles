@@ -745,12 +745,10 @@ bool overlaps(aln_str prev, aln_str curr) {
 
 	double ratio = 0;
 	double overlap = 0;
-
 	if (prev.pos + Parameter::Instance()->min_length < curr.pos + curr.length && prev.pos + prev.length - Parameter::Instance()->min_length > curr.pos) {
 		overlap = min((curr.pos + curr.length), (prev.pos + prev.length)) - max(prev.pos, curr.pos);
 		ratio = overlap / (double) min(curr.length, prev.length);
 	}
 //	std::cout<<overlap<<" "<<ratio<<std::endl;
-
 	return (ratio > 0.4 && overlap > 200);
 }

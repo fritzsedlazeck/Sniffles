@@ -24,7 +24,7 @@ class Parameter {
 private:
 	Parameter() {
 		window_thresh=10;//TODO check!
-		version="1.0.5";
+		version="1.0.3";
 		huge_ins = 2000;//TODO check??
 	}
 	~Parameter() {
@@ -69,6 +69,7 @@ public:
 	bool genotype;
 	bool phase;
 	bool ignore_std;
+	bool reportBND;
 
 	void set_regions(std::string reg) {
 		size_t i = 0;
