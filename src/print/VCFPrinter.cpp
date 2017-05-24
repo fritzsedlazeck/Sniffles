@@ -13,7 +13,18 @@ void VCFPrinter::print_header() {
 	string time = currentDateTime();
 	fprintf(file, "%s", "##fileDate=");
 	fprintf(file, "%s", time.c_str());
-	fprintf(file, "%s", "\n"); //TODO change!
+
+	//REport over all chrs:
+	for (size_t i = 0; i < this->ref.size(); i++) {
+		fprintf(file, "%s", "\n");
+		fprintf(file, "%s", "##contig=<ID=");
+		fprintf(file, "%s",ref[i].RefName.c_str());
+		fprintf(file, "%s", ",length=");
+		fprintf(file, "%i",(int)ref[i].RefLength);
+		fprintf(file, "%c",'>');
+	}
+
+	fprintf(file, "%s", "\n");
 	fprintf(file, "%s", "##ALT=<ID=DEL,Description=\"Deletion\">\n");
 	fprintf(file, "%s", "##ALT=<ID=DUP,Description=\"Duplication\">\n");
 	fprintf(file, "%s", "##ALT=<ID=INV,Description=\"Inversion\">\n");
@@ -39,6 +50,20 @@ void VCFPrinter::print_header() {
 			"##INFO=<ID=SVMETHOD,Number=1,Type=String,Description=\"Type of approach used to detect SV\">\n");
 	fprintf(file, "%s",
 			"##INFO=<ID=SVTYPE,Number=1,Type=String,Description=\"Type of structural variant\">\n");
+	fprintf(file, "%s",
+				"##INFO=<ID=STD_quant_start,Number=.,Type=Integer,Description=\"STD of the start breakpoints across the reads.\">\n");
+	fprintf(file, "%s",
+				"##INFO=<ID=STD_quant_stop,Number=.,Type=Integer,Description=\"STD of the stop breakpoints across the reads.\">\n");
+	fprintf(file, "%s",
+					"##INFO=<ID=Kurtosis_quant_start,Number=.,Type=Integer,Description=\"Kurtosis value of the start breakpoints accross the reads.\">\n");
+	fprintf(file, "%s",
+						"##INFO=<ID=Kurtosis_quant_stop,Number=.,Type=Integer,Description=\"Kurtosis value of the stop breakpoints accross the reads.\">\n");
+	fprintf(file, "%s",
+				"##INFO=<ID=SUPTYPE,Number=1,Type=String,Description=\"Type by which the variant is supported.(SR,ALN)\">\n");
+	fprintf(file, "%s",
+					"##INFO=<ID=SUPTYPE,Number=1,Type=String,Description=\"Type by which the variant is supported.(SR,ALN)\">\n");
+	fprintf(file, "%s",
+						"##INFO=<ID=STRANDS,Number=.,Type=String,Description=\"Strand orientation of the adjacency in BEDPE format (DEL:+-, DUP:-+, INV:++/--)\">\n");
 	fprintf(file, "%s",
 			"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n");
 	fprintf(file, "%s",
@@ -129,18 +154,17 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 
 			fprintf(file, "%s", ";SVMETHOD=Snifflesv");
 			fprintf(file, "%s", Parameter::Instance()->version.c_str());
-			fprintf(file, "%s", ";CHR2=");
-			fprintf(file, "%s", chr.c_str());
-			fprintf(file, "%s", ";END=");
-			if (SV->get_SVtype() & INS) {
-				fprintf(file, "%i",
-						std::max((int) (end - SV->get_length()), start));
-				//	} else if (SV->get_SVtype() & NEST) {
-				//	fprintf(file, "%i", start);
-			} else {
-				fprintf(file, "%i", end);
-			}
+			if (!(Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA))) {
+				fprintf(file, "%s", ";CHR2=");
+				fprintf(file, "%s", chr.c_str());
+				fprintf(file, "%s", ";END=");
 
+				if (SV->get_SVtype() & INS) {
+					fprintf(file, "%i",std::max((int) (end - SV->get_length()), start));
+				} else {
+					fprintf(file, "%i", end);
+				}
+			}
 			fprintf(file, "%s", ";STD_quant_start=");
 			fprintf(file, "%f", std_quant.first);
 			fprintf(file, "%s", ";STD_quant_stop=");
@@ -189,7 +213,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			//	}
 			fprintf(file, "%s", ";STRANDS=");
 			fprintf(file, "%s", strands.c_str());
-			fprintf(file, "%s", ";STRANDS2=");
+		/*	fprintf(file, "%s", ";STRANDS2=");
 
 			std::map<std::string, read_str> support =
 					SV->get_coordinates().support;
@@ -218,7 +242,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%s", ",");
 			fprintf(file, "%i", tmp_stop.first);
 			fprintf(file, "%s", ",");
-			fprintf(file, "%i", tmp_stop.second);
+			fprintf(file, "%i", tmp_stop.second);*/
 
 			fprintf(file, "%s", ";RE=");
 			fprintf(file, "%i", SV->get_support());

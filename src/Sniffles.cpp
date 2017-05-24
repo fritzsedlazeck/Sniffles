@@ -49,7 +49,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
 	TCLAP::SwitchArg arg_std("", "ignore_std", "Ignores the std based filtering. (default: false)", cmd, false);
-	TCLAP::SwitchArg arg_bnd("", "report_BND", "Report BND instead of Inv tra in vcf output. (default: false)", cmd, false);
+	TCLAP::SwitchArg arg_bnd("", "report_BND", "Report BND instead of Tra in vcf output. (default: false)", cmd, false);
 	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV. Default: 1", false, 1, "int");
 	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1).", false, 0.0, "float");
 

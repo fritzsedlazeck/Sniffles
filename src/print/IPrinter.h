@@ -68,10 +68,10 @@ public:
 			exit(EXIT_FAILURE);
 		}
 
-		print_header();
+
 		BamParser *mapped_file = new BamParser(Parameter::Instance()->bam_files[0]);
 		this->ref = mapped_file->get_refInfo();
-
+		print_header();
 		if (!Parameter::Instance()->ignore_regions_bed.empty()) {
 			std::cout << "Cross checking..." << std::endl;
 			initialize_bed(bed_tree, root, ref);
