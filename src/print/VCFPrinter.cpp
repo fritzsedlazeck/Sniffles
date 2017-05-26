@@ -116,27 +116,20 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			if (Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA)) {
 				//N[22:36765684[ +-
 				//]21:10540232]N -+
-				if (strands[0] == '+') {
+				if (strands[0] == '-' && strands[0] =='+') {
+					fprintf(file, "%s", "]");
+					fprintf(file, "%s", chr.c_str());
+					fprintf(file, "%c", ':');
+					fprintf(file, "%i", end);
+					fprintf(file, "%s", "]N");
+
+				} else {
 					fprintf(file, "%s", "N[");
 					fprintf(file, "%s", chr.c_str());
 					fprintf(file, "%c", ':');
 					fprintf(file, "%i", end);
-
-				} else {
-					fprintf(file, "%c", ']');
-					fprintf(file, "%s", chr.c_str());
-					fprintf(file, "%c", ':');
-					fprintf(file, "%i", end);
-				}
-				if (strands[1] == '-') {
 					fprintf(file, "%c", '[');
-				} else {
-					fprintf(file, "%c", ']');
 				}
-				if (strands[0] == '-') {
-					fprintf(file, "%c", 'N');
-				}
-
 			} else {
 
 				fprintf(file, "%c", '<');
