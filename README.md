@@ -12,6 +12,11 @@ Please see our github wiki for more information (https://github.com/fritzsedlaze
 Sniffles performs best with the mappings of NGM-LR our novel long read mapping method. 
 Please see:
 https://github.com/philres/nextgenmap-lr
+
+****************************************
+## Citation:
+Please see and cite our preprint:
+http://www.biorxiv.org/content/early/2017/07/28/169557
   
 **************************************
 ## Poster & Talks:
