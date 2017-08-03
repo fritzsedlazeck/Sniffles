@@ -24,7 +24,7 @@ class Parameter {
 private:
 	Parameter() {
 		window_thresh=10;//TODO check!
-		version="1.0.3";
+		version="1.0.6";
 		huge_ins = 2000;//TODO check??
 	}
 	~Parameter() {
@@ -49,6 +49,8 @@ public:
 	double error_rate;
 	double score_treshold;
 	double min_allelel_frequency;
+	double avg_del;
+	double avg_ins;
 	//double min_num_mismatches;
 
 	int window_thresh;

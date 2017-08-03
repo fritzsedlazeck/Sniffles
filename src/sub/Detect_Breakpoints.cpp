@@ -74,7 +74,7 @@ void detect_merged_svs(position_str point, RefVector ref, vector<Breakpoint *> &
 //	std::cout << "Stop: " << std::endl;
 	int stop_count = 0;
 	for (size_t i = 0; i < pos_stop.size(); i++) {
-	//	std::cout << pos_stop[i].hits << ",";
+		//	std::cout << pos_stop[i].hits << ",";
 		if (pos_stop[i].hits > Parameter::Instance()->min_support) {
 			stop_count++;
 			/*	std::string chr = "";
@@ -170,8 +170,7 @@ void polish_points(std::vector<Breakpoint *> & points, RefVector ref) { //TODO m
 			for (size_t j = 0; j < points.size(); j++) {
 				if (i != j) {
 					if (abs(points[i]->get_coordinates().start.min_pos - points[j]->get_coordinates().start.min_pos) < Parameter::Instance()->max_dist || abs(points[i]->get_coordinates().stop.max_pos - points[j]->get_coordinates().stop.max_pos) < Parameter::Instance()->max_dist) {
-						std::cout << "HIT!: " << points[j]->get_coordinates().start.min_pos << " " << points[i]->get_coordinates().start.min_pos << " " << points[j]->get_coordinates().stop.max_pos << " " << points[i]->get_coordinates().stop.max_pos << " len: " << points[j]->get_length() << " "
-								<< points[i]->get_length() << std::endl;
+						std::cout << "HIT!: " << points[j]->get_coordinates().start.min_pos << " " << points[i]->get_coordinates().start.min_pos << " " << points[j]->get_coordinates().stop.max_pos << " " << points[i]->get_coordinates().stop.max_pos << " len: " << points[j]->get_length() << " " << points[i]->get_length() << std::endl;
 						break;
 					}
 				}
@@ -225,7 +224,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 			if (current_RefID != tmp_aln->getRefID()) {
 				current_RefID = tmp_aln->getRefID();
 				ref_space = get_ref_lengths(tmp_aln->getRefID(), ref);
-				std::cout << "\tSwitch Chr " << ref[tmp_aln->getRefID()].RefName << " " << ref[tmp_aln->getRefID()].RefLength << std::endl;
+				std::cout << "\tSwitch Chr " << ref[tmp_aln->getRefID()].RefName << std::endl;//" " << ref[tmp_aln->getRefID()].RefLength
 				std::vector<Breakpoint *> points;
 				//	clarify(points);
 				bst.get_breakpoints(root, points);
@@ -298,6 +297,8 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 
 		if (num_reads % 10000 == 0) {
 			cout << "\t\t# Processed reads: " << num_reads << endl;
+			//" \r";
+			//std::cout.flush();
 		}
 	}
 //filter and copy results:
@@ -483,26 +484,37 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 				}
 
 				if (flag) {
-					cout << "Debug: SV_Size: " << (svs.start.min_pos - svs.stop.max_pos) << " tmp: " << (svs.stop.max_pos - svs.start.min_pos) << " Ref_start: " << svs.start.min_pos - get_ref_lengths(events[i].RefID, ref) << " Ref_stop: " << svs.stop.max_pos - get_ref_lengths(events[i].RefID, ref)
-							<< " readstart: " << svs.read_start << " readstop: " << svs.read_stop << std::endl;
+					cout << "Debug: SV_Size: " << (svs.start.min_pos - svs.stop.max_pos) << " tmp: " << (svs.stop.max_pos - svs.start.min_pos) << " Ref_start: " << svs.start.min_pos - get_ref_lengths(events[i].RefID, ref) << " Ref_stop: " << svs.stop.max_pos - get_ref_lengths(events[i].RefID, ref) << " readstart: " << svs.read_start << " readstop: " << svs.read_stop << std::endl;
 				}
 
 				if ((svs.stop.max_pos - svs.start.min_pos) > Parameter::Instance()->min_length * -1 && ((svs.stop.max_pos - svs.start.min_pos) + (Parameter::Instance()->min_length) < (svs.read_stop - svs.read_start) && (svs.read_stop - svs.read_start) > (Parameter::Instance()->min_length * 2))) {
 					if (flag) {
 						cout << "INS: " << endl;
 					}
-					svs.stop.max_pos += (svs.read_stop - svs.read_start); //TODO check!
-					read.SV |= INS;
-				} else if ((svs.start.min_pos - svs.stop.max_pos) * -1 > (svs.read_stop - svs.read_start) + (Parameter::Instance()->min_length)) {
-					read.SV |= DEL;
-					if (flag) {
-						cout << "DEL" << endl;
+
+					if (!events[i].cross_N || (double)((svs.stop.max_pos - svs.start.min_pos) + Parameter::Instance()->min_length) < ((double)(svs.read_stop - svs.read_start) * Parameter::Instance()->avg_ins)) {
+						svs.stop.max_pos += (svs.read_stop - svs.read_start); //TODO check!
+						read.SV |= INS;
+					} else {
+						read.SV |= 'n';
 					}
+
+				} else if ((svs.start.min_pos - svs.stop.max_pos) * -1 > (svs.read_stop - svs.read_start) + (Parameter::Instance()->min_length)) {
+					//cout << "DEL1 "<<(double)(svs.start.min_pos - svs.stop.max_pos) * Parameter::Instance()->avg_del * -1.0  <<" "<<((svs.read_stop - svs.read_start) + (Parameter::Instance()->min_length)) << endl;
+					if (!events[i].cross_N || (double)(svs.start.min_pos - svs.stop.max_pos) * Parameter::Instance()->avg_del * -1.0 > (double)((svs.read_stop - svs.read_start) + (Parameter::Instance()->min_length))) {
+						read.SV |= DEL;
+						if (flag) {
+							cout << "DEL2" << endl;
+						}
+					} else {
+						read.SV |= 'n';
+					}
+
 				} else if ((svs.start.min_pos - svs.stop.max_pos) > Parameter::Instance()->min_length && (svs.read_start - svs.read_stop) < Parameter::Instance()->min_length) { //check with respect to the coords of reads!
-					read.SV |= DUP;
 					if (flag) {
 						cout << "DUP: " << endl;
 					}
+					read.SV |= DUP;
 				} else {
 					if (flag) {
 						cout << "N" << endl;
@@ -671,13 +683,19 @@ void estimate_parameters(std::string read_filename) {
 	vector<int> scores;
 //	std::string curr, prev = "";
 	double avg_dist = 0;
+	double tot_avg_ins = 0;
+	double tot_avg_del = 0;
 	while (!tmp_aln->getQueryBases().empty() && num < 1000) {	//1000
 		//	std::cout<<"test "<<tmp_aln->getName()<<std::endl;
 		if (rand() % 100 < 20 && ((tmp_aln->getAlignment()->IsPrimaryAlignment()) && (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800)))) {				//}&& tmp_aln->get_is_save()))) {
 			//1. check differences in window => min_treshold for scanning!
 			//2. get score ration without checking before hand! (above if!)
 			double dist = 0;
-			vector<int> tmp = tmp_aln->get_avg_diff(dist);
+			double avg_del = 0;
+			double avg_ins = 0;
+			vector<int> tmp = tmp_aln->get_avg_diff(dist, avg_del, avg_ins);
+			tot_avg_ins += avg_ins;
+			tot_avg_del += avg_del;
 			//std::cout<<"Debug:\t"<<dist<<"\t";
 			avg_dist += dist;
 			double avg_mis = 0;
@@ -704,7 +722,7 @@ void estimate_parameters(std::string read_filename) {
 		mapped_file->parseReadFast(Parameter::Instance()->min_mq, tmp_aln);
 	}
 	if (num == 0) {
-		std::cerr << "No reads detected in " << Parameter::Instance()->bam_files[0] << std::endl;
+		std::cerr << "Too few reads detected in " << Parameter::Instance()->bam_files[0] << std::endl;
 		exit(1);
 	}
 	vector<int> nums;
@@ -712,11 +730,8 @@ void estimate_parameters(std::string read_filename) {
 	Parameter::Instance()->max_dist_alns = floor(avg_dist / num) / 2;
 	Parameter::Instance()->window_thresh = 50;			//25;
 	if (!mis_per_window.empty()) {
-
 		for (size_t i = 0; i < mis_per_window.size(); i++) {
-			if (mis_per_window[i] != 0) {
-				//		std::cout << i << ": " << mis_per_window[i] << std::endl;
-			}
+
 			for (size_t j = 0; j < mis_per_window[i]; j++) {
 				nums.push_back(i);
 			}
@@ -735,9 +750,15 @@ void estimate_parameters(std::string read_filename) {
 	}
 	pos = nums.size() * 0.05; //the lowest 5% cuttoff
 	Parameter::Instance()->score_treshold = 2; //nums[pos]; //prev=2
+
+	Parameter::Instance()->avg_del = tot_avg_del / num;
+	Parameter::Instance()->avg_ins = tot_avg_ins / num;
+
 	std::cout << "\tMax dist between aln events: " << Parameter::Instance()->max_dist_alns << std::endl;
 	std::cout << "\tMax diff in window: " << Parameter::Instance()->window_thresh << std::endl;
 	std::cout << "\tMin score ratio: " << Parameter::Instance()->score_treshold << std::endl;
+	std::cout << "\tAvg DEL ratio: " << Parameter::Instance()->avg_del << std::endl;
+	std::cout << "\tAvg INS ratio: " << Parameter::Instance()->avg_ins << std::endl;
 
 }
 

@@ -470,7 +470,8 @@ void Alignment::get_coords(aln_str tmp, int & start, int &stop) {
 }
 void Alignment::check_entries(vector<aln_str> &entries) {
 
-	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+	bool flag =(strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+
 	if (flag) {
 		std::cout << "Nested? " << std::endl;
 		for (size_t i = 0; i < entries.size(); i++) {
@@ -480,16 +481,34 @@ void Alignment::check_entries(vector<aln_str> &entries) {
 			} else {
 				std::cout << "- ";
 			}
+			//sort_insert_ref(entries[i], new_entries);
 		}
 		std::cout << std::endl;
+
 	}
+
 	int chr = entries[0].RefID;
 	bool strand = entries[0].strand;
 	int strands = 1;
 	int valid = 1;
+	double read_gaps = 0;
+	double ref_gaps = 0;
+
+	int ref_size = 0;
+	int read_size = 0;
+
 	for (size_t i = 1; i < entries.size(); i++) {
 		if (entries[i].read_pos_stop - entries[i].read_pos_start > 200) { //only consider segments > 200bp.
-			valid++;
+			ref_size = min((int) abs((entries[i - 1].pos + entries[i - 1].length) - entries[i].pos), (int) abs(entries[i - 1].pos - (entries[i].pos + entries[i].length)));
+
+			read_size = abs(entries[i - 1].read_pos_stop - entries[i].read_pos_start);
+			if (abs(ref_size - read_size) > Parameter::Instance()->min_length) {
+				valid++;
+			}
+			if(flag){
+			cout<<"Read: "<<read_size << " Ref: "<<ref_size<< " "<<this->getName()<<std::endl;
+			}
+
 			if (chr != entries[i].RefID) {
 				return;
 			}
@@ -499,10 +518,14 @@ void Alignment::check_entries(vector<aln_str> &entries) {
 			}
 		}
 	}
+
 	if (flag) {
-		std::cout << "summary: " << strands << " " << valid << std::endl;
+		std::cout << "summary: " << strands << " " << valid << " " << std::endl;
 	}
-	if (strands < 3 || valid < 3) {
+	if (strands < 3 || valid < 2 ) { //check!
+		if (flag) {
+			std::cout << "Return" << std::endl;
+		}
 		return;
 	}
 
@@ -517,6 +540,9 @@ void Alignment::check_entries(vector<aln_str> &entries) {
 			read_dist = abs(entries[i - 1].read_pos_stop - entries[i].read_pos_start);
 		}
 
+		if (flag) {
+			std::cout << "REF DIST: " << ref_dist << " READ DIST: " << read_dist << std::endl;
+		}
 		if (abs(entries[i - 1].pos - entries[i].pos) < 100) { //inv dup:
 			aln_str tmp;
 			tmp.RefID = entries[i].RefID;
@@ -665,19 +691,21 @@ void Alignment::check_entries(vector<aln_str> &entries) {
  entries = new_entries;
  }
  }*/
+
+void Alignment::sort_insert_ref(aln_str tmp, vector<aln_str> &entries) {
+
+	for (vector<aln_str>::iterator i = entries.begin(); i != entries.end(); i++) {
+		if ((tmp.pos < (*i).pos)) { //insert before
+			entries.insert(i, tmp);
+			return;
+		}
+	}
+	entries.push_back(tmp);
+}
+
 void Alignment::sort_insert(aln_str tmp, vector<aln_str> &entries) {
 
 	for (vector<aln_str>::iterator i = entries.begin(); i != entries.end(); i++) {
-		/*	if ((tmp.read_pos_start == (*i).read_pos_start) && (tmp.pos == (*i).pos) && (tmp.strand == (*i).strand)) { //is the same! should not happen
-		 return;
-		 }
-		 if (!tmp.cigar.empty() && ((*i).read_pos_start <= tmp.read_pos_start && (*i).read_pos_stop >= tmp.read_pos_stop)) { //check for the additional introducded entries
-		 return;
-		 }
-		 if (!tmp.cigar.empty() && ((*i).read_pos_start >= tmp.read_pos_start && (*i).read_pos_stop <= tmp.read_pos_stop)) { //check for the additional introducded entries
-		 (*i) = tmp;
-		 return;
-		 }*/
 		if ((tmp.read_pos_start < (*i).read_pos_start)) { //insert before
 			entries.insert(i, tmp);
 			return;
@@ -708,6 +736,9 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 		tmp.mq = this->getMappingQual();
 		tmp.pos = (long) this->getPosition(); //+get_ref_lengths(tmp.RefID, ref);
 		tmp.strand = getStrand();
+		uint32_t sv;
+		al->GetTag("SV", sv);
+		tmp.cross_N = ((sv & Ns_CLIPPED));
 		bool flag = strcmp(getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0;
 
 		get_coords(tmp, tmp.read_pos_start, tmp.read_pos_stop);
@@ -721,10 +752,6 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 		std::string cigar;
 		std::string chr;
 		bool nested = true;
-
-		uint32_t sv;
-		al->GetTag("SV", sv);
-
 		while (i < sa.size()) {
 			if (count == 0 && sa[i] != ',') {
 				chr += sa[i];
@@ -769,6 +796,9 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 					//insert sorted:
 					includes_SV = true;
 					sort_insert(tmp, entries);
+
+					//al->GetTag("SV", sv);   <-get that involved
+
 				} else if (tmp.mq < Parameter::Instance()->min_mq) {
 					nested = false;
 				} else {					//Ignore read due to too many splits
@@ -1050,7 +1080,7 @@ vector<str_event> Alignment::get_events_MD(int min_mis) {
 	return events;
 }
 
-vector<int> Alignment::get_avg_diff(double & dist) {
+vector<int> Alignment::get_avg_diff(double & dist, double & avg_del, double & avg_ins) {
 
 //computeAlignment();
 //cout<<alignment.first<<endl;
@@ -1065,10 +1095,15 @@ vector<int> Alignment::get_avg_diff(double & dist) {
 	PlaneSweep_slim * plane = new PlaneSweep_slim();
 	int min_tresh = 5; //reflects a 10% error rate.
 //compute the profile of differences:
+	double del = 0;
+	double ins = 0;
+	double mis = 0;
+	double length = event_aln[event_aln.size() - 1].position - event_aln[0].position;
 	for (size_t i = 0; i < event_aln.size(); i++) {
 		if (i != 0) {
 			dist += event_aln[i].position - event_aln[i - 1].position;
 		}
+
 		pair_str tmp;
 		tmp.position = -1;
 		if (event_aln[i].type == 0) {
@@ -1079,7 +1114,16 @@ vector<int> Alignment::get_avg_diff(double & dist) {
 		if (tmp.position != -1) { //check that its not the prev event!
 			mis_per_window.push_back(tmp.coverage); //store #mismatch per window each time it exceeds. (which might be every event position!)
 		}
+		if (event_aln[i].type > 0) {
+			avg_del += event_aln[i].type;
+		} else if (event_aln[i].type < 0) {
+			avg_ins += event_aln[i].type * -1;
+		}
 	}
+
+	avg_ins = avg_ins / length;
+	avg_del = avg_del / length;
+
 	dist = dist / (double) event_aln.size();
 	plane->finalyze();
 	return mis_per_window;	//total_num /num;
@@ -1100,6 +1144,12 @@ vector<str_event> Alignment::get_events_Aln() {
 	PlaneSweep_slim * plane = new PlaneSweep_slim();
 	vector<pair_str> profile;
 //	comp_aln = clock();
+
+	bool is_N_region = false;
+	uint32_t sv;
+	if (al->GetTag("SV", sv) && (!(sv & Ns_CLIPPED) && !(sv & FULLY_EXPLAINED))) {
+		is_N_region = true;
+	}
 
 	int noise_events = 0;
 //compute the profile of differences:
@@ -1122,7 +1172,6 @@ vector<str_event> Alignment::get_events_Aln() {
 		}
 	}
 
-	
 //comp_aln = clock();
 	int stop = 0;
 	size_t start = 0;
@@ -1197,9 +1246,6 @@ vector<str_event> Alignment::get_events_Aln() {
 				std::cout << "check total len: " << start << " " << stop << std::endl;
 			}
 			for (size_t k = start; k <= stop; k++) {
-				//		if (flag) {
-				//			cout << event_aln[k].position << " " << event_aln[k].type << endl;
-				//		}
 				if (event_aln[k].type == 0) {
 					mismatch++;
 				} else if (event_aln[k].type > 0) {
@@ -1237,6 +1283,9 @@ vector<str_event> Alignment::get_events_Aln() {
 				tmp.pos = insert_max_pos;
 				tmp.type |= INS;
 				tmp.is_noise = false;
+				if (is_N_region && insert_max * Parameter::Instance()->avg_ins < Parameter::Instance()->min_length) {
+					tmp.type = 0;
+				}
 			} else if (del_max > Parameter::Instance()->min_length && (insert + insert) < del) { //deletion
 				if (flag) {
 					cout << "store DEL " << this->getName() << endl;
@@ -1244,6 +1293,9 @@ vector<str_event> Alignment::get_events_Aln() {
 				tmp.length = del_max;
 				tmp.type |= DEL;
 				tmp.is_noise = false;
+				if (is_N_region && del_max * Parameter::Instance()->avg_del < Parameter::Instance()->min_length) {
+					tmp.type = 0;
+				}
 			} else if ((mismatch + del + insert) / 2 > Parameter::Instance()->min_length) { //TODO
 				if (flag) {
 					cout << "store Noise" << endl;
@@ -1252,8 +1304,12 @@ vector<str_event> Alignment::get_events_Aln() {
 				tmp.type |= DEL;
 				tmp.type |= INV;
 				tmp.is_noise = true;
+				if (is_N_region || ((del_max> Parameter::Instance()->min_length && insert_max > Parameter::Instance()->min_length) && (del_max/insert_max)<Parameter::Instance()->min_length)) {
+					tmp.type = 0;
+				}
 			} else {
 				//	std::cout<<"ERROR we did not set the type!"<<std::endl;
+				tmp.type = 0;
 			}
 
 			if (flag) {

@@ -58,6 +58,7 @@ struct aln_str{
 	long length;
 	int read_pos_start;
 	int read_pos_stop;
+	bool cross_N;
 };
 
 class Alignment {
@@ -75,6 +76,8 @@ private:
 	 int get_id(RefVector ref, std::string chr);
 	 vector<differences_str> summarizeAlignment();
 	 void sort_insert(aln_str tmp, vector<aln_str> &entries);
+
+	 void sort_insert_ref(aln_str tmp, vector<aln_str> &entries);
 	 void check_entries(vector<aln_str> &entries);
 	 bool overlapping_segments(vector<aln_str> entries);
 public:
@@ -133,7 +136,7 @@ public:
 	 double get_scrore_ratio();
 	 std::string get_md();
 	 double get_avg_indel_length_Cigar();
-	 vector<int> get_avg_diff(double & dist);
+	 vector<int> get_avg_diff(double & dist,double & avg_del, double & avg_len);
 
 };
 

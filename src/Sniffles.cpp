@@ -28,6 +28,10 @@
 
 //TODO:
 // strand bias??
+// I think you could make your performance on PacBio reads even better with a few modifications:
+//a.    The "snake" read that you show in Supplementary Figure 2.5 which limits calling of small inverted duplications likely results from an improperly constructed SMRTbell (see attached) that has adapters missing on one end.  The PacBio library prep reordered a few steps (years ago now) to prevent formation of these types of molecules.  So, hopefully it is no longer an issue.  Even with old data, you should be able to call small inverted duplications by counting support of ZMWs not just subreads.  It is improbable the same ligation error happens in two separate molecules.  The ZMW vs subread counting is much like the PCR duplicate marking used in processing short read data.
+//b.    In pbsv, I use a simply mononucleotide consistency check to determine whether to cluster insertions from different reads as supporting the "same" events.  In addition to looking at the similarity of length and breakpoints, you could measure [min(Act)+min(Cct)+min(Gct)+min(Tct) / max(Act)+max(Cct)+max(Gct)+max(Tct)]  Even a lax criterion (>0.25) can avoid clustering phantom insertions (where one is say all A and the another is G+T).
+
 
 Parameter* Parameter::m_pInstance = NULL;
 
@@ -48,7 +52,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<std::string> arg_tmp_file("", "tmp_file", "path to temporary file otherwise Sniffles will use the current directory.", false, "", "string");
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
-	TCLAP::SwitchArg arg_std("", "ignore_std", "Ignores the std based filtering. (default: false)", cmd, false);
+	TCLAP::SwitchArg arg_std("", "ignore_sd", "Ignores the sd based filtering. (default: false)", cmd, false);
 	TCLAP::SwitchArg arg_bnd("", "report_BND", "Report BND instead of Tra in vcf output. (default: false)", cmd, false);
 	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV. Default: 1", false, 1, "int");
 	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1).", false, 0.0, "float");
@@ -73,7 +77,7 @@ void read_parameters(int argc, char *argv[]) {
 
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
-	Parameter::Instance()->read_name = "m151102_061230_42286_c100922632550000001823194205121664_s1_p0/86232/0_9276";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
+	Parameter::Instance()->read_name = "21_43213620_-";//21_16296949_+";//21_40181680_-";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
 	Parameter::Instance()->bam_files.push_back(arg_bamfile.getValue());
 	Parameter::Instance()->min_mq = arg_mq.getValue();
 	Parameter::Instance()->output_vcf = arg_vcf.getValue();
