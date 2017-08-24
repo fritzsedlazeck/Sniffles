@@ -139,7 +139,7 @@ long Breakpoint::overlap(Breakpoint * tmp) {
 	}
 
 	//merging "huge ins" and observed ins:
-	if(is_same_strand(tmp) && (abs(tmp->get_coordinates().start.min_pos -tmp->get_coordinates().stop.max_pos) == Parameter::Instance()->huge_ins || abs(positions.start.min_pos -positions.stop.max_pos) == Parameter::Instance()->huge_ins) && (abs(tmp->get_coordinates().start.min_pos - positions.start.min_pos) < max_dist || abs(tmp->get_coordinates().stop.max_pos - positions.stop.max_pos) < max_dist)){
+	if (is_same_strand(tmp) && (abs(tmp->get_coordinates().start.min_pos - tmp->get_coordinates().stop.max_pos) == Parameter::Instance()->huge_ins || abs(positions.start.min_pos - positions.stop.max_pos) == Parameter::Instance()->huge_ins) && (abs(tmp->get_coordinates().start.min_pos - positions.start.min_pos) < max_dist || abs(tmp->get_coordinates().stop.max_pos - positions.stop.max_pos) < max_dist)) {
 		return 0;
 	}
 
@@ -180,13 +180,16 @@ void Breakpoint::add_read(Breakpoint * point) { //point = one read support!
 }
 
 ///////////////////////////////// MERGING////////////////////////////////////////////
-std::vector<std::string> Breakpoint::get_read_names(int maxim) {
-	std: vector<std::string> read_names;
-	std::map<std::string, read_str> support = this->positions.support;
-	int num = 0;
-	for (std::map<std::string, read_str>::iterator i = support.begin(); (num < maxim || maxim == -1) && i != support.end(); i++) {
-		read_names.push_back((*i).first);
-		num++;
+std::string Breakpoint::get_read_names() {
+	std::string read_names;
+	int num = Parameter::Instance()->report_n_reads;
+	if(num==-1){
+		num=this->positions.support.size();
+	}
+	for (std::map<std::string, read_str>::iterator i = this->positions.support.begin(); num!=0 && i != this->positions.support.end(); i++) {
+		read_names+=(*i).first;
+		read_names+= ";";
+		num--;
 	}
 	return read_names;
 }
@@ -378,7 +381,7 @@ void Breakpoint::predict_SV() {
 				}
 				stops2.push_back((*i).second.coordinates.second);
 			}
-			if (((*i).second.SV & INS) ) { //check lenght for ins only!
+			if (((*i).second.SV & INS)) { //check lenght for ins only!
 				if ((*i).second.length != Parameter::Instance()->huge_ins) {
 					if (lengths.find((*i).second.length) == lengths.end()) {
 						lengths[(*i).second.length] = 1;
@@ -632,7 +635,10 @@ std::string Breakpoint::to_string(RefVector ref) {
 	ss << this->get_strand(2);
 	ss << "\n";
 	int num = 0;
-	for (std::map<std::string, read_str>::iterator i = positions.support.begin(); i != positions.support.end() && num < Parameter::Instance()->report_n_reads; i++) {
+	for (std::map<std::string, read_str>::iterator i = positions.support.begin(); i != positions.support.end(); i++) {
+		if (num < Parameter::Instance()->report_n_reads && Parameter::Instance()->report_n_reads != -1) {
+			break;
+		}
 		ss << "\t";
 		ss << (*i).first;
 		ss << " ";
@@ -648,6 +654,7 @@ std::string Breakpoint::to_string(RefVector ref) {
 			ss << "-";
 		}
 		num++;
+
 		ss << "\n";
 	}
 	ss << " ";

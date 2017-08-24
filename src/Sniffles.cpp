@@ -47,7 +47,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<int> arg_threads("t", "threads", "Number of threads to use. Default: 3", false, 3, "int");
 	TCLAP::ValueArg<int> arg_minlength("l", "min_length", "Minimum length of SV to be reported. Default: 30", false, 30, "int");
 	TCLAP::ValueArg<int> arg_mq("q", "minmapping_qual", "Minimum Mapping Quality. Default: 20", false, 20, "int");
-	TCLAP::ValueArg<int> arg_numreads("n", "num_reads_report", "Report up to N reads that support the SV in the vcf file. Default: 0", false, 0, "int");
+	TCLAP::ValueArg<int> arg_numreads("n", "num_reads_report", "Report up to N reads that support the SV in the vcf file. -1: report all. Default: 0", false, 0, "int");
 	TCLAP::ValueArg<int> arg_segsize("r","min_seq_size","Discard read if non of its segment is larger then this. Default: 2kb",false,2000,"int");
 	TCLAP::ValueArg<std::string> arg_tmp_file("", "tmp_file", "path to temporary file otherwise Sniffles will use the current directory.", false, "", "string");
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
@@ -288,7 +288,6 @@ int main(int argc, char *argv[]) {
 		//exit(0);
 		//init parameter and reads user defined parameter from command line.
 		read_parameters(argc, argv);
-
 		//init openmp:
 		omp_set_dynamic(0);
 		omp_set_num_threads(Parameter::Instance()->num_threads);

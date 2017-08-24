@@ -159,7 +159,7 @@ public:
 	str_types get_types(){
 		return this->type;
 	}
-	std::vector<std::string> get_read_names(int num);
+	std::string get_read_names();
 	std::vector<long> get_read_ids();
 	std::string to_string();
 };
