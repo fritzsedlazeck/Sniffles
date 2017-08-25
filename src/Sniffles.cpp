@@ -22,6 +22,7 @@
 #include "Ignore_Regions.h"
 #include "plane-sweep/PlaneSweep_slim.h"
 #include "print/BedpePrinter.h"
+#include "force_calling/Force_calling.h"
 
 //cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
 
@@ -40,6 +41,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::CmdLine cmd("Sniffles version ", ' ', Parameter::Instance()->version);
 	TCLAP::ValueArg<std::string> arg_bamfile("m", "mapped_reads", "Sorted bam File", true, "", "string");
 	TCLAP::ValueArg<std::string> arg_vcf("v", "vcf", "VCF output file name", false, "", "string");
+	//TCLAP::ValueArg<std::string> arg_input_vcf("", "Ivcf", "Input VCF file name. Enable force calling", false, "", "string");
 	TCLAP::ValueArg<std::string> arg_bedpe("b", "bedpe", " bedpe output file name", false, "", "string");
 	TCLAP::ValueArg<int> arg_support("s", "min_support", "Minimum number of reads that support a SV. Default: 10", false, 10, "int");
 	TCLAP::ValueArg<int> arg_splits("", "max_num_splits", "Maximum number of splits per read to be still taken into account. Default: 7", false, 7, "int");
@@ -57,6 +59,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV. Default: 1", false, 1, "int");
 	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1).", false, 0.0, "float");
 
+	//cmd.add(arg_input_vcf);
 	cmd.add(arg_cluster_supp);
 	cmd.add(arg_numreads);
 	cmd.add(arg_segsize);
@@ -95,10 +98,12 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->min_allelel_frequency = arg_allelefreq.getValue();
 	Parameter::Instance()->min_segment_size = arg_segsize.getValue();
 	Parameter::Instance()->reportBND= arg_bnd.getValue();
+	Parameter::Instance()->input_vcf="";//arg_input_vcf.getValue();
+
 
 	Parameter::Instance()->ignore_std=arg_std.getValue();
 
-	if (Parameter::Instance()->min_allelel_frequency > 0) {
+	if (Parameter::Instance()->min_allelel_frequency > 0 || !Parameter::Instance()->input_vcf.empty()) {
 		std::cerr << "Automatically enabling genotype mode" << std::endl;
 		Parameter::Instance()->genotype = true;
 	}
@@ -308,7 +313,12 @@ int main(int argc, char *argv[]) {
 		}
 
 		printer->init();
-		detect_breakpoints(Parameter::Instance()->bam_files[0], printer); //we could write out all read names for each sVs
+		//if(Parameter::Instance()->input_vcf.empty()){
+			detect_breakpoints(Parameter::Instance()->bam_files[0], printer); //we could write out all read names for each sVs
+		//}else{
+
+		//	force_calling(Parameter::Instance()->bam_files[0], printer);
+		//}
 		printer->close_file();
 
 		//cluster the SVs together:

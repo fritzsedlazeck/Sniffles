@@ -168,6 +168,21 @@ long Breakpoint::overlap(Breakpoint * tmp) {
 	return diff; // + (tmp->get_coordinates().stop.max_pos - positions.stop.max_pos);
 }
 
+long Breakpoint::overlap_breakpoint(long start,long stop) {
+	int max_dist = get_dist(this); // Parameter::Instance()->max_dist
+	if((start<positions.start.min_pos && positions.start.min_pos< stop) || (start<positions.stop.max_pos && positions.stop.max_pos< stop)){
+		return 0;
+	}
+	long diff = (start - positions.start.min_pos);
+	//if (abs(diff) < max_dist) {
+	//return (tmp->get_coordinates().stop.max_pos - positions.stop.max_pos);
+	//}
+	if (diff == 0) {
+		return 1;
+	}
+	return diff;
+
+}
 void Breakpoint::add_read(Breakpoint * point) { //point = one read support!
 
 	if (point != NULL) {
@@ -183,12 +198,14 @@ void Breakpoint::add_read(Breakpoint * point) { //point = one read support!
 std::string Breakpoint::get_read_names() {
 	std::string read_names;
 	int num = Parameter::Instance()->report_n_reads;
-	if(num==-1){
-		num=this->positions.support.size();
+	if (num == -1) {
+		num = this->positions.support.size();
 	}
-	for (std::map<std::string, read_str>::iterator i = this->positions.support.begin(); num!=0 && i != this->positions.support.end(); i++) {
-		read_names+=(*i).first;
-		read_names+= ";";
+	for (std::map<std::string, read_str>::iterator i = this->positions.support.begin(); num != 0 && i != this->positions.support.end(); i++) {
+		read_names += (*i).first;
+		if(num>1){
+			read_names += ",";
+		}
 		num--;
 	}
 	return read_names;
@@ -343,8 +360,8 @@ long get_median(std::vector<long> corrds) {
 		return (corrds[corrds.size() / 2 - 1] + corrds[corrds.size() / 2]) / 2;
 	}
 	return corrds[corrds.size() / 2];
-
 }
+
 void Breakpoint::predict_SV() {
 	bool aln = false;
 	bool split = false;
@@ -359,7 +376,8 @@ void Breakpoint::predict_SV() {
 	std::vector<long> lengths2;
 
 	for (std::map<std::string, read_str>::iterator i = positions.support.begin(); i != positions.support.end(); i++) {
-		if ((*i).second.SV & this->sv_type) {			// && !((*i).second.SV & INS && (*i).second.length==Parameter::Instance()->huge_ins)) { ///check type
+
+		if (((*i).second.SV & this->sv_type) && strncmp((*i).first.c_str(),"input",5)!=0) {			// && !((*i).second.SV & INS && (*i).second.length==Parameter::Instance()->huge_ins)) { ///check type
 
 			if ((*i).second.coordinates.first != -1) {
 				if ((*i).second.length != Parameter::Instance()->huge_ins) {
@@ -600,7 +618,7 @@ std::string Breakpoint::get_strand(int num_best) {
 #include "Detect_Breakpoints.h"
 std::string Breakpoint::to_string() {
 	std::stringstream ss;
-	if (positions.support.size() > 1) {
+	if (positions.support.size() >= 1) {
 		ss << "\t\tTREE: ";
 		ss << TRANS_type(this->get_SVtype());
 		ss << " ";
@@ -609,10 +627,10 @@ std::string Breakpoint::to_string() {
 		ss << get_coordinates().stop.max_pos;
 		ss << " ";
 		ss << this->length;
-		ss << " ";
+		ss << " PE=";
 		ss << positions.support.size();
 		ss << " ";
-		ss << get_strand(2);
+		ss << get_strand(1);
 	}
 	return ss.str();
 }

@@ -114,6 +114,7 @@ public:
 
 	int get_support();
 	long overlap(Breakpoint * tmp);
+	long overlap_breakpoint(long start,long stop);
 	void set_coordinates(int start, int stop){
 		this->positions.start.min_pos=start;
 		this->positions.stop.max_pos=stop;

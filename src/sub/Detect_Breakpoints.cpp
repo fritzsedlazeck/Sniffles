@@ -152,12 +152,6 @@ bool should_be_stored(Breakpoint *& point) {
 		return (point->get_support() > 1); // this is needed as we take each chr independently and just look at the primary alignment
 	} else if (point->get_support() >= Parameter::Instance()->min_support) {
 		point->predict_SV();
-		/*	std::cout<<"LEN check: "<<point->get_length()
-		 if(point->get_length() > Parameter::Instance()->min_length){
-		 cout<<" T "<<std::endl;
-		 }else{
-		 cout<<" T "<<std::endl;
-		 }*/
 		return (point->get_length() > Parameter::Instance()->min_length);
 	}
 
@@ -196,8 +190,6 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	std::cout << "Start parsing..." << std::endl;
 //Using Interval tree to store and manage breakpoints:
 
-	//IntervallList final;
-	//IntervallList bst;
 
 	IntervallTree final;
 	IntervallTree bst;
@@ -224,7 +216,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 			if (current_RefID != tmp_aln->getRefID()) {
 				current_RefID = tmp_aln->getRefID();
 				ref_space = get_ref_lengths(tmp_aln->getRefID(), ref);
-				std::cout << "\tSwitch Chr " << ref[tmp_aln->getRefID()].RefName << std::endl;//" " << ref[tmp_aln->getRefID()].RefLength
+				std::cout << "\tSwitch Chr " << ref[tmp_aln->getRefID()].RefName << std::endl;	//" " << ref[tmp_aln->getRefID()].RefLength
 				std::vector<Breakpoint *> points;
 				//	clarify(points);
 				bst.get_breakpoints(root, points);
@@ -283,10 +275,10 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 
 				//store the potential SVs:
 				if (!aln_event.empty()) {
-					add_events(tmp_aln, aln_event, 0, ref_space, bst, root, num_reads);
+					add_events(tmp_aln, aln_event, 0, ref_space, bst, root, num_reads,false);
 				}
 				if (!split_events.empty()) {
-					add_splits(tmp_aln, split_events, 1, ref, bst, root, num_reads);
+					add_splits(tmp_aln, split_events, 1, ref, bst, root, num_reads,false);
 				}
 			}
 		}
@@ -357,7 +349,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	//std::cout<<"Done"<<std::endl;
 }
 
-void add_events(Alignment *& tmp, std::vector<str_event> events, short type, long ref_space, IntervallContainer & bst, TNode *&root, long read_id) {
+void add_events(Alignment *& tmp, std::vector<str_event> events, short type, long ref_space, IntervallTree & bst, TNode *&root, long read_id, bool add) {
 
 	bool flag = (strcmp(tmp->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 	for (size_t i = 0; i < events.size(); i++) {
@@ -430,13 +422,17 @@ void add_events(Alignment *& tmp, std::vector<str_event> events, short type, lon
 		svs.support[tmp->getName()] = read;
 		svs.support[tmp->getName()].length = events[i].length;
 		Breakpoint * point = new Breakpoint(svs, events[i].length);
-		bst.insert(point, root);
+		if (add) {
+			bst.insert_existant(point, root);
+		} else {
+			bst.insert(point, root);
+		}
 		//std::cout<<"Print:"<<std::endl;
 		//bst.print(root);
 	}
 }
 
-void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVector ref, IntervallContainer & bst, TNode *&root, long read_id) {
+void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVector ref, IntervallTree& bst, TNode *&root, long read_id,bool add) {
 	bool flag = (strcmp(tmp->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 
 	if (flag) {
@@ -492,7 +488,7 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 						cout << "INS: " << endl;
 					}
 
-					if (!events[i].cross_N || (double)((svs.stop.max_pos - svs.start.min_pos) + Parameter::Instance()->min_length) < ((double)(svs.read_stop - svs.read_start) * Parameter::Instance()->avg_ins)) {
+					if (!events[i].cross_N || (double) ((svs.stop.max_pos - svs.start.min_pos) + Parameter::Instance()->min_length) < ((double) (svs.read_stop - svs.read_start) * Parameter::Instance()->avg_ins)) {
 						svs.stop.max_pos += (svs.read_stop - svs.read_start); //TODO check!
 						read.SV |= INS;
 					} else {
@@ -501,7 +497,7 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 
 				} else if ((svs.start.min_pos - svs.stop.max_pos) * -1 > (svs.read_stop - svs.read_start) + (Parameter::Instance()->min_length)) {
 					//cout << "DEL1 "<<(double)(svs.start.min_pos - svs.stop.max_pos) * Parameter::Instance()->avg_del * -1.0  <<" "<<((svs.read_stop - svs.read_start) + (Parameter::Instance()->min_length)) << endl;
-					if (!events[i].cross_N || (double)(svs.start.min_pos - svs.stop.max_pos) * Parameter::Instance()->avg_del * -1.0 > (double)((svs.read_stop - svs.read_start) + (Parameter::Instance()->min_length))) {
+					if (!events[i].cross_N || (double) (svs.start.min_pos - svs.stop.max_pos) * Parameter::Instance()->avg_del * -1.0 > (double) ((svs.read_stop - svs.read_start) + (Parameter::Instance()->min_length))) {
 						read.SV |= DEL;
 						if (flag) {
 							cout << "DEL2" << endl;
@@ -627,23 +623,7 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 				read.coordinates.first = svs.start.min_pos;
 				read.coordinates.second = svs.stop.max_pos;
 			}
-			/*	if (read.SV & TRA) {
-			 std::cout << "SPLIT: " << TRANS_type(read.SV)<<" "<<svs.start.min_pos - get_ref_lengths(events[i].RefID, ref)<<" ";
-			 if (events[i - 1].strand) {
-			 std::cout << " +";
-			 } else {
-			 std::cout << " -";
-			 }
-			 if (events[i].strand) {
-			 std::cout << " +";
-			 } else {
-			 std::cout << " -";
-			 }
-			 std::cout <<std::endl;
-			 }*/
-			/*if(read.SV & INS){
-			 std::cout<<"Split LEN: "<<abs(read.coordinates.second-read.coordinates.first)<<" Pos: "<<read.coordinates.first-get_ref_lengths(events[i - 1].RefID, ref)<<tmp->getName()<<std::endl;
-			 }*/
+
 			//if( abs(read.coordinates.second-read.coordinates.first)<10){
 			///	events[i].length=abs(read.coordinates.second-read.coordinates.first);//TODO try
 			//	std::cout<<"Split event ===1 "<<" "<<abs(read.coordinates.second-read.coordinates.first)<<" len: "<< events[i].length<<" Pos "<<events[i].pos <<" Name "<<tmp->getName() <<std::endl;
@@ -654,7 +634,11 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 			svs.support[tmp->getName()].length = abs(read.coordinates.second - read.coordinates.first);
 			Breakpoint * point = new Breakpoint(svs, abs(read.coordinates.second - read.coordinates.first));
 			//std::cout<<"split ADD: " << <<" Name: "<<tmp->getName()<<" "<< svs.start.min_pos- get_ref_lengths(events[i].RefID, ref)<<"-"<<svs.stop.max_pos- get_ref_lengths(events[i].RefID, ref)<<std::endl;
-			bst.insert(point, root);
+			if (add) {
+				bst.insert_existant(point, root);
+			} else {
+				bst.insert(point, root);
+			}
 			//	std::cout<<"Print:"<<std::endl;
 			//	bst.print(root);
 		}

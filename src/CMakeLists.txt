@@ -27,6 +27,8 @@ add_executable(sniffles
 					print/NGMPrinter.cpp
 					plane-sweep/PlaneSweep_slim.cpp
 					cluster/Cluster_SVs.cpp
+					force_calling/Force_calling.cpp
+					force_calling/VCF_parser.cpp
 					)										
 					
 #target_link_libraries(ngm-core pthread)	
@@ -54,6 +56,8 @@ add_executable(sniffles-debug
 					print/NGMPrinter.cpp
 					plane-sweep/PlaneSweep_slim.cpp
 					cluster/Cluster_SVs.cpp
+					force_calling/Force_calling.cpp
+					force_calling/VCF_parser.cpp
 					)	
 
 SET_TARGET_PROPERTIES(sniffles-debug PROPERTIES COMPILE_FLAGS "-g3 -O0")

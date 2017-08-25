@@ -187,7 +187,7 @@ pair<double, double> IPrinter::comp_std_quantile(Breakpoint * &SV, pair<double, 
 	std_length = 0;
 	std::map<std::string, read_str> support = SV->get_coordinates().support;
 	for (std::map<std::string, read_str>::iterator i = support.begin(); i != support.end(); i++) {
-		if ((*i).second.SV & SV->get_SVtype()) {
+		if (((*i).second.SV & SV->get_SVtype()) && strncmp((*i).first.c_str(),"input",5)!=0) {
 			long diff = SV->get_length() - ((*i).second.coordinates.second - (*i).second.coordinates.first);
 			//	sort_insert(std::pow((double) diff, 2.0), std_length_dists); //TODO think about that!!
 			std_length += std::pow((double) diff, 2.0);

@@ -72,6 +72,71 @@ void IntervallTree::insert(Breakpoint * new_break, TNode *&p) {
 	d = max(m, n);
 	p->set_height(d + 1);
 }
+
+void IntervallTree::insert_existant(Breakpoint * new_break, TNode *&p) {
+	if (new_break->get_coordinates().start.min_pos == -1 && new_break->get_coordinates().stop.max_pos == -1) {
+		return;
+	}
+	if (p == NULL) { // add to tree:
+		return;
+	} else { // find on tree:
+		long score = p->get_data()->overlap(new_break); //comparison function
+		if (score == 0) { //add SV types?
+			p->get_data()->add_read(new_break);
+			new_break->set_coordinates(-1, -1);
+			//delete new_break;
+			return;
+		} else if (abs(score) < Parameter::Instance()->max_dist) { // if two or more events are too close:
+			//std::cout<<"Screen"<<std::endl;
+			careful_screening(new_break, p);
+			if (new_break->get_coordinates().start.min_pos == -1 && new_break->get_coordinates().stop.max_pos == -1) {
+				return;
+			}
+		}
+
+		if (score > 0) { // go left
+			insert_existant(new_break, p->left);
+			if ((bsheight(p->left) - bsheight(p->right)) == 2) {
+				score = p->left->get_data()->overlap(new_break);
+				if (score > 0) {
+					p = srl(p);
+				} else {
+					p = drl(p);
+				}
+			}
+		} else if (score < 0) { // go right
+			insert_existant(new_break, p->right);
+			if ((bsheight(p->right) - bsheight(p->left)) == 2) {
+				score = p->right->get_data()->overlap(new_break);
+				if (score < 0) {
+					p = srr(p);
+				} else {
+					p = drr(p);
+				}
+			}
+		}
+	}
+	int m, n, d;
+	m = bsheight(p->left);
+	n = bsheight(p->right);
+	d = max(m, n);
+	p->set_height(d + 1);
+}
+
+bool IntervallTree::overlaps(long start, long stop, TNode *p) {
+	if (p == NULL) {
+		return false;
+	} else {
+		long score = p->get_data()->overlap_breakpoint(start,stop);
+		if (score > 0) {
+			overlaps(start,stop, p->left);
+		} else if (score < 0) {
+			overlaps(start,stop, p->right);
+		} else {
+			return true;
+		}
+	}
+}
 // Finding the Smallest
 TNode * IntervallTree::findmin(TNode * p) {
 	if (p == NULL) {

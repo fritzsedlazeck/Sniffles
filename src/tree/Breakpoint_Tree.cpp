@@ -26,24 +26,14 @@ void Breakpoint_Tree::find(int position, std::string chr, breakpoint_node *par, 
 }
 
 void Breakpoint_Tree::overalps(int start, int stop, std::string chr, breakpoint_node *par, bool SV_support) {
+	//start + stop: read coordinates.
 	if (par == NULL) { //not found
-
 		par = NULL;
 		return;
 	}
-	/*std::string chr2="II";
-	 int pos=275800;
-	 if ((pos+100 > start && pos-100 < stop) && strcmp(chr.c_str(), chr2.c_str()) == 0) { //found
-	 std::cout<<"hit: "<<start<<std::endl;
-	 }*/
+	//TODO: test this wobble ! Probably adjust to SV size.
 	if ((par->position + 100 > start && par->position - 100 < stop) && strcmp(chr.c_str(), par->chr.c_str()) == 0) { //found
-	//	if (SV_support) { Maybe for later!
-			//par->SV_support++;
-		//} else {
-			par->ref_support++;
-		//}
-		//par = NULL;
-		//return; //this does not really work for close/phased SVs!
+		par->ref_support++;
 	}
 	//search goes on:
 	if (start < par->position) {

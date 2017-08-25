@@ -40,6 +40,7 @@ public:
 	std::string ignore_regions_bed;
 	std::string tmp_file;
 	std::string version;
+	std::string input_vcf;
 
 	std::vector<std::string> bam_files;
 	short min_mq;

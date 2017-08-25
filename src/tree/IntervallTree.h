@@ -25,9 +25,11 @@ private:
 	void careful_screening(Breakpoint *& new_break, TNode *p);
 public:
 	void insert(Breakpoint * point, TNode *&);
+	void insert_existant(Breakpoint * new_break, TNode *&p);
 	void del(Breakpoint * point, TNode *&);
 	int deletemin(TNode *&);
 	void find(Breakpoint * point, TNode *&);
+	bool overlaps(long start, long stop,TNode *p);
 	TNode * findmin(TNode*);
 	TNode * findmax(TNode*);
 	void clear(TNode *&);
