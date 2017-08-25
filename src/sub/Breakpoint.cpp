@@ -202,13 +202,11 @@ std::string Breakpoint::get_read_names() {
 		num = this->positions.support.size();
 	}
 	for (std::map<std::string, read_str>::iterator i = this->positions.support.begin(); num != 0 && i != this->positions.support.end(); i++) {
+		read_names += ",";
 		read_names += (*i).first;
-		if(num>1){
-			read_names += ",";
-		}
 		num--;
 	}
-	return read_names;
+	return read_names.substr(1);
 }
 
 std::vector<long> Breakpoint::get_read_ids() {
