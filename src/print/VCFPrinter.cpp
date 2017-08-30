@@ -71,9 +71,8 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 		double std_length = 0;
 		//to_print(SV, std_quant, kurtosis, std_length);
 		bool ok_to_print = (to_print(SV, std_quant, kurtosis, std_length) || Parameter::Instance()->ignore_std);
-		std::cout<<"Print check: "<<std_quant.first << " " <<std_quant.second<<endl;
+		std::cout << "Print check: " << std_quant.first << " " << std_quant.second << endl;
 		if (ok_to_print) {
-			std::cout<<"to print"<<endl;
 			if (Parameter::Instance()->phase) {
 				store_readnames(SV->get_read_ids(), id);
 			}
@@ -141,8 +140,6 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%f", kurtosis.first);
 			fprintf(file, "%s", ";Kurtosis_quant_stop=");
 			fprintf(file, "%f", kurtosis.second);
-			//		fprintf(file, "%s", ";STD_length=");
-			//		fprintf(file, "%f", std_length);
 
 			fprintf(file, "%s", ";SVTYPE=");
 			if (Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA)) {
@@ -152,14 +149,12 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			}
 			if (Parameter::Instance()->report_n_reads > 0 || Parameter::Instance()->report_n_reads == -1) {
 				fprintf(file, "%s", ";RNAMES=");
-				fprintf(file, "%s",SV->get_read_names().c_str());
+				fprintf(file, "%s", SV->get_read_names().c_str());
 			}
 			fprintf(file, "%s", ";SUPTYPE=");
 			fprintf(file, "%s", SV->get_supporting_types().c_str());
 			fprintf(file, "%s", ";SVLEN=");
-			//	if (SV->get_SVtype() & NEST) {
-			//		fprintf(file, "%i", -1);
-			//	} else {
+
 			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && !SV->get_types().is_SR) {
 				fprintf(file, "%s", "NA");
 			} else {
@@ -168,37 +163,6 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			//	}
 			fprintf(file, "%s", ";STRANDS=");
 			fprintf(file, "%s", strands.c_str());
-			/*	fprintf(file, "%s", ";STRANDS2=");
-
-			 std::map<std::string, read_str> support =
-			 SV->get_coordinates().support;
-			 pair<int, int> tmp_start;
-			 pair<int, int> tmp_stop;
-			 tmp_start.first = 0;
-			 tmp_start.second = 0;
-			 tmp_stop.first = 0;
-			 tmp_stop.second = 0;
-			 for (std::map<std::string, read_str>::iterator i = support.begin();
-			 i != support.end(); i++) {
-			 if ((*i).second.read_strand.first) {
-			 tmp_start.first++;
-			 } else {
-			 tmp_start.second++;
-			 }
-			 if ((*i).second.read_strand.second) {
-			 tmp_stop.first++;
-			 } else {
-			 tmp_stop.second++;
-			 }
-			 }
-			 fprintf(file, "%i", tmp_start.first);
-			 fprintf(file, "%s", ",");
-			 fprintf(file, "%i", tmp_start.second);
-			 fprintf(file, "%s", ",");
-			 fprintf(file, "%i", tmp_stop.first);
-			 fprintf(file, "%s", ",");
-			 fprintf(file, "%i", tmp_stop.second);*/
-
 			fprintf(file, "%s", ";RE=");
 			fprintf(file, "%i", SV->get_support());
 			fprintf(file, "%s", "\tGT:DR:DV\t./.:.:");
@@ -206,5 +170,91 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%c", '\n');
 		}
 	}
+}
+
+void VCFPrinter::print_body_recall(Breakpoint * &SV, RefVector ref) {
+	if (Parameter::Instance()->phase) {
+		store_readnames(SV->get_read_ids(), id);
+	}
+	std::string chr;
+	int start = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr);
+	fprintf(file, "%s", chr.c_str());
+	fprintf(file, "%c", '\t');
+	fprintf(file, "%i", start);
+	fprintf(file, "%c", '\t');
+	fprintf(file, "%i", id);
+	id++;
+
+	int end = IPrinter::calc_pos(SV->get_coordinates().stop.most_support, ref, chr);
+	std::string strands = SV->get_strand(1);
+	fprintf(file, "%s", "\tN\t");
+	if (Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA)) {
+		//N[22:36765684[ +-
+		//]21:10540232]N -+
+		if (strands[0] == '-' && strands[0] == '+') {
+			fprintf(file, "%s", "]");
+			fprintf(file, "%s", chr.c_str());
+			fprintf(file, "%c", ':');
+			fprintf(file, "%i", end);
+			fprintf(file, "%s", "]N");
+
+		} else {
+			fprintf(file, "%s", "N[");
+			fprintf(file, "%s", chr.c_str());
+			fprintf(file, "%c", ':');
+			fprintf(file, "%i", end);
+			fprintf(file, "%c", '[');
+		}
+	} else {
+
+		fprintf(file, "%c", '<');
+		fprintf(file, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());
+		fprintf(file, "%c", '>');
+	}
+
+	fprintf(file, "%s", "\t.\tPASS\t");
+	fprintf(file, "%s", "IMPRECISE");
+	fprintf(file, "%s", ";SVMETHOD=Snifflesv");
+	fprintf(file, "%s", Parameter::Instance()->version.c_str());
+	if (!(Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA))) {
+		fprintf(file, "%s", ";CHR2=");
+		fprintf(file, "%s", chr.c_str());
+		fprintf(file, "%s", ";END=");
+
+		if (SV->get_SVtype() & INS) {
+			fprintf(file, "%i", std::max((int) (end - SV->get_length()), start));
+		} else {
+			fprintf(file, "%i", end);
+		}
+	}
+
+	fprintf(file, "%s", ";SVTYPE=");
+	if (Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA)) {
+		fprintf(file, "%s", "BND");
+	} else {
+		fprintf(file, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());
+	}
+	if (Parameter::Instance()->report_n_reads > 0 || Parameter::Instance()->report_n_reads == -1) {
+		fprintf(file, "%s", ";RNAMES=");
+		fprintf(file, "%s", SV->get_read_names().c_str());
+	}
+	fprintf(file, "%s", ";SUPTYPE=");
+	fprintf(file, "%s", SV->get_supporting_types().c_str());
+	fprintf(file, "%s", ";SVLEN=");
+
+	if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && !SV->get_types().is_SR) {
+		fprintf(file, "%s", "NA");
+	} else {
+		fprintf(file, "%i", SV->get_length());
+	}
+	//	}
+	fprintf(file, "%s", ";STRANDS=");
+	fprintf(file, "%s", strands.c_str());
+	fprintf(file, "%s", ";RE=");
+	fprintf(file, "%i", SV->get_support());
+	fprintf(file, "%s", "\tGT:DR:DV\t./.:.:");
+	fprintf(file, "%i", SV->get_support());
+	fprintf(file, "%c", '\n');
+
 }
 

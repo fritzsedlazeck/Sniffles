@@ -15,6 +15,7 @@
 struct breakpoint_node {
 	std::string chr;
 	int position; // value to store!
+	bool direction;
 	int ref_support;
 	breakpoint_node *left;
 	breakpoint_node *right;
@@ -29,7 +30,7 @@ public:
 	~Breakpoint_Tree(){
 	}
 	void find(int position,std::string chr, breakpoint_node *par, breakpoint_node *&loc);
-	void insert(breakpoint_node *&tree, std::string chr,int position);
+	void insert(breakpoint_node *&tree, std::string chr,int position,bool direction);
 	void del(int position,std::string chr);
 	void case_a(breakpoint_node *par, breakpoint_node *loc);
 	void case_b(breakpoint_node *par, breakpoint_node *loc);

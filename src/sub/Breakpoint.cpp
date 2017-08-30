@@ -168,9 +168,9 @@ long Breakpoint::overlap(Breakpoint * tmp) {
 	return diff; // + (tmp->get_coordinates().stop.max_pos - positions.stop.max_pos);
 }
 
-long Breakpoint::overlap_breakpoint(long start,long stop) {
+long Breakpoint::overlap_breakpoint(long start, long stop) {
 	int max_dist = get_dist(this); // Parameter::Instance()->max_dist
-	if((start<positions.start.min_pos && positions.start.min_pos< stop) || (start<positions.stop.max_pos && positions.stop.max_pos< stop)){
+	if ((start < positions.start.min_pos && positions.start.min_pos < stop) || (start < positions.stop.max_pos && positions.stop.max_pos < stop)) {
 		return 0;
 	}
 	long diff = (start - positions.start.min_pos);
@@ -293,35 +293,6 @@ void Breakpoint::calc_support() {
 }
 
 char Breakpoint::eval_type(std::vector<short> SV) {
-	/*std::stringstream ss;
-	 if (SV[0] != 0) {
-	 ss << " DEL(";
-	 ss << SV[0];
-	 ss << ")";
-	 }
-	 if (SV[1] != 0) {
-	 ss << " DUP(";
-	 ss << SV[1];
-	 ss << ")";
-	 }
-	 if (SV[2] != 0) {
-	 ss << " INS(";
-	 ss << SV[2];
-	 ss << ")";
-	 }
-	 if (SV[3] != 0) {
-	 ss << " INV(";
-	 ss << SV[3];
-	 ss << ")";
-	 }
-	 if (SV[4] != 0) {
-	 ss << " TRA(";
-	 ss << SV[4];
-	 ss << ")";
-	 }
-	 this->sv_debug = ss.str(); //only for debug!
-	 std::cout << sv_debug << std::endl;*/
-
 	int maxim = 0;
 	int id = 0;
 	for (size_t i = 0; i < SV.size(); i++) {
@@ -349,6 +320,9 @@ char Breakpoint::eval_type(std::vector<short> SV) {
 	if (maxim == SV[5]) {
 		max_SV |= NEST;
 	}
+	if(!Parameter::Instance()->input_vcf.empty()){
+		this->type_support--; // this is needed since we introduce a pseudo element
+	}
 	return max_SV;
 }
 
@@ -375,7 +349,7 @@ void Breakpoint::predict_SV() {
 
 	for (std::map<std::string, read_str>::iterator i = positions.support.begin(); i != positions.support.end(); i++) {
 
-		if (((*i).second.SV & this->sv_type) && strncmp((*i).first.c_str(),"input",5)!=0) {			// && !((*i).second.SV & INS && (*i).second.length==Parameter::Instance()->huge_ins)) { ///check type
+		if (((*i).second.SV & this->sv_type) && strncmp((*i).first.c_str(), "input", 5) != 0) {			// && !((*i).second.SV & INS && (*i).second.length==Parameter::Instance()->huge_ins)) { ///check type
 
 			if ((*i).second.coordinates.first != -1) {
 				if ((*i).second.length != Parameter::Instance()->huge_ins) {
@@ -434,88 +408,95 @@ void Breakpoint::predict_SV() {
 	long counts = 0;
 	int maxim = 0;
 	long coord = 0;
-
-	for (map<long, int>::iterator i = starts.begin(); i != starts.end(); i++) {
-		//	cout << "start:\t" << (*i).first << " " << (*i).second << endl;
-		if ((*i).second > maxim) {
-			coord = (*i).first;
-			maxim = (*i).second;
-		}
-		//mean += ((*i).first * (*i).second);
-		//	counts += (*i).second;
-	}
-	if (maxim < 5) {
-		this->positions.start.most_support = get_median(start2);	//mean / counts;
-	} else {
-		this->positions.start.most_support = coord;
-	}
-
-	maxim = 0;
-	coord = 0;
-	mean = 0;
-	counts = 0;
-	for (map<long, int>::iterator i = stops.begin(); i != stops.end(); i++) {
-		//	cout << "stop:\t" << (*i).first << " " << (*i).second << endl;
-		if ((*i).second > maxim) {
-			coord = (*i).first;
-			maxim = (*i).second;
-		}
-		//mean += ((*i).first * (*i).second);
-		//	counts += (*i).second;
-	}
-	if (maxim < 5) {
-		this->positions.stop.most_support = get_median(stops2);	// mean / counts;
-	} else {
-		this->positions.stop.most_support = coord;
-	}
-	/*if(this->get_SVtype() & NEST){
-	 this->length = -1;
-	 }else
-	 */
-
-	if (!(this->get_SVtype() & INS)) { //all types but Insertions:
-		this->length = this->positions.stop.most_support - this->positions.start.most_support;
-	} else { //compute most supported length for insertions:
-		maxim = 0;
-		coord = 0;
-		mean = 0;
-		counts = 0;
-		for (map<long, int>::iterator i = lengths.begin(); i != lengths.end(); i++) {
-			//	std::cout<<"LENGTH: "<<(*i).first<<" : "<<(*i).second<<std::endl;
+	if (num > 0) {
+		for (map<long, int>::iterator i = starts.begin(); i != starts.end(); i++) {
+			//	cout << "start:\t" << (*i).first << " " << (*i).second << endl;
 			if ((*i).second > maxim) {
 				coord = (*i).first;
 				maxim = (*i).second;
 			}
-			//	mean += ((*i).first * (long) (*i).second);
+			//mean += ((*i).first * (*i).second);
 			//	counts += (*i).second;
 		}
-		if (maxim < 3) {
-			this->length = get_median(lengths2);
+		if (maxim < 5) {
+			this->positions.start.most_support = get_median(start2);	//check if "input"!
 		} else {
-			this->length = coord;
+			this->positions.start.most_support = coord;
 		}
 
-	}
-
-	starts.clear();
-	stops.clear();
-
-	for (size_t i = 0; i < strands.size(); i++) {
 		maxim = 0;
-		std::string id;
-		for (std::map<std::string, int>::iterator j = strands.begin(); j != strands.end(); j++) {
-			if (maxim < (*j).second) {
-				maxim = (*j).second;
-				id = (*j).first;
-				//std::cout << '\t' << id << std::endl;
+		coord = 0;
+		mean = 0;
+		counts = 0;
+		for (map<long, int>::iterator i = stops.begin(); i != stops.end(); i++) {
+			//	cout << "stop:\t" << (*i).first << " " << (*i).second << endl;
+			if ((*i).second > maxim) {
+				coord = (*i).first;
+				maxim = (*i).second;
+			}
+			//mean += ((*i).first * (*i).second);
+			//	counts += (*i).second;
+		}
+		if (maxim < 5) {
+			this->positions.stop.most_support = get_median(stops2);	// mean / counts;
+		} else {
+			this->positions.stop.most_support = coord;
+		}
+		/*if(this->get_SVtype() & NEST){
+		 this->length = -1;
+		 }else
+		 */
+
+		if (!(this->get_SVtype() & INS)) { //all types but Insertions:
+			this->length = this->positions.stop.most_support - this->positions.start.most_support;
+		} else { //compute most supported length for insertions:
+			maxim = 0;
+			coord = 0;
+			mean = 0;
+			counts = 0;
+			for (map<long, int>::iterator i = lengths.begin(); i != lengths.end(); i++) {
+				//	std::cout<<"LENGTH: "<<(*i).first<<" : "<<(*i).second<<std::endl;
+				if ((*i).second > maxim) {
+					coord = (*i).first;
+					maxim = (*i).second;
+				}
+				//	mean += ((*i).first * (long) (*i).second);
+				//	counts += (*i).second;
+			}
+			if (maxim < 3) {
+				this->length = get_median(lengths2);
+			} else {
+				this->length = coord;
+			}
+
+		}
+
+		starts.clear();
+		stops.clear();
+
+		for (size_t i = 0; i < strands.size(); i++) {
+			maxim = 0;
+			std::string id;
+			for (std::map<std::string, int>::iterator j = strands.begin(); j != strands.end(); j++) {
+				if (maxim < (*j).second) {
+					maxim = (*j).second;
+					id = (*j).first;
+					//std::cout << '\t' << id << std::endl;
+				}
+			}
+			if (maxim > 0) {
+				this->strand.push_back(id);
+				strands[id] = 0;
 			}
 		}
-		if (maxim > 0) {
-			this->strand.push_back(id);
-			strands[id] = 0;
-		}
+		strands.clear();
 	}
-	strands.clear();
+
+	if(num==0 && positions.support.find("input")!=positions.support.end()){
+		this->positions.stop.most_support =this->positions.stop.max_pos;
+		this->positions.start.most_support =this->positions.start.min_pos;
+		this->length =this->positions.stop.max_pos-this->positions.start.min_pos;
+	}
 
 	this->supporting_types = "";
 	if (aln) {
@@ -616,7 +597,7 @@ std::string Breakpoint::get_strand(int num_best) {
 #include "Detect_Breakpoints.h"
 std::string Breakpoint::to_string() {
 	std::stringstream ss;
-	if (positions.support.size() >= 1) {
+	if (positions.support.size() > 1) {
 		ss << "\t\tTREE: ";
 		ss << TRANS_type(this->get_SVtype());
 		ss << " ";

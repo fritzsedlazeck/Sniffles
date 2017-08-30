@@ -44,6 +44,7 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 			svs.stop.max_pos = (long) entries[i].stop.pos + ref_lens[entries[i].stop.chr];
 			read_str read;
 			read.SV = assign_type(entries[i].type);
+			read.strand=entries[i].strands;
 			read.type = 2; //called
 			svs.support["input"] = read;
 			Breakpoint * br = new Breakpoint(svs, (long) entries[i].sv_len);
@@ -140,6 +141,7 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 					tmp.SV_support = !(aln_event.empty() && split_events.empty());
 					if ((Parameter::Instance()->genotype && !tmp.SV_support) && (score == -1 || score > Parameter::Instance()->score_treshold)) {
 						//write read:
+						cout<<"REf: "<<tmp_aln->getName()<<" "<<tmp_aln->getPosition()<<" "<<tmp_aln->getRefLength()<<endl;
 						tmp.chr = ref[tmp_aln->getRefID()].RefName;
 						tmp.start = tmp_aln->getPosition();
 						tmp.length = tmp_aln->getRefLength();
@@ -168,7 +170,7 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 	}
 
 	std::cout << "Print:" << std::endl;
-	final.print(root_final);
+	//final.print(root_final);
 
 	//filter and copy results:
 	std::cout << "Finalizing  .." << std::endl;
@@ -185,6 +187,6 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 	for (size_t i = 0; i < points.size(); i++) {
 		points[i]->calc_support();
 		points[i]->predict_SV();
-		printer->printSV(points[i]);
+		printer->printSV(points[i]); //redo! Ignore min support + STD etc.
 	}
 }

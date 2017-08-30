@@ -295,7 +295,6 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 			num++;
 			int count = 0;
 			strvcfentry tmp;
-			tmp.sup_lumpy = 0;
 			tmp.stop.pos = -1;
 			tmp.type = -1;
 			bool set_strand = false;
@@ -307,7 +306,6 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 			tmp.num_reads.first = 0;
 			tmp.num_reads.second = 0;
 			tmp.sv_len = -1;
-			//std::cout<<buffer<<std::endl;
 			for (size_t i = 0; i < buffer_size && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
 
 				if (count == 0 && buffer[i] != '\t') {
@@ -347,12 +345,10 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 				}
 				if ((tmp.sv_len == -1 && count == 7) && (strncmp(&buffer[i], "HOMLEN=", 7) == 0 || strncmp(&buffer[i], "AVGLEN=", 7) == 0)) {
 					tmp.sv_len = abs((int) atof(&buffer[i + 7]));
-					//		std::cout<<"LEN: "<<tmp.sv_len<<std::endl;
 				}
 
 				if (count == 7 && (strncmp(&buffer[i], "SVLEN=", 6) == 0)) {
 					tmp.sv_len = abs((int) atof(&buffer[i + 6]));
-					//	std::cout<<"LEN: "<<tmp.sv_len<<std::endl;
 				}
 				if (count == 7 && strncmp(&buffer[i], ";STRANDS=", 9) == 0) {
 					set_strand = true;

@@ -32,6 +32,8 @@ protected:
 
 	virtual void print_header()=0;
 	virtual void print_body(Breakpoint * &SV, RefVector ref)=0;
+	virtual void print_body_recall(Breakpoint * &SV, RefVector ref)=0;
+
 	long calc_pos(long pos, RefVector ref, std::string &chr);
 	std::string get_chr(long pos, RefVector ref);
 	std::string get_type(char type);
@@ -50,7 +52,11 @@ public:
 	}
 
 	void printSV(Breakpoint * SV) {
-		print_body(SV, ref);
+		if(Parameter::Instance()->input_vcf.empty()){
+			print_body(SV, ref);
+		}else{
+			print_body_recall(SV,ref);
+		}
 	}
 	void init() {
 		try {
