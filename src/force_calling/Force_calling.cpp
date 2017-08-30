@@ -141,7 +141,7 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 					tmp.SV_support = !(aln_event.empty() && split_events.empty());
 					if ((Parameter::Instance()->genotype && !tmp.SV_support) && (score == -1 || score > Parameter::Instance()->score_treshold)) {
 						//write read:
-						cout<<"REf: "<<tmp_aln->getName()<<" "<<tmp_aln->getPosition()<<" "<<tmp_aln->getRefLength()<<endl;
+						//cout<<"REf: "<<tmp_aln->getName()<<" "<<tmp_aln->getPosition()<<" "<<tmp_aln->getRefLength()<<endl;
 						tmp.chr = ref[tmp_aln->getRefID()].RefName;
 						tmp.start = tmp_aln->getPosition();
 						tmp.length = tmp_aln->getRefLength();

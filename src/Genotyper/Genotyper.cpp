@@ -249,7 +249,7 @@ void Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_node *& node) {
 			} else {
 				tmp = get_breakpoint_bedpe(buffer);
 			}
-			std::cout<<"SV: "<<tmp.pos<<" "<<tmp.pos2<<std::endl;
+			//std::cout<<"SV: "<<tmp.pos<<" "<<tmp.pos2<<std::endl;
 			tree.insert(node, tmp.chr, tmp.pos,true); //true: start;
 			tree.insert(node, tmp.chr2, tmp.pos2,false);//false: stop;//
 		}
@@ -272,7 +272,7 @@ void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node) {
 	size_t nbytes = fread(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
 	while (nbytes != 0) {
 		if (!tmp.SV_support){
-			std::cout<<"Read: "<<tmp.start<<" "<<tmp.length<<std::endl;
+			//std::cout<<"Read: "<<tmp.start<<" "<<tmp.length<<std::endl;
 			//if reads should be included-> Planesweep for +- breakpoint (Maybe hit -> extra function for that region around the breakpoint!
 			tree.overalps(tmp.start, tmp.start + tmp.length, tmp.chr, node, tmp.SV_support);
 		}

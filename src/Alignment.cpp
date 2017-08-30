@@ -67,13 +67,13 @@ void add_event(int pos, size_t & i, vector<differences_str> & events) {
 }
 //todo: check if list changes things
 
-vector<differences_str> Alignment::summarizeAlignment() {
+vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &dels) {
 	//clock_t comp_aln = clock();
 	vector<differences_str> events;
 	int pos = this->getPosition();
 	differences_str ev;
 	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
-
+	int read_pos=0;
 	for (size_t i = 0; i < al->CigarData.size(); i++) {
 		if (flag) {
 			//	cout<<al->CigarData[i].Type<<al->CigarData[i].Length<<std::endl;
@@ -95,6 +95,7 @@ vector<differences_str> Alignment::summarizeAlignment() {
 			string sa;
 			al->GetTag("SA", sa);
 			uint32_t sv;
+
 			if ((al->GetTag("SV", sv) && sa.empty()) && (!(sv & Ns_CLIPPED) && !(sv & FULLY_EXPLAINED))) { // TODO remove last )
 				if (flag) {
 					std::cout << "Chop: " << pos << " Rname: " << this->getName() << std::endl;
@@ -105,6 +106,7 @@ vector<differences_str> Alignment::summarizeAlignment() {
 					ev.position = pos;
 				}
 				ev.type = Parameter::Instance()->huge_ins * -1; //insertion: WE have to fix the length since we cannot estimate it!]
+
 				events.push_back(ev);
 			}
 		}
@@ -1086,7 +1088,8 @@ vector<int> Alignment::get_avg_diff(double & dist, double & avg_del, double & av
 //cout<<alignment.first<<endl;
 //cout<<alignment.second<<endl;
 	vector<int> mis_per_window;
-	vector<differences_str> event_aln = summarizeAlignment();
+	std::vector<indel_str> dels;
+	vector<differences_str> event_aln = summarizeAlignment(dels);
 	if (event_aln.empty()) {
 		dist = 0;
 		return mis_per_window;
@@ -1134,7 +1137,8 @@ vector<str_event> Alignment::get_events_Aln() {
 	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 
 //clock_t comp_aln = clock();
-	vector<differences_str> event_aln = summarizeAlignment();
+	std::vector<indel_str> dels;
+	vector<differences_str> event_aln = summarizeAlignment(dels);
 	if (flag) {
 		std::cout << "test size: " << event_aln.size() << std::endl;
 	}
@@ -1280,6 +1284,7 @@ vector<str_event> Alignment::get_events_Aln() {
 					cout << "store INS" << endl;
 				}
 				tmp.length = insert_max; //TODO not sure!
+				//tmp.sequence=this->getAlignment()->AlignedBases.substr();
 				tmp.pos = insert_max_pos;
 				tmp.type |= INS;
 				tmp.is_noise = false;

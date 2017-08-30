@@ -38,7 +38,12 @@ typedef unsigned int uint;
 
 struct differences_str{
 	int position;
+	int readposition;
 	short type;
+};
+struct indel_str{
+	int pos;
+	std::string sequence;
 };
 
 struct str_event{
@@ -47,6 +52,7 @@ struct str_event{
 	int read_pos;
 	char type;
 	bool is_noise;
+	std::string sequence; //just for indels;
 };
 struct aln_str{
 	int RefID;
@@ -74,7 +80,7 @@ private:
 	 std::vector<CigarOp> translate_cigar(std::string cigar);
 	 size_t get_length(std::vector<CigarOp> CigarData);
 	 int get_id(RefVector ref, std::string chr);
-	 vector<differences_str> summarizeAlignment();
+	 vector<differences_str> summarizeAlignment(std::vector<indel_str> &dels);
 	 void sort_insert(aln_str tmp, vector<aln_str> &entries);
 
 	 void sort_insert_ref(aln_str tmp, vector<aln_str> &entries);

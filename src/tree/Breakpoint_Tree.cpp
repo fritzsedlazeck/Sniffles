@@ -33,12 +33,12 @@ void Breakpoint_Tree::overalps(int start, int stop, std::string chr, breakpoint_
 	if (par->direction) { //start
 		if ((par->position > start && par->position+200 < stop) && strcmp(chr.c_str(), par->chr.c_str()) == 0) { //found
 			par->ref_support++;
-			std::cout<<start<<" "<<stop<<std::endl;
+			//std::cout<<start<<" "<<stop<<std::endl;
 		}
 	} else { //stop coordinate
 		if ((par->position > start+200 && par->position < stop) && strcmp(chr.c_str(), par->chr.c_str()) == 0) { //found
 			par->ref_support++;
-			std::cout<<start<<" "<<stop<<std::endl;
+		//	std::cout<<start<<" "<<stop<<std::endl;
 		}
 	}
 

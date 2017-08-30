@@ -46,6 +46,7 @@ struct read_str {
 	pair<long,long> coordinates; // I could use the bin tree for that!
 	char SV; // bit vector
 	int length;
+	std::string sequence; //just for indels!
 };
 struct position_str {
 	svs_breakpoint_str start;
