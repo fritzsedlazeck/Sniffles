@@ -71,7 +71,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 		double std_length = 0;
 		//to_print(SV, std_quant, kurtosis, std_length);
 		bool ok_to_print = (to_print(SV, std_quant, kurtosis, std_length) || Parameter::Instance()->ignore_std);
-		std::cout << "Print check: " << std_quant.first << " " << std_quant.second << endl;
+		//std::cout << "Print check: " << std_quant.first << " " << std_quant.second << endl;
 		if (ok_to_print) {
 			if (Parameter::Instance()->phase) {
 				store_readnames(SV->get_read_ids(), id);
@@ -147,6 +147,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			} else {
 				fprintf(file, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());
 			}
+
 			if (Parameter::Instance()->report_n_reads > 0 || Parameter::Instance()->report_n_reads == -1) {
 				fprintf(file, "%s", ";RNAMES=");
 				fprintf(file, "%s", SV->get_read_names().c_str());
@@ -163,6 +164,8 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			//	}
 			fprintf(file, "%s", ";STRANDS=");
 			fprintf(file, "%s", strands.c_str());
+			fprintf(file, "%s", ";SEQ=");
+			fprintf(file, "%s", SV->get_sequence().c_str());
 			fprintf(file, "%s", ";RE=");
 			fprintf(file, "%i", SV->get_support());
 			fprintf(file, "%s", "\tGT:DR:DV\t./.:.:");
@@ -250,6 +253,8 @@ void VCFPrinter::print_body_recall(Breakpoint * &SV, RefVector ref) {
 	//	}
 	fprintf(file, "%s", ";STRANDS=");
 	fprintf(file, "%s", strands.c_str());
+	fprintf(file, "%s", ";SEQ=");
+	fprintf(file, "%s", SV->get_sequence().c_str());
 	fprintf(file, "%s", ";RE=");
 	fprintf(file, "%i", SV->get_support());
 	fprintf(file, "%s", "\tGT:DR:DV\t./.:.:");

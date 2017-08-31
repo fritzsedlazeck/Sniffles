@@ -320,7 +320,7 @@ char Breakpoint::eval_type(std::vector<short> SV) {
 	if (maxim == SV[5]) {
 		max_SV |= NEST;
 	}
-	if(!Parameter::Instance()->input_vcf.empty()){
+	if (!Parameter::Instance()->input_vcf.empty()) {
 		this->type_support--; // this is needed since we introduce a pseudo element
 	}
 	return max_SV;
@@ -424,6 +424,12 @@ void Breakpoint::predict_SV() {
 			this->positions.start.most_support = coord;
 		}
 
+		for (std::map<std::string, read_str>::iterator tmp = positions.support.begin(); tmp != positions.support.end(); tmp++) {
+			if (((*tmp).second.SV & this->sv_type) && ((*tmp).second.coordinates.first == this->positions.start.most_support)) {
+				this->indel_sequence = (*tmp).second.sequence;
+			}
+		}
+
 		maxim = 0;
 		coord = 0;
 		mean = 0;
@@ -449,6 +455,7 @@ void Breakpoint::predict_SV() {
 
 		if (!(this->get_SVtype() & INS)) { //all types but Insertions:
 			this->length = this->positions.stop.most_support - this->positions.start.most_support;
+
 		} else { //compute most supported length for insertions:
 			maxim = 0;
 			coord = 0;
@@ -469,6 +476,7 @@ void Breakpoint::predict_SV() {
 				this->length = coord;
 			}
 
+			//	if(del)
 		}
 
 		starts.clear();
@@ -492,10 +500,10 @@ void Breakpoint::predict_SV() {
 		strands.clear();
 	}
 
-	if(num==0 && positions.support.find("input")!=positions.support.end()){
-		this->positions.stop.most_support =this->positions.stop.max_pos;
-		this->positions.start.most_support =this->positions.start.min_pos;
-		this->length =this->positions.stop.max_pos-this->positions.start.min_pos;
+	if (num == 0 && positions.support.find("input") != positions.support.end()) {
+		this->positions.stop.most_support = this->positions.stop.max_pos;
+		this->positions.start.most_support = this->positions.start.min_pos;
+		this->length = this->positions.stop.max_pos - this->positions.start.min_pos;
 	}
 
 	this->supporting_types = "";

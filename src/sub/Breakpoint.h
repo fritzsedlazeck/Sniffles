@@ -83,6 +83,7 @@ private:
 	BinTree grouped;
 	tree_node * grouped_node;
 	long length;
+	std::string indel_sequence;
 
 	void summarize_support(short type);
 	//void summarize_strand(pair<bool, bool> strand, std::vector<short>& array);
@@ -164,6 +165,9 @@ public:
 	std::string get_read_names();
 	std::vector<long> get_read_ids();
 	std::string to_string();
+	std::string get_sequence(){
+		return this->indel_sequence;
+	}
 };
 
 #endif /* SUB_BREAKPOINT_H_ */

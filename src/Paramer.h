@@ -73,6 +73,7 @@ public:
 	bool phase;
 	bool ignore_std;
 	bool reportBND;
+	bool print_seq;
 
 	void set_regions(std::string reg) {
 		size_t i = 0;

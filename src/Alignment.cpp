@@ -73,40 +73,41 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 	int pos = this->getPosition();
 	differences_str ev;
 	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
-	int read_pos=0;
+	int read_pos = 0;
+	if (al->CigarData[0].Type == 'S') {
+		read_pos += al->CigarData[0].Length;
+	}
 	for (size_t i = 0; i < al->CigarData.size(); i++) {
-		if (flag) {
-			//	cout<<al->CigarData[i].Type<<al->CigarData[i].Length<<std::endl;
-		}
 		if (al->CigarData[i].Type == 'D') {
 			ev.position = pos;
 			ev.type = al->CigarData[i].Length; //deletion
+			ev.readposition = read_pos;
 			events.push_back(ev);
 			pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'I') {
 			ev.position = pos;
+			ev.readposition = read_pos;
 			ev.type = al->CigarData[i].Length * -1; //insertion
 			events.push_back(ev);
+			read_pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'M') {
 			pos += al->CigarData[i].Length;
+			read_pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'N') {
 			pos += al->CigarData[i].Length;
+			read_pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'S' && al->CigarData[i].Length > Parameter::Instance()->huge_ins) { /// Used for reads ranging into an inser
 			string sa;
 			al->GetTag("SA", sa);
 			uint32_t sv;
-
 			if ((al->GetTag("SV", sv) && sa.empty()) && (!(sv & Ns_CLIPPED) && !(sv & FULLY_EXPLAINED))) { // TODO remove last )
-				if (flag) {
-					std::cout << "Chop: " << pos << " Rname: " << this->getName() << std::endl;
-				}
-				if (pos == this->getPosition()) {
-					ev.position = pos; // - Parameter::Instance()->huge_ins;
+				ev.position = pos; // - Parameter::Instance()->huge_ins;
+				if (i == 0) {
+					ev.readposition = 0;
 				} else {
-					ev.position = pos;
+					ev.readposition = read_pos;
 				}
 				ev.type = Parameter::Instance()->huge_ins * -1; //insertion: WE have to fix the length since we cannot estimate it!]
-
 				events.push_back(ev);
 			}
 		}
@@ -122,10 +123,10 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 		cout << endl;
 	}
 
-	//set ref length requ. later on:
+//set ref length requ. later on:
 	this->ref_len = pos - getPosition(); //TODO compare to get_length!
 
-			//cout<<" comp len: "<<this->ref_len<<" "<<pos<<" "<<this->getPosition()<<endl;
+//cout<<" comp len: "<<this->ref_len<<" "<<pos<<" "<<this->getPosition()<<endl;
 //	Parameter::Instance()->meassure_time(comp_aln, "\t\tCigar: ");
 
 	string md = this->get_md();
@@ -136,7 +137,10 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 	int ref_pos = 0;
 	size_t pos_events = 0;
 	int max_size = (this->getRefLength() * 0.9) + getPosition();
-	//comp_aln = clock();
+//comp_aln = clock();
+	indel_str del;
+	del.sequence = "";
+	del.pos = -1;
 	for (size_t i = 0; i < md.size() && pos < max_size; i++) {
 		if (md[i] == '^') {
 			gap = true;
@@ -153,68 +157,29 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 				//store in sorted order:
 				add_event(pos, pos_events, events);
 
-				pos++; //just the pos on ref!
+				pos++;			//just the pos on ref!
+			} else if (Parameter::Instance()->print_seq) { //can only be a deletion:
+				if (del.pos == -1) {
+					del.pos = pos;
+				} else { //avoid first string position;
+					del.sequence += md[i];
+				}
 			}
 			match = false;
 		} else if (!match) {
 			match = true;
 			pos += atoi(&md[i]);
 			gap = false;
-		}
-	}
-
-	if (flag) {
-		std::cout << "SECOND:" << std::endl;
-		for (size_t i = 0; i < events.size(); i++) {
-			if (abs(events[i].type) > 200) {
-				cout << events[i].position << " " << events[i].type << endl;
+			if (Parameter::Instance()->print_seq && del.sequence.size() > Parameter::Instance()->min_length) {
+				dels.push_back(del);
 			}
+			del.sequence = "";
+			del.pos = -1;
 		}
-		cout << endl;
 	}
 
-	//Parameter::Instance()->meassure_time(comp_aln, "\t\tMD string: ");
-//	comp_aln = clock();
-	size_t i = 0;
-	//to erase stretches of consecutive mismatches == N in the ref
-	/*int break_point = 0;
-	 while (i < events.size()) {
-	 if (events[i].position > max_size) {
-	 while (i < events.size()) {
-	 if (abs(events[events.size() - 1].type) == Parameter::Instance()->huge_ins) {
-	 i++;
-	 } else {
-	 events.erase(events.begin() + i, events.begin() + i + 1);
-	 }
-	 }
-	 break;
-	 }
-	 if (events[i].type == 0) {
-	 size_t j = 1;
-	 while (i + j < events.size() && ((events[i + j].position - events[i + (j - 1)].position) == 1 && events[i + j].type == 0)) {
-	 j++;
-	 }
-	 if (j > 10) { //if stetch is at least 3 consecutive mismatches
-	 events.erase(events.begin() + i, events.begin() + i + j);
-	 } else {
-	 i += j;
-	 }
-	 } else {
-	 i++;
-	 }
-	 }*/
-//	Parameter::Instance()->meassure_time(comp_aln, "\t\terrase N: ");
-	if (flag) {
-		cout << "LAST:" << endl;
-		for (size_t i = 0; i < events.size(); i++) {
-			if (abs(events[i].type) > 200) {
-				cout << events[i].position << " " << events[i].type << endl;
-			}
-		}
-		cout << endl;
+//Parameter::Instance()->meassure_time(comp_aln, "\t\tMD string: ");
 
-		cout << "total: " << events.size() << endl;
-	}
 	return events;
 }
 void Alignment::computeAlignment() {
@@ -260,7 +225,7 @@ void Alignment::computeAlignment() {
 	}
 	Parameter::Instance()->meassure_time(comp_aln, "\t\tCIGAR opterations ");
 	comp_aln = clock();
-	//Apply MD string:
+//Apply MD string:
 	string md = this->get_md();
 	pos = 0;
 	int corr = 0;
@@ -472,7 +437,7 @@ void Alignment::get_coords(aln_str tmp, int & start, int &stop) {
 }
 void Alignment::check_entries(vector<aln_str> &entries) {
 
-	bool flag =(strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 
 	if (flag) {
 		std::cout << "Nested? " << std::endl;
@@ -507,8 +472,8 @@ void Alignment::check_entries(vector<aln_str> &entries) {
 			if (abs(ref_size - read_size) > Parameter::Instance()->min_length) {
 				valid++;
 			}
-			if(flag){
-			cout<<"Read: "<<read_size << " Ref: "<<ref_size<< " "<<this->getName()<<std::endl;
+			if (flag) {
+				cout << "Read: " << read_size << " Ref: " << ref_size << " " << this->getName() << std::endl;
 			}
 
 			if (chr != entries[i].RefID) {
@@ -524,7 +489,7 @@ void Alignment::check_entries(vector<aln_str> &entries) {
 	if (flag) {
 		std::cout << "summary: " << strands << " " << valid << " " << std::endl;
 	}
-	if (strands < 3 || valid < 2 ) { //check!
+	if (strands < 3 || valid < 2) { //check!
 		if (flag) {
 			std::cout << "Return" << std::endl;
 		}
@@ -1284,7 +1249,13 @@ vector<str_event> Alignment::get_events_Aln() {
 					cout << "store INS" << endl;
 				}
 				tmp.length = insert_max; //TODO not sure!
-				//tmp.sequence=this->getAlignment()->AlignedBases.substr();
+				tmp.read_pos = event_aln[start].readposition;
+			//	std::cout << "INS: " << this->getName() << " " << this->getAlignment()->QueryBases.size() << " " << event_aln[start].readposition << " len: " << tmp.length << std::endl;
+				if (Parameter::Instance()->print_seq) {
+					tmp.sequence = this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length);
+				} else {
+					tmp.sequence = "NA";
+				}
 				tmp.pos = insert_max_pos;
 				tmp.type |= INS;
 				tmp.is_noise = false;
@@ -1294,6 +1265,15 @@ vector<str_event> Alignment::get_events_Aln() {
 			} else if (del_max > Parameter::Instance()->min_length && (insert + insert) < del) { //deletion
 				if (flag) {
 					cout << "store DEL " << this->getName() << endl;
+				}
+				if (Parameter::Instance()->print_seq) {
+					for (size_t del_pos = 0; del_pos < dels.size(); del_pos++) {
+						if (abs(dels[del_pos].pos - tmp.pos) < 10) {
+							tmp.sequence = dels[del_pos].sequence;
+						}
+					}
+				} else {
+					tmp.sequence = "NA";
 				}
 				tmp.length = del_max;
 				tmp.type |= DEL;
@@ -1308,8 +1288,9 @@ vector<str_event> Alignment::get_events_Aln() {
 				noise_events++;
 				tmp.type |= DEL;
 				tmp.type |= INV;
+				tmp.sequence = "NA";
 				tmp.is_noise = true;
-				if (is_N_region || ((del_max> Parameter::Instance()->min_length && insert_max > Parameter::Instance()->min_length) && (del_max/insert_max)<Parameter::Instance()->min_length)) {
+				if (is_N_region || ((del_max > Parameter::Instance()->min_length && insert_max > Parameter::Instance()->min_length) && (del_max / insert_max) < Parameter::Instance()->min_length)) {
 					tmp.type = 0;
 				}
 			} else {

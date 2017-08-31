@@ -56,6 +56,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
 	TCLAP::SwitchArg arg_std("", "ignore_sd", "Ignores the sd based filtering. (default: false)", cmd, false);
 	TCLAP::SwitchArg arg_bnd("", "report_BND", "Report BND instead of Tra in vcf output. (default: false)", cmd, false);
+	TCLAP::SwitchArg arg_seq("", "report_seq", "Report sequences for indels in vcf output. (default: false)", cmd, false);
 	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV. Default: 1", false, 1, "int");
 	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1).", false, 0.0, "float");
 
@@ -99,8 +100,7 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->min_segment_size = arg_segsize.getValue();
 	Parameter::Instance()->reportBND= arg_bnd.getValue();
 	Parameter::Instance()->input_vcf=arg_input_vcf.getValue();
-
-
+	Parameter::Instance()->print_seq=arg_seq.getValue();
 	Parameter::Instance()->ignore_std=arg_std.getValue();
 
 	if (Parameter::Instance()->min_allelel_frequency > 0 || !Parameter::Instance()->input_vcf.empty()) {
