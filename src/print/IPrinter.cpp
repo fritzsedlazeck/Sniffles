@@ -8,24 +8,24 @@
 #include "IPrinter.h"
 
 bool IPrinter::is_huge_ins(Breakpoint * &SV) {
-	int counts=0;
+	int counts = 0;
 	std::map<std::string, read_str> support = SV->get_coordinates().support;
 	for (std::map<std::string, read_str>::iterator i = support.begin(); i != support.end(); i++) {
-		if(((*i).second.coordinates.second - (*i).second.coordinates.first) == Parameter::Instance()->huge_ins){
+		if (((*i).second.coordinates.second - (*i).second.coordinates.first) == Parameter::Instance()->huge_ins) {
 			counts++;
 		}
 	}
 	//std::cout<<"Ratio: "<<((double)counts/(double)support.size())<<std::endl;
-	return ((double)counts/(double)support.size() > 0.3);
+	return ((double) counts / (double) support.size() > 0.3);
 }
-bool IPrinter::to_print(Breakpoint * &SV, pair<double, double>& std, pair<double, double> & kurtosis, double & std_length) {
+bool IPrinter::to_print(Breakpoint * &SV, pair<double, double>& std, pair<double, double> & kurtosis, double & std_length, int & zmw_num) {
 
 	std.first = 0;
 	std.second = 0;
 
 	//comp_std(SV, std_start, std_stop);
 	std_length = 0;
-	kurtosis = comp_std_quantile(SV, std, std_length);
+	kurtosis = comp_std_quantile(SV, std, std_length, zmw_num);
 	bool to_print = true;
 
 	if ((SV->get_SVtype() & INS) && is_huge_ins(SV)) {
@@ -34,22 +34,14 @@ bool IPrinter::to_print(Breakpoint * &SV, pair<double, double>& std, pair<double
 
 	if ((SV->get_SVtype() & INS) || (SV->get_SVtype() & DEL)) { //for insertions  + deletions:
 		double dist = (double) (SV->get_coordinates().stop.most_support - SV->get_coordinates().start.most_support);
-		//dist = (double)std::min(((int)dist * 4), Parameter::Instance()->max_dist);
 		dist = dist * 4.0 * (uniform_variance / 2); //because we test against corrected value!
-//		std::cout<<"DIST: "<<(SV->get_coordinates().stop.most_support - SV->get_coordinates().start.most_support)<<" "<<dist<<" STD: "<<std.first<<" "<<std.second<<std::endl;
 		return ((std.first < dist && std.second < dist)); //0.2886751
 	}
 
-	//TODO test!
 	if (SV->get_SVtype() & NEST) {
 		return true;
 	}
 	double max_allowed = 4 * Parameter::Instance()->max_dist * (uniform_variance / 2);
-
-	if (SV->get_coordinates().support.size() < 8) { //not enough coverage
-//		max_allowed = 4 * Parameter::Instance()->max_dist * (uniform_variance);
-			//max_allowed = max_allowed * ((double) SV->get_coordinates().support.size()/10.0);
-	}
 
 	return (std.first < max_allowed && std.second < max_allowed);
 }
@@ -172,8 +164,26 @@ void IPrinter::comp_std_med(Breakpoint * &SV, double & std_start, double & std_s
 	std_start = std::sqrt(std_start_dists[median]);
 	std_stop = std::sqrt(std_stop_dists[median]);
 }
+bool contains_zmw(std::string read_name, std::string & zmw) {
+	//{movieName}/{zmwNumber}/{start}_{end}/
+	size_t i = 0;
+	bool read = false;
+	while (i < read_name.size()) {
+		if (read && read_name[i] != '/') {
+			zmw += read_name[i];
+		}
+		if (read_name[i] == '/') {
+			read = !read;
+			if (!zmw.empty()) {
+				return true;
+			}
+		}
+		i++;
+	}
+	return false;
+}
 
-pair<double, double> IPrinter::comp_std_quantile(Breakpoint * &SV, pair<double, double> & std, double & std_length) {
+pair<double, double> IPrinter::comp_std_quantile(Breakpoint * &SV, pair<double, double> & std, double & std_length, int & zmw_num) {
 	double count = 0;
 	std::vector<int> std_start_dists;
 	std::vector<int> std_stop_dists;
@@ -186,8 +196,14 @@ pair<double, double> IPrinter::comp_std_quantile(Breakpoint * &SV, pair<double, 
 	double s2_stop = 0;
 	std_length = 0;
 	std::map<std::string, read_str> support = SV->get_coordinates().support;
+	std::map<std::string, bool> zmws;
+	//std::cout<<" NEW READ "<<endl;
 	for (std::map<std::string, read_str>::iterator i = support.begin(); i != support.end(); i++) {
-		if (((*i).second.SV & SV->get_SVtype()) && strncmp((*i).first.c_str(),"input",5)!=0) {
+		if (((*i).second.SV & SV->get_SVtype()) && strncmp((*i).first.c_str(), "input", 5) != 0) {
+			std::string zmw = "";
+			if (contains_zmw((*i).first, zmw)) {
+				zmws[zmw] = true;
+			}
 			long diff = SV->get_length() - ((*i).second.coordinates.second - (*i).second.coordinates.first);
 			//	sort_insert(std::pow((double) diff, 2.0), std_length_dists); //TODO think about that!!
 			std_length += std::pow((double) diff, 2.0);
@@ -201,9 +217,6 @@ pair<double, double> IPrinter::comp_std_quantile(Breakpoint * &SV, pair<double, 
 			}
 			if ((*i).second.coordinates.second != -1) {
 				diff = (SV->get_coordinates().stop.most_support - (*i).second.coordinates.second);
-				//ss << '\t';
-				//ss << diff;
-
 				sort_insert(std::pow((double) diff, 2.0), std_stop_dists);
 				s4_stop += std::pow((double) diff, 4.0);
 				s2_stop += std::pow((double) diff, 2.0);
@@ -211,35 +224,30 @@ pair<double, double> IPrinter::comp_std_quantile(Breakpoint * &SV, pair<double, 
 		}
 		count++;
 	}
+	zmw_num = zmws.size();
 	std_length = std::sqrt(std_length / count);
+
+	count = 0;
+
+	for (int i = 0; i < std::max((int) std_stop_dists.size() / 2, 10) && i < std_start_dists.size(); i++) {
+		std.first += std_start_dists[i];
+		std.second += std_stop_dists[i];
+		count++;
+	}
+
+	std.first = std::sqrt(std.first / count);
+	std.second = std::sqrt(std.second / count);
+
 
 	s4_start = s4_start / count;
 	s4_stop = s4_stop / count;
 	s2_start = s2_start / count;
 	s2_stop = s2_stop / count;
 
-	count = 0;
-	for (int i = 0; i < std::max((int) std_stop_dists.size() / 2, 10) && i < std_start_dists.size(); i++) {
-		std.first += std_start_dists[i];
-		std.second += std_stop_dists[i];
-		count++;
-
-		/*s4_start += std::pow((double) std_start_dists[i], 2.0);
-		 s4_stop += std::pow((double) std_stop_dists[i], 2.0);
-		 s2_start += std_start_dists[i];
-		 s2_stop += std_stop_dists[i];*/
-	}
-
 	pair<double, double> kurtosis;
 	kurtosis.first = (s4_start / std::pow(s2_start, 2.0)) - 3;
 	kurtosis.second = (s4_stop / std::pow(s2_stop, 2.0)) - 3;
 
-	std.first = std::sqrt(std.first / count);
-	std.second = std::sqrt(std.second / count);
-
-	for (size_t i = 0; i < std_length_dists.size(); i++) {
-
-	}
 	return kurtosis;
 }
 

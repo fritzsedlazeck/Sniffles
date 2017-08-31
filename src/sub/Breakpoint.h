@@ -87,9 +87,9 @@ private:
 
 	void summarize_support(short type);
 	//void summarize_strand(pair<bool, bool> strand, std::vector<short>& array);
-	void summarize_type(char SV, std::vector<short>& array);
+	void summarize_type(char SV, ushort * array);
 	//std::string translate_strand(short id);
-	char eval_type(std::vector<short> SV);
+	char eval_type(ushort *SV);
 	std::string rev_complement(std::string seq);
 	bool is_in(short id);
 	std::string translate_strand(pair<bool, bool> strand);

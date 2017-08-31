@@ -48,6 +48,7 @@ void VCFPrinter::print_header() {
 	fprintf(file, "%s", "##INFO=<ID=SUPTYPE,Number=1,Type=String,Description=\"Type by which the variant is supported.(SR,ALN)\">\n");
 	fprintf(file, "%s", "##INFO=<ID=STRANDS,Number=.,Type=String,Description=\"Strand orientation of the adjacency in BEDPE format (DEL:+-, DUP:-+, INV:++/--)\">\n");
 	fprintf(file, "%s", "##INFO=<ID=AF,Number=.,Type=Integer,Description=\"Allele Frequency.\">\n");
+	fprintf(file, "%s", "##INFO=<ID=ZMW,Number=.,Type=Integer,Description=\"Number of ZMWs (Pacbio) supporting SV.\">\n");
 	fprintf(file, "%s", "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n");
 	fprintf(file, "%s", "##FORMAT=<ID=DR,Number=1,Type=Integer,Description=\"# high-quality reference reads\">\n");
 	fprintf(file, "%s", "##FORMAT=<ID=DV,Number=1,Type=Integer,Description=\"# high-quality variant reads\">\n");
@@ -69,8 +70,8 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 		pair<double, double> kurtosis;
 		pair<double, double> std_quant;
 		double std_length = 0;
-		//to_print(SV, std_quant, kurtosis, std_length);
-		bool ok_to_print = (to_print(SV, std_quant, kurtosis, std_length) || Parameter::Instance()->ignore_std);
+		int zmws = 0;
+		bool ok_to_print = (to_print(SV, std_quant, kurtosis, std_length, zmws) || Parameter::Instance()->ignore_std);
 		//std::cout << "Print check: " << std_quant.first << " " << std_quant.second << endl;
 		if (ok_to_print) {
 			if (Parameter::Instance()->phase) {
@@ -111,7 +112,6 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 				fprintf(file, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());
 				fprintf(file, "%c", '>');
 			}
-
 			fprintf(file, "%s", "\t.\tPASS\t");
 			if (std_quant.first < 10 && std_quant.second < 10) {
 				fprintf(file, "%s", "PRECISE");
@@ -131,6 +131,10 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 				} else {
 					fprintf(file, "%i", end);
 				}
+			}
+			if (zmws != 0) {
+				fprintf(file, "%s", ";ZMW=");
+				fprintf(file, "%i", zmws);
 			}
 			fprintf(file, "%s", ";STD_quant_start=");
 			fprintf(file, "%f", std_quant.first);

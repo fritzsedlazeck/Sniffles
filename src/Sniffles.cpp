@@ -30,7 +30,15 @@
 //TODO:
 // strand bias??
 // I think you could make your performance on PacBio reads even better with a few modifications:
-//a.    The "snake" read that you show in Supplementary Figure 2.5 which limits calling of small inverted duplications likely results from an improperly constructed SMRTbell (see attached) that has adapters missing on one end.  The PacBio library prep reordered a few steps (years ago now) to prevent formation of these types of molecules.  So, hopefully it is no longer an issue.  Even with old data, you should be able to call small inverted duplications by counting support of ZMWs not just subreads.  It is improbable the same ligation error happens in two separate molecules.  The ZMW vs subread counting is much like the PCR duplicate marking used in processing short read data.
+// a.The "snake" read that you show in Supplementary Figure 2.5 which limits calling of small inverted duplications likely results from
+// an improperly constructed SMRTbell (see attached) that has adapters missing on one end.  The PacBio library prep reordered a few steps
+// (years ago now) to prevent formation of these types of molecules.  So, hopefully it is no longer an issue.
+// Even with old data, you should be able to call small inverted duplications by counting support of ZMWs not just subreads.
+// It is improbable the same ligation error happens in two separate molecules.  The ZMW vs subread counting is much like
+// the PCR duplicate marking used in processing short read data.
+
+
+
 //b.    In pbsv, I use a simply mononucleotide consistency check to determine whether to cluster insertions from different reads as supporting the "same" events.  In addition to looking at the similarity of length and breakpoints, you could measure [min(Act)+min(Cct)+min(Gct)+min(Tct) / max(Act)+max(Cct)+max(Gct)+max(Tct)]  Even a lax criterion (>0.25) can avoid clustering phantom insertions (where one is say all A and the another is G+T).
 
 
@@ -188,9 +196,7 @@ double test_comp_std_quantile(std::vector<int> positions, int position) {
 	}
 
 	return std::sqrt(std_start / count);
-
 }
-
 void test_std() {
 	srand(time(NULL));
 	int start = rand() % 100000; /// sqrt(1/12) for ins. Plot TRA std vs. cov/support.
@@ -287,10 +293,7 @@ void test_slimming() {
 int main(int argc, char *argv[]) {
 
 	try {
-		//	test_slimming();
-		//	test_std();
-		//
-		//exit(0);
+
 		//init parameter and reads user defined parameter from command line.
 		read_parameters(argc, argv);
 		//init openmp:
@@ -314,8 +317,10 @@ int main(int argc, char *argv[]) {
 
 		printer->init();
 		if(Parameter::Instance()->input_vcf.empty()){
+			//regular calling
 			detect_breakpoints(Parameter::Instance()->bam_files[0], printer); //we could write out all read names for each sVs
 		}else{
+			//force calling was selected:
 			force_calling(Parameter::Instance()->bam_files[0], printer);
 		}
 		printer->close_file();

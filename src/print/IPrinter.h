@@ -88,14 +88,14 @@ public:
 			tmp_file = fopen(tmp_name_file.c_str(), "wb");
 		}
 	}
-	bool to_print(Breakpoint * &SV, pair<double, double> &std, pair<double, double> & kurtosis, double & std_length);
+	bool to_print(Breakpoint * &SV, pair<double, double> &std, pair<double, double> & kurtosis, double & std_length, int & zmw_num);
 	void store_readnames(std::vector<long> names, int id);
 	void close_file() {
 		fclose(this->file);
 	}
 	void comp_std(Breakpoint * &SV, double & std_start, double & std_stop);
 	void comp_std_med(Breakpoint * &SV, double & std_start, double & std_stop);
-	pair<double, double> comp_std_quantile(Breakpoint * &SV, pair<double, double>& std, double & std_lenght);
+	pair<double, double> comp_std_quantile(Breakpoint * &SV, pair<double, double>& std, double & std_lenght, int & zmw_num);
 	const std::string currentDateTime();
 };
 

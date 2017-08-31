@@ -40,14 +40,12 @@ void detect_merged_svs(position_str point, RefVector ref, vector<Breakpoint *> &
 	new_points.clear(); //just in case!
 	vector<hist_str> pos_start;
 	vector<hist_str> pos_stop;
-	for (std::map<std::string, read_str>::iterator i = point.support.begin(); i != point.support.end(); i++) {
-		//	std::cout << (*i).second.coordinates.first << "," << (*i).second.coordinates.second << std::endl;
+	for (std::map<std::string, read_str>::iterator i = point.support.begin(); i != point.support.end(); ++i) {
 		store_pos(pos_start, (*i).second.coordinates.first, (*i).first);
 		store_pos(pos_stop, (*i).second.coordinates.second, (*i).first);
 	}
-//	std::cout << "Start: " << std::endl;
+
 	int start_count = 0;
-	//std::cout<<"Start pos: ";
 	for (size_t i = 0; i < pos_start.size(); i++) {
 		//std::cout<<pos_start[i].hits <<",";
 		if (pos_start[i].hits > Parameter::Instance()->min_support) {
@@ -55,8 +53,6 @@ void detect_merged_svs(position_str point, RefVector ref, vector<Breakpoint *> &
 
 		}
 	}
-//	std::cout << std::endl;
-//	std::cout << "Stop: " << std::endl;
 	int stop_count = 0;
 	for (size_t i = 0; i < pos_stop.size(); i++) {
 		//	std::cout << pos_stop[i].hits << ",";
@@ -64,9 +60,6 @@ void detect_merged_svs(position_str point, RefVector ref, vector<Breakpoint *> &
 			stop_count++;
 		}
 	}
-	//std::cout << std::endl;
-	//std::cout << std::endl;
-
 	if (stop_count > 1 || start_count > 1) {
 		std::cout << "\tprocessing merged TRA" << std::endl;
 		if (start_count > 1) {
@@ -191,7 +184,6 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	while (!tmp_aln->getQueryBases().empty()) {
 		if ((tmp_aln->getAlignment()->IsPrimaryAlignment()) && (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800) && tmp_aln->get_is_save())) {
 
-
 			//change CHR:
 			if (current_RefID != tmp_aln->getRefID()) {
 				current_RefID = tmp_aln->getRefID();
@@ -212,8 +204,6 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 				bst.clear(root);
 			}
 
-
-
 			//SCAN read:
 			std::vector<str_event> aln_event;
 			std::vector<aln_str> split_events;
@@ -223,18 +213,19 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 				{
 #pragma omp sections
 					{
+#pragma omp section
 						{
-							//	clock_t begin = clock();
+							//		clock_t begin = clock();
 							if ((score == -1 || score > Parameter::Instance()->score_treshold)) {
 								aln_event = tmp_aln->get_events_Aln();
 							}
-							//	Parameter::Instance()->meassure_time(begin, " Alignment ");
+							//		Parameter::Instance()->meassure_time(begin, " Alignment ");
 						}
 #pragma omp section
 						{
-							//		clock_t begin_split = clock();
+							//	clock_t begin_split = clock();
 							split_events = tmp_aln->getSA(ref);
-							//		Parameter::Instance()->meassure_time(begin_split," Split reads ");
+							//	Parameter::Instance()->meassure_time(begin_split, " Split reads ");
 						}
 					}
 				}
@@ -382,12 +373,7 @@ void add_events(Alignment *& tmp, std::vector<str_event> events, short type, lon
 			read.coordinates.first = svs.start.min_pos;
 			read.coordinates.second = svs.stop.max_pos;
 		}
-		/*if(read.SV & DEL){
-		 std::cout<<"ADD DEL: "<<svs.start.min_pos<< " "<<svs.stop.max_pos<<" "<<tmp->getName()<<std::endl;
-		 }*/
-		/*if(read.SV & INS){
-		 std::cout<<"ALN LEN: "<<events[i].length<<" Pos: "<<svs.start.min_pos<< " "<<svs.stop.max_pos<<" "<<tmp->getName()<<std::endl;
-		 }*/
+
 		read.id = read_id;
 		svs.support[tmp->getName()] = read;
 		svs.support[tmp->getName()].length = events[i].length;
@@ -513,10 +499,6 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 						svs.start.min_pos = svs.stop.max_pos;
 						svs.stop.max_pos = tmp;
 					}
-					//	if(flag){
-					//		std::cout<<"NEST: "<<svs.start.min_pos- get_ref_lengths(events[i - 1].RefID, ref) << " "<<svs.stop.max_pos - get_ref_lengths(events[i - 1].RefID, ref)<<" "<<tmp->getName()<<std::endl;
-					//	}
-					//	svs.stop.max_pos = svs.start.min_pos + Parameter::Instance()->min_length * 2;
 				} else if (!is_overlapping) {
 					read.SV |= INV;
 					if (events[i - 1].strand) {
@@ -595,10 +577,6 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 				read.coordinates.second = svs.stop.max_pos;
 			}
 
-			//if( abs(read.coordinates.second-read.coordinates.first)<10){
-			///	events[i].length=abs(read.coordinates.second-read.coordinates.first);//TODO try
-			//	std::cout<<"Split event ===1 "<<" "<<abs(read.coordinates.second-read.coordinates.first)<<" len: "<< events[i].length<<" Pos "<<events[i].pos <<" Name "<<tmp->getName() <<std::endl;
-			//	}
 			//pool out?
 			read.id = read_id;
 			svs.support[tmp->getName()] = read;

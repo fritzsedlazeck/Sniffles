@@ -15,22 +15,6 @@ void Alignment::initAlignment() {
 }
 void Alignment::setAlignment(BamAlignment * align) {
 	al = align;
-	/*
-	 //comment from here:
-	 //todo: why does this influence the INV detection???
-	 alignment.first.clear();
-	 alignment.second.clear();
-	 is_computed = false;
-
-	 orig_length = al->QueryBases.size();
-
-	 for (size_t i = 0; i < al->QueryBases.size(); i++) {
-	 alignment.first += toupper(al->QueryBases[i]);
-	 alignment.second += 'X';
-	 }
-
-
-	 stop = this->getPosition() + this->getRefLength();*/
 }
 
 void update_aln(std::string & alignment, int & i, int pos_to_modify) {
@@ -47,7 +31,7 @@ void update_aln(std::string & alignment, int & i, int pos_to_modify) {
 void add_event(int pos, list<differences_str>::iterator & i, list<differences_str> & events) {
 	//insert sorted into vector:
 	while (i != events.end() && pos > (*i).position) {
-		i++;
+		++i;
 	}
 	differences_str ev;
 	ev.position = pos;
@@ -65,20 +49,22 @@ void add_event(int pos, size_t & i, vector<differences_str> & events) {
 	ev.type = 0; //mismatch
 	events.insert(events.begin() + i, ev);
 }
-//todo: check if list changes things
 
 vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &dels) {
-	//clock_t comp_aln = clock();
+//	clock_t comp_aln = clock();
 	vector<differences_str> events;
 	int pos = this->getPosition();
 	differences_str ev;
-	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+	bool flag = false; //(strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 	int read_pos = 0;
 	if (al->CigarData[0].Type == 'S') {
 		read_pos += al->CigarData[0].Length;
 	}
 	for (size_t i = 0; i < al->CigarData.size(); i++) {
-		if (al->CigarData[i].Type == 'D') {
+		if (al->CigarData[i].Type == 'M') {
+			pos += al->CigarData[i].Length;
+			read_pos += al->CigarData[i].Length;
+		} else if (al->CigarData[i].Type == 'D') {
 			ev.position = pos;
 			ev.type = al->CigarData[i].Length; //deletion
 			ev.readposition = read_pos;
@@ -89,9 +75,6 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 			ev.readposition = read_pos;
 			ev.type = al->CigarData[i].Length * -1; //insertion
 			events.push_back(ev);
-			read_pos += al->CigarData[i].Length;
-		} else if (al->CigarData[i].Type == 'M') {
-			pos += al->CigarData[i].Length;
 			read_pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'N') {
 			pos += al->CigarData[i].Length;
@@ -113,31 +96,29 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 		}
 	}
 
-	if (flag) {
-		std::cout << "FIRST:" << std::endl;
-		for (size_t i = 0; i < events.size(); i++) {
-			if (abs(events[i].type) > 200) {
-				cout << events[i].position << " " << events[i].type << endl;
-			}
-		}
-		cout << endl;
-	}
+	/*if (flag) {
+	 std::cout << "FIRST:" << std::endl;
+	 for (size_t i = 0; i < events.size(); i++) {
+	 if (abs(events[i].type) > 200) {
+	 cout << events[i].position << " " << events[i].type << endl;
+	 }
+	 }
+	 cout << endl;
+	 }*/
 
 //set ref length requ. later on:
 	this->ref_len = pos - getPosition(); //TODO compare to get_length!
-
-//cout<<" comp len: "<<this->ref_len<<" "<<pos<<" "<<this->getPosition()<<endl;
-//	Parameter::Instance()->meassure_time(comp_aln, "\t\tCigar: ");
+	//Parameter::Instance()->meassure_time(comp_aln, "\t\tCigar: ");
 
 	string md = this->get_md();
 	pos = this->getPosition();
 	int corr = 0;
 	bool match = false;
-	bool gap;
+	bool gap = false;
 	int ref_pos = 0;
 	size_t pos_events = 0;
 	int max_size = (this->getRefLength() * 0.9) + getPosition();
-//comp_aln = clock();
+//	comp_aln = clock();
 	indel_str del;
 	del.sequence = "";
 	del.pos = -1;
@@ -156,7 +137,6 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 				}
 				//store in sorted order:
 				add_event(pos, pos_events, events);
-
 				pos++;			//just the pos on ref!
 			} else if (Parameter::Instance()->print_seq) { //can only be a deletion:
 				if (del.pos == -1) {
@@ -178,7 +158,7 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 		}
 	}
 
-//Parameter::Instance()->meassure_time(comp_aln, "\t\tMD string: ");
+//	Parameter::Instance()->meassure_time(comp_aln, "\t\tMD string: ");
 
 	return events;
 }
@@ -815,7 +795,7 @@ bool Alignment::get_is_save() {
 
 	double score = get_scrore_ratio(); //TODO should I use this again for bwa?
 
-	return !((al->GetTag("XA", sa) && !sa.empty()) || (al->GetTag("XT", sa) && !sa.empty())) && (score == -1 || score > Parameter::Instance()->score_treshold);					//|| //TODO: 7.5
+	return !((al->GetTag("XA", sa) && !sa.empty()) || (al->GetTag("XT", sa) && !sa.empty())) && (score == -1 || score > Parameter::Instance()->score_treshold); //|| //TODO: 7.5
 }
 
 std::vector<CigarOp> Alignment::translate_cigar(std::string cigar) {
@@ -1099,14 +1079,11 @@ vector<int> Alignment::get_avg_diff(double & dist, double & avg_del, double & av
 
 vector<str_event> Alignment::get_events_Aln() {
 
-	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+	//bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 
 //clock_t comp_aln = clock();
 	std::vector<indel_str> dels;
 	vector<differences_str> event_aln = summarizeAlignment(dels);
-	if (flag) {
-		std::cout << "test size: " << event_aln.size() << std::endl;
-	}
 //double time2 = Parameter::Instance()->meassure_time(comp_aln, "\tcompAln Events: ");
 
 	vector<str_event> events;
@@ -1134,9 +1111,6 @@ vector<str_event> Alignment::get_events_Aln() {
 			profile.push_back(tmp);
 		} else if (abs(event_aln[i].type) > Parameter::Instance()->min_length) {	//for single events like NGM-LR would produce them.
 			tmp.position = event_aln[i].position;
-			if (flag) {
-				std::cout << "HIT" << std::endl;
-			}
 			profile.push_back(tmp);
 		}
 	}
@@ -1145,9 +1119,7 @@ vector<str_event> Alignment::get_events_Aln() {
 	int stop = 0;
 	size_t start = 0;
 	for (size_t i = 0; i < profile.size() && stop < event_aln.size(); i++) {
-		if (flag) {
-			std::cout << "Prof: " << profile[i].position << " " << event_aln[stop].position << std::endl;
-		}
+
 		if (profile[i].position >= event_aln[stop].position) {
 			//find the postion:
 			size_t pos = 0;
@@ -1159,9 +1131,6 @@ vector<str_event> Alignment::get_events_Aln() {
 			int prev = event_aln[pos].position;
 			start = pos;
 			int prev_type = 1;
-			if (flag) {
-				std::cout << "check start" << std::endl;
-			}
 			//todo it is actually pos + type and not *type
 			while (start > 0 && (prev - event_aln[start].position) < (Parameter::Instance()->max_dist_alns)) {	//13		//} * abs(event_aln[start].type) + 1)) { //TODO I  dont like 13!??
 				prev = event_aln[start].position;
@@ -1179,9 +1148,6 @@ vector<str_event> Alignment::get_events_Aln() {
 			prev = event_aln[pos].position;
 			stop = pos;
 			prev_type = 1;
-			if (flag) {
-				std::cout << "check stop" << std::endl;
-			}
 			while (stop < event_aln.size() && (event_aln[stop].position - prev) < (Parameter::Instance()->max_dist_alns)) {		// * abs(event_aln[stop].type) + 1)) {
 				prev = event_aln[stop].position;
 
@@ -1208,12 +1174,7 @@ vector<str_event> Alignment::get_events_Aln() {
 			double insert = 0;
 			double del = 0;
 			double mismatch = 0;
-//			if (flag) {
-//				cout << start << " " << stop << endl;
-//			}
-			if (flag) {
-				std::cout << "check total len: " << start << " " << stop << std::endl;
-			}
+
 			for (size_t k = start; k <= stop; k++) {
 				if (event_aln[k].type == 0) {
 					mismatch++;
@@ -1240,77 +1201,61 @@ vector<str_event> Alignment::get_events_Aln() {
 			}
 			tmp.length = (tmp.length - event_aln[start].position);
 
-			if (flag) {
-				std::cout << "decide" << std::endl;
-			}
 			tmp.type = 0;
 			if (insert_max > Parameter::Instance()->min_length && insert > (del + del)) { //we have an insertion! //todo check || vs. &&
-				if (flag) {
-					cout << "store INS" << endl;
-				}
-				tmp.length = insert_max; //TODO not sure!
-				tmp.read_pos = event_aln[start].readposition;
-			//	std::cout << "INS: " << this->getName() << " " << this->getAlignment()->QueryBases.size() << " " << event_aln[start].readposition << " len: " << tmp.length << std::endl;
-				if (Parameter::Instance()->print_seq) {
-					tmp.sequence = this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length);
-				} else {
-					tmp.sequence = "NA";
-				}
-				tmp.pos = insert_max_pos;
-				tmp.type |= INS;
-				tmp.is_noise = false;
 				if (is_N_region && insert_max * Parameter::Instance()->avg_ins < Parameter::Instance()->min_length) {
 					tmp.type = 0;
+				} else {
+					tmp.length = insert_max; //TODO not sure!
+					tmp.read_pos = event_aln[start].readposition;
+					if (Parameter::Instance()->print_seq) {
+						tmp.sequence = this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length);
+					} else {
+						tmp.sequence = "NA";
+					}
+					tmp.pos = insert_max_pos;
+					tmp.type |= INS;
+					tmp.is_noise = false;
 				}
 			} else if (del_max > Parameter::Instance()->min_length && (insert + insert) < del) { //deletion
-				if (flag) {
-					cout << "store DEL " << this->getName() << endl;
-				}
-				if (Parameter::Instance()->print_seq) {
-					for (size_t del_pos = 0; del_pos < dels.size(); del_pos++) {
-						if (abs(dels[del_pos].pos - tmp.pos) < 10) {
-							tmp.sequence = dels[del_pos].sequence;
-						}
-					}
-				} else {
-					tmp.sequence = "NA";
-				}
-				tmp.length = del_max;
-				tmp.type |= DEL;
-				tmp.is_noise = false;
 				if (is_N_region && del_max * Parameter::Instance()->avg_del < Parameter::Instance()->min_length) {
 					tmp.type = 0;
+				} else {
+					if (Parameter::Instance()->print_seq) {
+						for (size_t del_pos = 0; del_pos < dels.size(); del_pos++) {
+							if (abs(dels[del_pos].pos - tmp.pos) < 10) {
+								tmp.sequence = dels[del_pos].sequence;
+							}
+						}
+					} else {
+						tmp.sequence = "NA";
+					}
+					tmp.length = del_max;
+					tmp.type |= DEL;
+					tmp.is_noise = false;
 				}
 			} else if ((mismatch + del + insert) / 2 > Parameter::Instance()->min_length) { //TODO
-				if (flag) {
-					cout << "store Noise" << endl;
-				}
-				noise_events++;
-				tmp.type |= DEL;
-				tmp.type |= INV;
-				tmp.sequence = "NA";
-				tmp.is_noise = true;
 				if (is_N_region || ((del_max > Parameter::Instance()->min_length && insert_max > Parameter::Instance()->min_length) && (del_max / insert_max) < Parameter::Instance()->min_length)) {
 					tmp.type = 0;
+				} else {
+					noise_events++;
+					tmp.type |= DEL;
+					tmp.type |= INV;
+					tmp.sequence = "NA";
+					tmp.is_noise = true;
 				}
-			} else {
-				//	std::cout<<"ERROR we did not set the type!"<<std::endl;
-				tmp.type = 0;
 			}
 
-			if (flag) {
-				cout << "Read: " << " " << (double) this->getRefLength() << " events: " << event_aln.size() << " " << this->al->Name << std::endl;
-				cout << "INS max " << insert_max << " del_max " << del_max << std::endl;
-				cout << "INS:" << insert << " DEL: " << del << " MIS: " << mismatch << endl;
-				cout << event_aln[start].position << " " << event_aln[stop].position << endl;
-				cout << "store: " << tmp.pos << " " << tmp.pos + abs(tmp.length) << " " << tmp.length << endl;
-				cout << endl;
-			}
+			/*if (flag) {
+			 cout << "Read: " << " " << (double) this->getRefLength() << " events: " << event_aln.size() << " " << this->al->Name << std::endl;
+			 cout << "INS max " << insert_max << " del_max " << del_max << std::endl;
+			 cout << "INS:" << insert << " DEL: " << del << " MIS: " << mismatch << endl;
+			 cout << event_aln[start].position << " " << event_aln[stop].position << endl;
+			 cout << "store: " << tmp.pos << " " << tmp.pos + abs(tmp.length) << " " << tmp.length << endl;
+			 cout << endl;
+			 }*/
 
 			if (tmp.type != 0) {
-				if (flag) {
-					cout << "STORE" << endl;
-				}
 				events.push_back(tmp);
 			}
 		}

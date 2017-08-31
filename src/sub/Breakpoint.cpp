@@ -235,7 +235,7 @@ std::string Breakpoint::translate_strand(pair<bool, bool> strand_pair) {
 	return " ";
 }
 
-void Breakpoint::summarize_type(char SV, std::vector<short>& array) {
+void Breakpoint::summarize_type(char SV, ushort * array) {
 //std::string ss;
 	if (SV & DEL) {
 		//	ss += "DEL; ";
@@ -279,29 +279,32 @@ char Breakpoint::get_SVtype() {
 }
 
 void Breakpoint::calc_support() {
-	std::vector<short> SV;
-	for (size_t i = 0; i < 6; i++) {
-		SV.push_back(0);
-	}
+
+	ushort sv[6] = { 0, 0, 0, 0, 0, 0 };
+
 //run over all supports and check the majority type:
 	for (std::map<std::string, read_str>::iterator i = positions.support.begin(); i != positions.support.end(); i++) {
-		summarize_type((*i).second.SV, SV);
+		summarize_type((*i).second.SV, sv);
 	}
 //given the majority type get the stats:
-	this->sv_type = eval_type(SV);
+	this->sv_type = eval_type(sv);
 
 }
 
-char Breakpoint::eval_type(std::vector<short> SV) {
+char Breakpoint::eval_type(ushort* SV) {
 	int maxim = 0;
 	int id = 0;
-	for (size_t i = 0; i < SV.size(); i++) {
+	for (size_t i = 0; i < 6; i++) {
 		if (maxim < SV[i]) {
 			maxim = SV[i];
 		}
 	}
 	this->type_support = maxim;
+	if (!Parameter::Instance()->input_vcf.empty()) {
+		this->type_support--; // this is needed since we introduce a pseudo element
+	}
 	char max_SV = 0;
+
 	if (maxim == SV[0]) {
 		max_SV |= DEL;
 	}
@@ -319,9 +322,6 @@ char Breakpoint::eval_type(std::vector<short> SV) {
 	}
 	if (maxim == SV[5]) {
 		max_SV |= NEST;
-	}
-	if (!Parameter::Instance()->input_vcf.empty()) {
-		this->type_support--; // this is needed since we introduce a pseudo element
 	}
 	return max_SV;
 }
@@ -361,6 +361,7 @@ void Breakpoint::predict_SV() {
 				}
 				start2.push_back((*i).second.coordinates.first);
 			}
+
 			if ((*i).second.coordinates.second != -1) { //TODO test
 				if ((*i).second.length != Parameter::Instance()->huge_ins) {
 					if (stops.find((*i).second.coordinates.second) == stops.end()) {
@@ -371,6 +372,7 @@ void Breakpoint::predict_SV() {
 				}
 				stops2.push_back((*i).second.coordinates.second);
 			}
+
 			if (((*i).second.SV & INS)) { //check lenght for ins only!
 				if ((*i).second.length != Parameter::Instance()->huge_ins) {
 					if (lengths.find((*i).second.length) == lengths.end()) {
@@ -409,14 +411,12 @@ void Breakpoint::predict_SV() {
 	int maxim = 0;
 	long coord = 0;
 	if (num > 0) {
+
 		for (map<long, int>::iterator i = starts.begin(); i != starts.end(); i++) {
-			//	cout << "start:\t" << (*i).first << " " << (*i).second << endl;
 			if ((*i).second > maxim) {
 				coord = (*i).first;
 				maxim = (*i).second;
 			}
-			//mean += ((*i).first * (*i).second);
-			//	counts += (*i).second;
 		}
 		if (maxim < 5) {
 			this->positions.start.most_support = get_median(start2);	//check if "input"!
@@ -435,23 +435,16 @@ void Breakpoint::predict_SV() {
 		mean = 0;
 		counts = 0;
 		for (map<long, int>::iterator i = stops.begin(); i != stops.end(); i++) {
-			//	cout << "stop:\t" << (*i).first << " " << (*i).second << endl;
 			if ((*i).second > maxim) {
 				coord = (*i).first;
 				maxim = (*i).second;
 			}
-			//mean += ((*i).first * (*i).second);
-			//	counts += (*i).second;
 		}
 		if (maxim < 5) {
 			this->positions.stop.most_support = get_median(stops2);	// mean / counts;
 		} else {
 			this->positions.stop.most_support = coord;
 		}
-		/*if(this->get_SVtype() & NEST){
-		 this->length = -1;
-		 }else
-		 */
 
 		if (!(this->get_SVtype() & INS)) { //all types but Insertions:
 			this->length = this->positions.stop.most_support - this->positions.start.most_support;
@@ -462,13 +455,11 @@ void Breakpoint::predict_SV() {
 			mean = 0;
 			counts = 0;
 			for (map<long, int>::iterator i = lengths.begin(); i != lengths.end(); i++) {
-				//	std::cout<<"LENGTH: "<<(*i).first<<" : "<<(*i).second<<std::endl;
 				if ((*i).second > maxim) {
 					coord = (*i).first;
 					maxim = (*i).second;
 				}
-				//	mean += ((*i).first * (long) (*i).second);
-				//	counts += (*i).second;
+
 			}
 			if (maxim < 3) {
 				this->length = get_median(lengths2);
