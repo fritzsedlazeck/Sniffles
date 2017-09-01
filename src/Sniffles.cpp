@@ -30,16 +30,9 @@
 //TODO:
 // strand bias??
 // I think you could make your performance on PacBio reads even better with a few modifications:
-// a.The "snake" read that you show in Supplementary Figure 2.5 which limits calling of small inverted duplications likely results from
-// an improperly constructed SMRTbell (see attached) that has adapters missing on one end.  The PacBio library prep reordered a few steps
-// (years ago now) to prevent formation of these types of molecules.  So, hopefully it is no longer an issue.
-// Even with old data, you should be able to call small inverted duplications by counting support of ZMWs not just subreads.
-// It is improbable the same ligation error happens in two separate molecules.  The ZMW vs subread counting is much like
-// the PCR duplicate marking used in processing short read data.
-
-
-
-//b.    In pbsv, I use a simply mononucleotide consistency check to determine whether to cluster insertions from different reads as supporting the "same" events.  In addition to looking at the similarity of length and breakpoints, you could measure [min(Act)+min(Cct)+min(Gct)+min(Tct) / max(Act)+max(Cct)+max(Gct)+max(Tct)]  Even a lax criterion (>0.25) can avoid clustering phantom insertions (where one is say all A and the another is G+T).
+//b. In pbsv, I use a simply mononucleotide consistency check to determine whether to cluster insertions from different reads as supporting the "same" events.  In addition to looking at the similarity of length and breakpoints,
+//you could measure [min(Act)+min(Cct)+min(Gct)+min(Tct) / max(Act)+max(Cct)+max(Gct)+max(Tct)]  Even a lax criterion (>0.25)
+//can avoid clustering phantom insertions (where one is say all A and the another is G+T).
 
 
 Parameter* Parameter::m_pInstance = NULL;
@@ -59,15 +52,15 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<int> arg_mq("q", "minmapping_qual", "Minimum Mapping Quality. Default: 20", false, 20, "int");
 	TCLAP::ValueArg<int> arg_numreads("n", "num_reads_report", "Report up to N reads that support the SV in the vcf file. -1: report all. Default: 0", false, 0, "int");
 	TCLAP::ValueArg<int> arg_segsize("r","min_seq_size","Discard read if non of its segment is larger then this. Default: 2kb",false,2000,"int");
-	TCLAP::ValueArg<int> arg_zmw("z","min_zmw","Discard SV that are not supported by at least x zmws. This applies only for PacBio recognizable reads.. Default: 0",false,2000,"int");
+	TCLAP::ValueArg<int> arg_zmw("z","min_zmw","Discard SV that are not supported by at least x zmws. This applies only for PacBio recognizable reads. Default: 0",false,0,"int");
 	TCLAP::ValueArg<std::string> arg_tmp_file("", "tmp_file", "path to temporary file otherwise Sniffles will use the current directory.", false, "", "string");
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
-	TCLAP::SwitchArg arg_std("", "ignore_sd", "Ignores the sd based filtering. (default: false)", cmd, false);
-	TCLAP::SwitchArg arg_bnd("", "report_BND", "Report BND instead of Tra in vcf output. (default: false)", cmd, false);
-	TCLAP::SwitchArg arg_seq("", "report_seq", "Report sequences for indels in vcf output. (default: false)", cmd, false);
+	TCLAP::SwitchArg arg_std("", "ignore_sd", "Ignores the sd based filtering. Default: false", cmd, false);
+	TCLAP::SwitchArg arg_bnd("", "report_BND", "Report BND instead of Tra in vcf output. Default: false", cmd, false);
+	TCLAP::SwitchArg arg_seq("", "report_seq", "Report sequences for indels in vcf output. Default: false", cmd, false);
 	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV. Default: 1", false, 1, "int");
-	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1).", false, 0.0, "float");
+	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1). Default=0.0", false, 0.0, "float");
 
 
 	cmd.add(arg_input_vcf);
