@@ -423,10 +423,13 @@ void Breakpoint::predict_SV() {
 		} else {
 			this->positions.start.most_support = coord;
 		}
+		this->indel_sequence ="";
 
+		//maybe getting closer??
 		for (std::map<std::string, read_str>::iterator tmp = positions.support.begin(); tmp != positions.support.end(); tmp++) {
 			if (((*tmp).second.SV & this->sv_type) && (((*tmp).second.coordinates.first == this->positions.start.most_support) && strcmp((*tmp).second.sequence.c_str(),"NA")!=0)) {
 				this->indel_sequence = (*tmp).second.sequence;
+				break;
 			}
 		}
 

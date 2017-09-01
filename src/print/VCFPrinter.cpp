@@ -73,7 +73,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 		int zmws = 0;
 		bool ok_to_print = (to_print(SV, std_quant, kurtosis, std_length, zmws) || Parameter::Instance()->ignore_std);
 		//std::cout << "Print check: " << std_quant.first << " " << std_quant.second << endl;
-		if (ok_to_print && (zmws==0 || zmws>= Parameter::Instance()->min_zmw)) {
+		if (ok_to_print && (zmws == 0 || zmws >= Parameter::Instance()->min_zmw)) {
 			if (Parameter::Instance()->phase) {
 				store_readnames(SV->get_read_ids(), id);
 			}
@@ -168,8 +168,10 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			//	}
 			fprintf(file, "%s", ";STRANDS=");
 			fprintf(file, "%s", strands.c_str());
-			fprintf(file, "%s", ";SEQ=");
-			fprintf(file, "%s", SV->get_sequence().c_str());
+			if (!SV->get_ref_seq().empty()) {
+				fprintf(file, "%s", ";SEQ=");
+				fprintf(file, "%s", SV->get_sequence().c_str());
+			}
 			fprintf(file, "%s", ";RE=");
 			fprintf(file, "%i", SV->get_support());
 			fprintf(file, "%s", "\tGT:DR:DV\t./.:.:");
