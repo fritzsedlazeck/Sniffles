@@ -66,6 +66,7 @@ public:
 	int huge_ins;
 	int max_dist_alns;
 	int min_segment_size;
+	int min_zmw;
 
 //	bool splitthreader_output;
 	bool debug;

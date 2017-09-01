@@ -22,8 +22,9 @@ void BedpePrinter::print_body(Breakpoint * &SV, RefVector ref) {
 		pair<double, double> kurtosis;
 		pair<double, double> std_quant;
 		double std_length = 0;
-		int zmws=0;
-		if (to_print(SV, std_quant, kurtosis, std_length,zmws)) {
+		int zmws = 0;
+		bool ok_to_print = (to_print(SV, std_quant, kurtosis, std_length, zmws) || Parameter::Instance()->ignore_std);
+		if (ok_to_print && (zmws == 0 || zmws >= Parameter::Instance()->min_zmw)) {
 
 			std::string chr;
 			std::string strands = SV->get_strand(2);

@@ -59,6 +59,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<int> arg_mq("q", "minmapping_qual", "Minimum Mapping Quality. Default: 20", false, 20, "int");
 	TCLAP::ValueArg<int> arg_numreads("n", "num_reads_report", "Report up to N reads that support the SV in the vcf file. -1: report all. Default: 0", false, 0, "int");
 	TCLAP::ValueArg<int> arg_segsize("r","min_seq_size","Discard read if non of its segment is larger then this. Default: 2kb",false,2000,"int");
+	TCLAP::ValueArg<int> arg_zmw("z","min_zmw","Discard SV that are not supported by at least x zmws. This applies only for PacBio recognizable reads.. Default: 0",false,2000,"int");
 	TCLAP::ValueArg<std::string> arg_tmp_file("", "tmp_file", "path to temporary file otherwise Sniffles will use the current directory.", false, "", "string");
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
@@ -72,6 +73,7 @@ void read_parameters(int argc, char *argv[]) {
 	cmd.add(arg_input_vcf);
 	cmd.add(arg_cluster_supp);
 	cmd.add(arg_numreads);
+	cmd.add(arg_zmw);
 	cmd.add(arg_segsize);
 	cmd.add(arg_tmp_file);
 	cmd.add(arg_dist);
@@ -110,6 +112,7 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->input_vcf=arg_input_vcf.getValue();
 	Parameter::Instance()->print_seq=arg_seq.getValue();
 	Parameter::Instance()->ignore_std=arg_std.getValue();
+	Parameter::Instance()->min_zmw=arg_zmw.getValue();
 
 	if (Parameter::Instance()->min_allelel_frequency > 0 || !Parameter::Instance()->input_vcf.empty()) {
 		std::cerr << "Automatically enabling genotype mode" << std::endl;

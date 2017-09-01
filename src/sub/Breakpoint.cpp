@@ -425,7 +425,7 @@ void Breakpoint::predict_SV() {
 		}
 
 		for (std::map<std::string, read_str>::iterator tmp = positions.support.begin(); tmp != positions.support.end(); tmp++) {
-			if (((*tmp).second.SV & this->sv_type) && ((*tmp).second.coordinates.first == this->positions.start.most_support)) {
+			if (((*tmp).second.SV & this->sv_type) && (((*tmp).second.coordinates.first == this->positions.start.most_support) && strcmp((*tmp).second.sequence.c_str(),"NA")!=0)) {
 				this->indel_sequence = (*tmp).second.sequence;
 			}
 		}
@@ -613,7 +613,6 @@ std::string Breakpoint::to_string() {
 	return ss.str();
 }
 std::string Breakpoint::to_string(RefVector ref) {
-
 	std::stringstream ss;
 	ss << "(";
 	ss << get_chr(get_coordinates().start.min_pos, ref);
