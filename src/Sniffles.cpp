@@ -58,7 +58,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
 	TCLAP::SwitchArg arg_std("", "ignore_sd", "Ignores the sd based filtering. Default: false", cmd, false);
 	TCLAP::SwitchArg arg_bnd("", "report_BND", "Report BND instead of Tra in vcf output. Default: false", cmd, false);
-	TCLAP::SwitchArg arg_seq("", "report_seq", "Report sequences for indels in vcf output. Default: false", cmd, false);
+	TCLAP::SwitchArg arg_seq("", "report_seq", "Report sequences for indels in vcf output. (Beta version!) Default: false", cmd, false);
 	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV. Default: 1", false, 1, "int");
 	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1). Default=0.0", false, 0.0, "float");
 
@@ -84,7 +84,7 @@ void read_parameters(int argc, char *argv[]) {
 
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
-	Parameter::Instance()->read_name = "21_43213620_-";//21_16296949_+";//21_40181680_-";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
+	Parameter::Instance()->read_name = " ";//21_16296949_+";//21_40181680_-";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
 	Parameter::Instance()->bam_files.push_back(arg_bamfile.getValue());
 	Parameter::Instance()->min_mq = arg_mq.getValue();
 	Parameter::Instance()->output_vcf = arg_vcf.getValue();

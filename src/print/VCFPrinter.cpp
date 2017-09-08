@@ -168,7 +168,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			//	}
 			fprintf(file, "%s", ";STRANDS=");
 			fprintf(file, "%s", strands.c_str());
-			if (!SV->get_ref_seq().empty()) {
+			if (!SV->get_sequence().empty()) {
 				fprintf(file, "%s", ";SEQ=");
 				fprintf(file, "%s", SV->get_sequence().c_str());
 			}

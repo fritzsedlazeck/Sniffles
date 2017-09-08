@@ -47,6 +47,7 @@ void add_event(int pos, size_t & i, vector<differences_str> & events) {
 	differences_str ev;
 	ev.position = pos;
 	ev.type = 0; //mismatch
+	ev.readposition = -1;
 	events.insert(events.begin() + i, ev);
 }
 
@@ -55,7 +56,7 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 	vector<differences_str> events;
 	int pos = this->getPosition();
 	differences_str ev;
-	bool flag = false; //(strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 	int read_pos = 0;
 	if (al->CigarData[0].Type == 'S') {
 		read_pos += al->CigarData[0].Length;
@@ -108,7 +109,7 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 
 //set ref length requ. later on:
 	this->ref_len = pos - getPosition(); //TODO compare to get_length!
-	//Parameter::Instance()->meassure_time(comp_aln, "\t\tCigar: ");
+			//Parameter::Instance()->meassure_time(comp_aln, "\t\tCigar: ");
 
 	string md = this->get_md();
 	pos = this->getPosition();
@@ -1079,7 +1080,7 @@ vector<int> Alignment::get_avg_diff(double & dist, double & avg_del, double & av
 
 vector<str_event> Alignment::get_events_Aln() {
 
-	//bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 
 //clock_t comp_aln = clock();
 	std::vector<indel_str> dels;
@@ -1207,8 +1208,20 @@ vector<str_event> Alignment::get_events_Aln() {
 					tmp.type = 0;
 				} else {
 					tmp.length = insert_max; //TODO not sure!
+					while (start<stop && event_aln[start].readposition == -1) {
+						if (flag) {
+							cout << event_aln[start].readposition << " " << event_aln[start].type << endl;
+						}
+						start++;
+					}
+					if (flag) {
+						cout << event_aln[start].readposition << " " << event_aln[start].type << endl;
+					}
 					tmp.read_pos = event_aln[start].readposition;
 					if (Parameter::Instance()->print_seq) {
+						//if (tmp.read_pos + tmp.length > this->getAlignment()->QueryBases.size() || tmp.read_pos<0) {
+						//	cerr << "BUG! ALN event INS: " << this->getName() << " " << tmp.read_pos << " " << tmp.length << " " << this->getAlignment()->QueryBases.size() << endl;
+						//	}
 						tmp.sequence = this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length);
 					} else {
 						tmp.sequence = "NA";
