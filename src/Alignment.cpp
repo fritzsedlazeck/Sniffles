@@ -562,83 +562,6 @@ void Alignment::check_entries(vector<aln_str> &entries) {
 		std::cout << std::endl;
 	}
 }
-/*void Alignment::check_entries(vector<aln_str> &entries) { //something is not working!
- bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
-
- //Given that we start outside of the INV:
- if (flag) {
- cout << "Check:" << endl;
- for (size_t i = 0; i < entries.size(); i++) {
- cout << "ENT: " << entries[i].pos << " " << entries[i].pos + entries[i].length << " Read: " << entries[i].read_pos_start << " " << entries[i].read_pos_stop << " ";
- if (entries[i].strand) {
- cout << "+" << endl;
- } else {
- cout << "-" << endl;
- }
- }
- check_entries2(entries);
- }
- bool left_of = true;
- vector<aln_str> new_entries = entries;
- for (size_t i = 1; i < entries.size(); i++) {
- if (entries[i].strand != entries[i - 1].strand && entries[i].RefID == entries[i - 1].RefID) {
- int ref_dist = 0;
- int read_dist = 0;
- //all comp with abs:
- //maybe try without abs!:
- if (entries[0].strand) {
- ref_dist = abs((entries[i - 1].pos + entries[i - 1].length) - entries[i].pos);
- read_dist = abs(entries[i - 1].read_pos_stop - entries[i].read_pos_start);
- } else {
- ref_dist = abs((entries[i - 1].pos) - (entries[i].pos + entries[i].length));
- read_dist = abs(entries[i - 1].read_pos_stop - entries[i].read_pos_start);
- }
- if (flag) {
- cout << "ref dist: " << ref_dist << " Read: " << read_dist << " DIFF: " << abs(ref_dist - read_dist) << endl;
- }
-
- if (abs(ref_dist - read_dist) > Parameter::Instance()->min_length) {
- //ref_dist > 30 &&
- if (read_dist < Parameter::Instance()->min_length && ref_dist / (read_dist + 1) > 3) { //+1 because otherwise there could be a division by 0!
- if (flag) {
- cout << "DEL? " << ref_dist << " " << read_dist << endl;
- }
- aln_str tmp;
- tmp.RefID = entries[i].RefID;
- if (left_of) {
- tmp.strand = entries[i - 1].strand;
- if (tmp.strand) {
- tmp.pos = entries[i].pos - 1;
- } else {
- tmp.pos = entries[i].pos + entries[i].length - 1;
- }
- left_of = false;
- } else {
- tmp.strand = entries[i].strand;
- if (tmp.strand) {
- tmp.pos = entries[i - 1].pos + entries[i - 1].length - 1;
- } else {
- tmp.pos = entries[i - 1].pos - 1;
- }
- left_of = true;
- }
- tmp.length = 1;
- tmp.read_pos_start = entries[i].read_pos_start - 1;
- tmp.read_pos_stop = tmp.read_pos_start + 1;
- tmp.mq = 60;
- sort_insert(tmp, new_entries);
- } else if (read_dist > Parameter::Instance()->min_length && ref_dist < 10) {
- //cout << "INS? " << this->getName() << endl;
- }
- }
- } else {
- left_of = true; //??
- }
- }
- if (entries.size() < new_entries.size()) {
- entries = new_entries;
- }
- }*/
 
 void Alignment::sort_insert_ref(aln_str tmp, vector<aln_str> &entries) {
 
@@ -690,6 +613,9 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 		bool flag = strcmp(getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0;
 
 		get_coords(tmp, tmp.read_pos_start, tmp.read_pos_stop);
+		if (flag) {
+			cout << "\t read " << tmp.read_pos_start << " stop " << tmp.read_pos_stop << endl;
+		}
 		entries.push_back(tmp);
 		if (flag) {
 			std::cout << "Main Read: read start:" << tmp.read_pos_start << " REF: " << tmp.pos << " RefID: " << tmp.RefID << std::endl;
@@ -729,6 +655,9 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 					//TODO: check this!
 					tmp.cigar = translate_cigar(cigar); //translates the cigar (string) to a type vector
 					get_coords(tmp, tmp.read_pos_start, tmp.read_pos_stop); //get the coords on the read.
+					if (flag) {
+						cout << "\t read " << tmp.read_pos_start << " stop " << tmp.read_pos_stop << endl;
+					}
 					tmp.length = (long) get_length(tmp.cigar); //gives the length on the reference.
 					tmp.RefID = get_id(ref, chr); //translates back the chr to the id of the chr;
 					//TODO: should we do something about the MD string?
@@ -1208,7 +1137,7 @@ vector<str_event> Alignment::get_events_Aln() {
 					tmp.type = 0;
 				} else {
 					tmp.length = insert_max; //TODO not sure!
-					while (start<stop && event_aln[start].readposition == -1) {
+					while (start < stop && event_aln[start].readposition == -1) {
 						if (flag) {
 							cout << event_aln[start].readposition << " " << event_aln[start].type << endl;
 						}

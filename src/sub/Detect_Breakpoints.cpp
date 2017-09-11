@@ -441,12 +441,11 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 				}
 
 				if ((svs.stop.max_pos - svs.start.min_pos) > Parameter::Instance()->min_length * -1 && ((svs.stop.max_pos - svs.start.min_pos) + (Parameter::Instance()->min_length) < (svs.read_stop - svs.read_start) && (svs.read_stop - svs.read_start) > (Parameter::Instance()->min_length * 2))) {
-
 					if (!events[i].cross_N || (double) ((svs.stop.max_pos - svs.start.min_pos) + Parameter::Instance()->min_length) < ((double) (svs.read_stop - svs.read_start) * Parameter::Instance()->avg_ins)) {
 						svs.stop.max_pos += (svs.read_stop - svs.read_start); //TODO check!
 						if (Parameter::Instance()->print_seq) {
 							if(svs.read_stop > tmp->getAlignment()->QueryBases.size()){
-								cerr<<"BUG: split read ins!"<<endl;
+								cerr<<"BUG: split read ins! "<<svs.read_stop<<" "<<tmp->getAlignment()->QueryBases.size()<<" "<<tmp->getName() <<endl;
 							}
 							read.sequence = tmp->getAlignment()->QueryBases.substr(svs.read_start, svs.read_stop - svs.read_start);
 						}

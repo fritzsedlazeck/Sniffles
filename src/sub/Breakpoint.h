@@ -56,8 +56,8 @@ struct position_str {
 	//std::vector<read_str> support; // map?? -> no duplicated reads, easy to catch up which read is included.
 	int coverage;
 	int lowmq_cov;
-	short read_start;
-	short read_stop;
+	int read_start;
+	int read_stop;
 };
 
 
