@@ -455,7 +455,6 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 					}
 
 				} else if ((svs.start.min_pos - svs.stop.max_pos) * -1 > (svs.read_stop - svs.read_start) + (Parameter::Instance()->min_length)) {
-					//cout << "DEL1 "<<(double)(svs.start.min_pos - svs.stop.max_pos) * Parameter::Instance()->avg_del * -1.0  <<" "<<((svs.read_stop - svs.read_start) + (Parameter::Instance()->min_length)) << endl;
 					if (!events[i].cross_N || (double) (svs.start.min_pos - svs.stop.max_pos) * Parameter::Instance()->avg_del * -1.0 > (double) ((svs.read_stop - svs.read_start) + (Parameter::Instance()->min_length))) {
 						read.SV |= DEL;
 						if (flag) {

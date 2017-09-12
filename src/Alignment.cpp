@@ -409,6 +409,7 @@ void Alignment::get_coords(aln_str tmp, int & start, int &stop) {
 	if (!tmp.strand) {
 		index = tmp.cigar.size() - 1;
 	}
+//	cout<<"Cigar: "<<this->getName()<<" "<<tmp.cigar.size()<<" "<<index<<endl;
 	if (tmp.cigar[index].Type == 'S' || tmp.cigar[index].Type == 'H') {
 		start = tmp.cigar[index].Length;
 	} else {
@@ -649,7 +650,7 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 			if (sa[i] == ',') {
 				count++;
 			}
-			if (sa[i] == ';') {
+			if (sa[i] == ';' && !cigar.empty()) {
 				//TODO: maybe check how often this happens per read!
 				if ((tmp.mq > Parameter::Instance()->min_mq || sv & FULLY_EXPLAINED) && entries.size() <= Parameter::Instance()->max_splits) {
 					//TODO: check this!
@@ -729,7 +730,6 @@ bool Alignment::get_is_save() {
 }
 
 std::vector<CigarOp> Alignment::translate_cigar(std::string cigar) {
-
 	std::vector<CigarOp> new_cigar;
 
 	size_t i = 0;
