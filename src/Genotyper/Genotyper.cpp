@@ -32,9 +32,9 @@ std::string Genotyper::mod_breakpoint_vcf(char *buffer, int ref) {
 	ss << allele;
 	ss << "\tGT:DR:DV\t";
 
-	if (allele > 0.8) {
+	if (allele > Parameter::Instance()->homfreq) {
 		ss << "1/1:";
-	} else if (allele > 0.3) {
+	} else if (allele > Parameter::Instance()->hetfreq) {
 		ss << "0/1:";
 	} else {
 		ss << "0/0:";

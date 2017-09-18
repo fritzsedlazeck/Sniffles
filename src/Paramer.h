@@ -52,6 +52,8 @@ public:
 	double min_allelel_frequency;
 	double avg_del;
 	double avg_ins;
+	double homfreq;
+	double hetfreq;
 	//double min_num_mismatches;
 
 	int window_thresh;

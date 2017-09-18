@@ -62,7 +62,11 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV. Default: 1", false, 1, "int");
 	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1). Default=0.0", false, 0.0, "float");
 
+	TCLAP::ValueArg<float> arg_hetfreq("", "--min_het_af", "Threshold on allele frequency (0-1). Default=0.0", false, 0.3, "float");
+	TCLAP::ValueArg<float> arg_homofreq("", "--min_homo_af", "Threshold on allele frequency (0-1). Default=0.0", false, 0.8, "float");
 
+	cmd.add(arg_homofreq);
+	cmd.add(arg_hetfreq);
 	cmd.add(arg_input_vcf);
 	cmd.add(arg_cluster_supp);
 	cmd.add(arg_numreads);
@@ -106,6 +110,8 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->print_seq=arg_seq.getValue();
 	Parameter::Instance()->ignore_std=arg_std.getValue();
 	Parameter::Instance()->min_zmw=arg_zmw.getValue();
+	Parameter::Instance()->homfreq=arg_homofreq.getValue();
+	Parameter::Instance()->hetfreq=arg_hetfreq.getValue();
 
 	if (Parameter::Instance()->min_allelel_frequency > 0 || !Parameter::Instance()->input_vcf.empty()) {
 		std::cerr << "Automatically enabling genotype mode" << std::endl;
