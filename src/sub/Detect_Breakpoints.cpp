@@ -23,6 +23,30 @@ void store_pos(vector<hist_str> &positions, long pos, std::string read_name) {
 	positions.push_back(tmp);
 }
 
+std::string reverse_complement(std::string sequence) {
+	std::string tmp_seq;
+	for (std::string::reverse_iterator i = sequence.rbegin(); i != sequence.rend(); i++) {
+		switch ((*i)) {
+		case 'A':
+			tmp_seq += 'T';
+			break;
+		case 'C':
+			tmp_seq += 'G';
+			break;
+		case 'G':
+			tmp_seq += 'C';
+			break;
+		case 'T':
+			tmp_seq += 'A';
+			break;
+		default:
+			tmp_seq += (*i);
+			break;
+		}
+	}
+	return tmp_seq;
+}
+
 Breakpoint * split_points(vector<std::string> names, std::map<std::string, read_str> support) {
 	std::map<std::string, read_str> new_support;
 	for (size_t i = 0; i < names.size(); i++) {
@@ -389,7 +413,7 @@ void add_events(Alignment *& tmp, std::vector<str_event> events, short type, lon
 }
 
 void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVector ref, IntervallTree& bst, TNode *&root, long read_id, bool add) {
-	bool flag = (strcmp(tmp->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+	bool flag = (strcmp(tmp->getName().c_str(),Parameter::Instance()->read_name.c_str()) == 0);
 
 	if (flag) {
 		cout << "SPLIT: " << std::endl;
@@ -444,10 +468,22 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 					if (!events[i].cross_N || (double) ((svs.stop.max_pos - svs.start.min_pos) + Parameter::Instance()->min_length) < ((double) (svs.read_stop - svs.read_start) * Parameter::Instance()->avg_ins)) {
 						svs.stop.max_pos += (svs.read_stop - svs.read_start); //TODO check!
 						if (Parameter::Instance()->print_seq) {
-							if(svs.read_stop > tmp->getAlignment()->QueryBases.size()){
-								cerr<<"BUG: split read ins! "<<svs.read_stop<<" "<<tmp->getAlignment()->QueryBases.size()<<" "<<tmp->getName() <<endl;
+							svs.read_stop = events[i].read_pos_start;
+							svs.read_start = events[i - 1].read_pos_stop;
+							if (svs.read_stop > tmp->getAlignment()->QueryBases.size()) {
+								cerr << "BUG: split read ins! " << svs.read_stop << " " << tmp->getAlignment()->QueryBases.size() << " " << tmp->getName() << endl;
 							}
-							read.sequence = tmp->getAlignment()->QueryBases.substr(svs.read_start, svs.read_stop - svs.read_start);
+							if (!events[i - 1].strand) {
+								std::string tmp_seq=reverse_complement(tmp->getAlignment()->QueryBases);
+								read.sequence = tmp_seq.substr(svs.read_start, svs.read_stop - svs.read_start);
+							} else {
+								read.sequence = tmp->getAlignment()->QueryBases.substr(svs.read_start, svs.read_stop - svs.read_start);
+							}
+							if (flag) {
+								cout << "INS: " << endl;
+								cout << "split read ins! " << events[i - 1].read_pos_stop << " " << events[i].read_pos_start << " " << " " << tmp->getAlignment()->QueryBases.size() << " " << tmp->getName() << endl;
+								cout << "Seq+:" << read.sequence << endl;
+							}
 						}
 						read.SV |= INS;
 					} else {

@@ -1009,7 +1009,7 @@ vector<int> Alignment::get_avg_diff(double & dist, double & avg_del, double & av
 
 vector<str_event> Alignment::get_events_Aln() {
 
-	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+	bool flag = (strcmp(this->getName().c_str(),Parameter::Instance()->read_name.c_str()) == 0);
 
 //clock_t comp_aln = clock();
 	std::vector<indel_str> dels;
@@ -1151,6 +1151,10 @@ vector<str_event> Alignment::get_events_Aln() {
 						//if (tmp.read_pos + tmp.length > this->getAlignment()->QueryBases.size() || tmp.read_pos<0) {
 						//	cerr << "BUG! ALN event INS: " << this->getName() << " " << tmp.read_pos << " " << tmp.length << " " << this->getAlignment()->QueryBases.size() << endl;
 						//	}
+						if(flag){
+							std::cout<<"Seq+:"<<this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length)<<std::endl;
+
+						}
 						tmp.sequence = this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length);
 					} else {
 						tmp.sequence = "NA";
