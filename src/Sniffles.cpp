@@ -62,8 +62,8 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV. Default: 1", false, 1, "int");
 	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1). Default=0.0", false, 0.0, "float");
 
-	TCLAP::ValueArg<float> arg_hetfreq("", "--min_het_af", "Threshold on allele frequency (0-1). Default=0.0", false, 0.3, "float");
-	TCLAP::ValueArg<float> arg_homofreq("", "--min_homo_af", "Threshold on allele frequency (0-1). Default=0.0", false, 0.8, "float");
+	TCLAP::ValueArg<float> arg_hetfreq("", "min_het_af", "Threshold on allele frequency (0-1). Default=0.0", false, 0.3, "float");
+	TCLAP::ValueArg<float> arg_homofreq("", "min_homo_af", "Threshold on allele frequency (0-1). Default=0.0", false, 0.8, "float");
 
 	cmd.add(arg_homofreq);
 	cmd.add(arg_hetfreq);
