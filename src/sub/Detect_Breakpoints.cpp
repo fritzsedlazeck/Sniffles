@@ -475,7 +475,8 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 							}
 							if (!events[i - 1].strand) {
 								std::string tmp_seq=reverse_complement(tmp->getAlignment()->QueryBases);
-								read.sequence = tmp_seq.substr(svs.read_start, svs.read_stop - svs.read_start);
+
+								read.sequence =reverse_complement(tmp_seq.substr(svs.read_start, svs.read_stop - svs.read_start));
 							} else {
 								read.sequence = tmp->getAlignment()->QueryBases.substr(svs.read_start, svs.read_stop - svs.read_start);
 							}
