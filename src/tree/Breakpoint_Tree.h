@@ -40,7 +40,7 @@ public:
 	void postorder(breakpoint_node *ptr);
 	void display(breakpoint_node *ptr, int);
 	void get_nodes(breakpoint_node *ptr, std::vector<int> & nodes);
-	void overalps(int start,int stop,std::string chr, breakpoint_node *par, bool SV_support);
+	void overalps(int start,int stop,std::string chr, breakpoint_node *par);
 	int get_ref(breakpoint_node *&tree, std::string chr, int position);
 };
 

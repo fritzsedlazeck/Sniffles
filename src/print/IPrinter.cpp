@@ -7,6 +7,33 @@
 
 #include "IPrinter.h"
 
+
+std::string IPrinter::assess_genotype(int ref, int support) {
+	double allele = (double) support / (double) (support + ref);
+
+	if (allele < Parameter::Instance()->min_allelel_frequency) {
+		return "";
+	}
+
+	std::stringstream ss;
+	ss << ";AF=";
+	ss << allele;
+	ss << "\tGT:DR:DV\t";
+	if (allele > Parameter::Instance()->homfreq) {
+		ss <<"1/1:";
+	} else if (allele > Parameter::Instance()->hetfreq) {
+		ss << "0/1:";
+	}else{
+		ss << "0/0:";
+	}
+	ss << ref;
+	ss << ":";
+	ss << support;
+	return ss.str();
+}
+
+
+
 bool IPrinter::is_huge_ins(Breakpoint * &SV) {
 	int counts = 0;
 	std::map<std::string, read_str> support = SV->get_coordinates().support;

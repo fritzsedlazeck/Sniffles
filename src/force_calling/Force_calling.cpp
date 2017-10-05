@@ -138,14 +138,13 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 
 					//Store reference supporting reads for genotype estimation:
 					str_read tmp;
-					tmp.SV_support = !(aln_event.empty() && split_events.empty());
-					if ((Parameter::Instance()->genotype && !tmp.SV_support) && (score == -1 || score > Parameter::Instance()->score_treshold)) {
+					bool SV_support = !(aln_event.empty() && split_events.empty());
+					if ((Parameter::Instance()->genotype && !SV_support) && (score == -1 || score > Parameter::Instance()->score_treshold)) {
 						//write read:
 						//cout<<"REf: "<<tmp_aln->getName()<<" "<<tmp_aln->getPosition()<<" "<<tmp_aln->getRefLength()<<endl;
-						tmp.chr = ref[tmp_aln->getRefID()].RefName;
+						tmp.chr_id = tmp_aln->getRefID();
 						tmp.start = tmp_aln->getPosition();
 						tmp.length = tmp_aln->getRefLength();
-						tmp.SV_support = false;
 						fwrite(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
 					}
 

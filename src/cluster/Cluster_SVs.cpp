@@ -8,12 +8,9 @@
 #include "Cluster_SVs.h"
 
 std::map<long, std::vector<int> > Cluster_SVS::parse_names_ids(int & max_ID) {
-	std::string tmp_name_file = Parameter::Instance()->tmp_file; // this file is created in IPrinter and stores the names and ID of SVS.
-	tmp_name_file += "Names";
-
-	FILE * alt_allel_reads = fopen(tmp_name_file.c_str(), "r");
+	FILE * alt_allel_reads = fopen(Parameter::Instance()->tmp_phasing.c_str(), "r");
 	if (alt_allel_reads == NULL) {
-		std::cerr << "ClusterParse: could not open tmp file: " << tmp_name_file.c_str() << std::endl;
+		std::cerr << "ClusterParse: could not open tmp file: " << Parameter::Instance()->tmp_phasing << std::endl;
 	}
 
 	std::map<long, std::vector<int> > names;
@@ -50,7 +47,7 @@ void Cluster_SVS::update_SVs(std::vector<combine_str> & ids) {
 	tmp_name_file += ".tmp";
 	FILE*file = fopen(tmp_name_file.c_str(), "w");
 
-	size_t buffer_size = 250000;
+	size_t buffer_size = 2500000;
 	char* buffer = new char[buffer_size];
 	myfile.getline(buffer, buffer_size);
 	//parse SVs breakpoints in file
@@ -151,11 +148,9 @@ void Cluster_SVS::update_SVs() {
 
 //3: Update the IDS in the VCF/Bedpe files.
 	update_SVs(ids);
-	std::string tmp_name_file = Parameter::Instance()->tmp_file; // this file is created in IPrinter and stores the names and ID of SVS.
-	tmp_name_file += "Names";
-	std::cout << "Cleaning tmp files" << std::endl;
+	std::cout << "\tCleaning tmp files" << std::endl;
 	std::string del = "rm ";
-	del += tmp_name_file;
-	system(del.c_str());
+	del += Parameter::Instance()->tmp_phasing;
+//	system(del.c_str());
 
 }

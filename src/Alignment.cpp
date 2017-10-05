@@ -1192,14 +1192,15 @@ vector<str_event> Alignment::get_events_Aln() {
 				}
 			}
 
-			/*if (flag) {
+			if (flag) {
 			 cout << "Read: " << " " << (double) this->getRefLength() << " events: " << event_aln.size() << " " << this->al->Name << std::endl;
 			 cout << "INS max " << insert_max << " del_max " << del_max << std::endl;
 			 cout << "INS:" << insert << " DEL: " << del << " MIS: " << mismatch << endl;
 			 cout << event_aln[start].position << " " << event_aln[stop].position << endl;
 			 cout << "store: " << tmp.pos << " " << tmp.pos + abs(tmp.length) << " " << tmp.length << endl;
+			 cout << tmp.sequence<<endl;
 			 cout << endl;
-			 }*/
+			 }
 
 			if (tmp.type != 0) {
 				events.push_back(tmp);

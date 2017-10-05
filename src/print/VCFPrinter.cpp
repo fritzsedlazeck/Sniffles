@@ -174,8 +174,12 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			}
 			fprintf(file, "%s", ";RE=");
 			fprintf(file, "%i", SV->get_support());
+			//if(Parameter::Instance()->genotype){
 			fprintf(file, "%s", "\tGT:DR:DV\t./.:.:");
 			fprintf(file, "%i", SV->get_support());
+			//}else{
+			//	fprintf(file, "%s",this->assess_genotype(SV->get_refcount(),SV->get_support()).c_str());
+			//}
 			fprintf(file, "%c", '\n');
 		}
 	}

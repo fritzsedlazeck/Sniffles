@@ -84,6 +84,8 @@ private:
 	tree_node * grouped_node;
 	long length;
 	std::string indel_sequence;
+	bool should_be_stored;
+	int ref_allele;
 
 	void summarize_support(short type);
 	//void summarize_strand(pair<bool, bool> strand, std::vector<short>& array);
@@ -100,7 +102,8 @@ private:
 	}
 public:
 	Breakpoint(position_str sv,long len) {
-
+		ref_allele=0;
+		should_be_stored=false;
 		sv_type |= NA;
 		type.is_ALN=((*sv.support.begin()).second.type==0);
 		type.is_SR=((*sv.support.begin()).second.type==1);
@@ -167,6 +170,18 @@ public:
 	std::string to_string();
 	std::string get_sequence(){
 		return this->indel_sequence;
+	}
+	void set_valid(bool valid){
+		this-> should_be_stored=valid;
+	}
+	bool get_valid(){
+		return this->should_be_stored;
+	}
+	int get_refcount(){
+		return this->ref_allele;
+	}
+	void set_refcount(int value){
+		this->ref_allele+=value;
 	}
 };
 

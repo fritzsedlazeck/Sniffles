@@ -15,6 +15,7 @@
 #include "../Ignore_Regions.h"
 #include "../sub/Breakpoint.h"
 #include "../cluster/Cluster_SVs.h"
+#include "../Genotyper/Genotyper.h"
 #include <math.h>
 
 double const uniform_variance = 0.2886751; //sqrt(1/12) see variance of uniform distribution -> std
@@ -39,6 +40,7 @@ protected:
 	std::string get_type(char type);
 	void sort_insert(int pos, std::vector<int> & positons);
 	bool is_huge_ins(Breakpoint * &SV);
+	std::string assess_genotype(int ref, int support);
 public:
 
 	IPrinter() {
@@ -82,10 +84,9 @@ public:
 			std::cout << "Cross checking..." << std::endl;
 			initialize_bed(bed_tree, root, ref);
 		}
-		string tmp_name_file = Parameter::Instance()->tmp_file;
+
 		if (Parameter::Instance()->phase) {
-			tmp_name_file += "Names";
-			tmp_file = fopen(tmp_name_file.c_str(), "wb");
+			tmp_file = fopen(Parameter::Instance()->tmp_phasing.c_str(), "wb");
 		}
 	}
 	bool to_print(Breakpoint * &SV, pair<double, double> &std, pair<double, double> & kurtosis, double & std_length, int & zmw_num);

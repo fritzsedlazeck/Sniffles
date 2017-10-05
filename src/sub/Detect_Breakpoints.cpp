@@ -147,13 +147,12 @@ bool should_be_stored(Breakpoint *& point) {
 	point->calc_support(); // we need that before:
 	//std::cout << "Stored: " << point->get_support() << " " << point->get_length() << std::endl;
 	if (point->get_SVtype() & TRA) { // we cannot make assumptions abut support yet.
-		return (point->get_support() > 1); // this is needed as we take each chr independently and just look at the primary alignment
+		point->set_valid((bool) (point->get_support() > 1)); // this is needed as we take each chr independently and just look at the primary alignment
 	} else if (point->get_support() >= Parameter::Instance()->min_support) {
 		point->predict_SV();
-		return (point->get_length() > Parameter::Instance()->min_length);
+		point->set_valid((bool) (point->get_length() > Parameter::Instance()->min_length));
 	}
-
-	return false;
+	return point->get_valid();
 }
 void polish_points(std::vector<Breakpoint *> & points, RefVector ref) { //TODO might be usefull! but why does the tree not fully work??
 	return;
@@ -198,26 +197,41 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 //FILE * alt_allel_reads;
 	FILE * ref_allel_reads;
 	if (Parameter::Instance()->genotype) {
-		std::string output = Parameter::Instance()->tmp_file.c_str();
-		output += "ref_allele";
-		ref_allel_reads = fopen(output.c_str(), "wb");
+		ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "wb");
 	}
 	Alignment * tmp_aln = mapped_file->parseRead(Parameter::Instance()->min_mq);
 	long ref_space = get_ref_lengths(tmp_aln->getRefID(), ref);
 	long num_reads = 0;
+
+	/*Genotyper * go;
+	if (Parameter::Instance()->genotype) {
+		go = new Genotyper();
+	}*/
+
 	while (!tmp_aln->getQueryBases().empty()) {
-		if ((tmp_aln->getAlignment()->IsPrimaryAlignment()) && (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800) && tmp_aln->get_is_save())) {
+
+		if ((tmp_aln->getAlignment()->IsPrimaryAlignment()) && (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800) && tmp_aln->get_is_save())){// && (Parameter::Instance()->chr_names.empty() || Parameter::Instance()->chr_names.find(ref[tmp_aln->getRefID()].RefName) != Parameter::Instance()->chr_names.end())) {
 
 			//change CHR:
 			if (current_RefID != tmp_aln->getRefID()) {
-				current_RefID = tmp_aln->getRefID();
-				ref_space = get_ref_lengths(tmp_aln->getRefID(), ref);
+
 				std::cout << "\tSwitch Chr " << ref[tmp_aln->getRefID()].RefName << std::endl;	//" " << ref[tmp_aln->getRefID()].RefLength
 				std::vector<Breakpoint *> points;
 				bst.get_breakpoints(root, points);
 				//polish_points(points, ref);
+
+			/*	if (Parameter::Instance()->genotype) {
+					fclose(ref_allel_reads);
+					cout<<"\t\tGenotyping"<<endl;
+					go->update_SVs(points, ref_space);
+					cout<<"\t\tGenotyping finished"<<endl;
+					ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "wb");
+				}*/
+
 				for (int i = 0; i < points.size(); i++) {
-					if (should_be_stored(points[i])) {
+					points[i]->calc_support();
+					if (points[i]->get_valid()) {
+						//invoke update over ref support!
 						if (points[i]->get_SVtype() & TRA) {
 							final.insert(points[i], root_final);
 						} else {
@@ -226,6 +240,8 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 					}
 				}
 				bst.clear(root);
+				current_RefID = tmp_aln->getRefID();
+				ref_space = get_ref_lengths(tmp_aln->getRefID(), ref);
 			}
 
 			//SCAN read:
@@ -256,15 +272,14 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 				//tmp_aln->set_supports_SV(aln_event.empty() && split_events.empty());
 
 				//Store reference supporting reads for genotype estimation:
-				str_read tmp;
-				tmp.SV_support = !(aln_event.empty() && split_events.empty());
-				if ((Parameter::Instance()->genotype && !tmp.SV_support) && (score == -1 || score > Parameter::Instance()->score_treshold)) {
+
+				bool SV_support = (!aln_event.empty() && !split_events.empty());
+				if (Parameter::Instance()->genotype && !SV_support) {
 					//write read:
-					//std::cout<<"REF: "<<tmp_aln->getName()<< " "<<tmp_aln->getPosition()<<std::endl;
-					tmp.chr = ref[tmp_aln->getRefID()].RefName;
+					str_read tmp;
+					tmp.chr_id = tmp_aln->getRefID();	//check string in binary???
 					tmp.start = tmp_aln->getPosition();
 					tmp.length = tmp_aln->getRefLength();
-					tmp.SV_support = false;
 					fwrite(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
 				}
 
@@ -290,9 +305,20 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	std::cout << "Finalizing  .." << std::endl;
 	std::vector<Breakpoint *> points;
 	bst.get_breakpoints(root, points);
+
+	/*	if (Parameter::Instance()->genotype) {
+		fclose(ref_allel_reads);
+		go->update_SVs(points, ref_space);
+		string del = "rm ";
+		del += Parameter::Instance()->tmp_genotyp;
+		del += "ref_allele";
+		system(del.c_str());
+	}*/
+
 	for (int i = 0; i < points.size(); i++) {
-		//std::cout<<"start check"<<" "<<i<<std::endl;
-		if (should_be_stored(points[i])) {
+		points[i]->calc_support();
+		if (points[i]->get_valid()) {
+			//invoke update over ref support!
 			if (points[i]->get_SVtype() & TRA) {
 				final.insert(points[i], root_final);
 			} else {
@@ -301,17 +327,12 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 		}
 	}
 	bst.clear(root);
-	if (Parameter::Instance()->genotype) {
-		fclose(ref_allel_reads);
-	}
-
 	points.clear();
 	final.get_breakpoints(root_final, points);
 	//std::cout<<"Detect merged tra"<<std::endl;
 	size_t points_size = points.size();
 	for (size_t i = 0; i < points_size; i++) { // its not nice, but I may alter the length of the vector within the loop.
 		if (points[i]->get_SVtype() & TRA) {
-
 			vector<Breakpoint *> new_points;
 			detect_merged_svs(points[i]->get_coordinates(), ref, new_points);
 			if (!new_points.empty()) {							// I only allow for 1 split!!
@@ -413,7 +434,7 @@ void add_events(Alignment *& tmp, std::vector<str_event> events, short type, lon
 }
 
 void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVector ref, IntervallTree& bst, TNode *&root, long read_id, bool add) {
-	bool flag = (strcmp(tmp->getName().c_str(),Parameter::Instance()->read_name.c_str()) == 0);
+	bool flag = (strcmp(tmp->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 
 	if (flag) {
 		cout << "SPLIT: " << std::endl;
@@ -474,9 +495,9 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 								cerr << "BUG: split read ins! " << svs.read_stop << " " << tmp->getAlignment()->QueryBases.size() << " " << tmp->getName() << endl;
 							}
 							if (!events[i - 1].strand) {
-								std::string tmp_seq=reverse_complement(tmp->getAlignment()->QueryBases);
+								std::string tmp_seq = reverse_complement(tmp->getAlignment()->QueryBases);
 
-								read.sequence =reverse_complement(tmp_seq.substr(svs.read_start, svs.read_stop - svs.read_start));
+								read.sequence = reverse_complement(tmp_seq.substr(svs.read_start, svs.read_stop - svs.read_start));
 							} else {
 								read.sequence = tmp->getAlignment()->QueryBases.substr(svs.read_start, svs.read_stop - svs.read_start);
 							}

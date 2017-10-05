@@ -11,10 +11,9 @@
 #include "Alignment.h"
 
 struct str_read{
-	string chr;
+	uint chr_id;
 	uint start;
 	ushort length;
-	bool SV_support;
 };
 
 class Parser {

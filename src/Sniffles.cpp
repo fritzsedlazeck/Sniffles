@@ -26,15 +26,13 @@
 
 //cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
 
-
 //TODO:
 // strand bias??
 // I think you could make your performance on PacBio reads even better with a few modifications:
 //b. In pbsv, I use a simply mononucleotide consistency check to determine whether to cluster insertions from different reads as supporting the "same" events.  In addition to looking at the similarity of length and breakpoints,
 //you could measure [min(Act)+min(Cct)+min(Gct)+min(Tct) / max(Act)+max(Cct)+max(Gct)+max(Tct)]  Even a lax criterion (>0.25)
 //can avoid clustering phantom insertions (where one is say all A and the another is G+T).
-
-
+//[min(A1,A2)+min(C1,C2)+min(G1,G2)+min(T1,T2)[/[max...]/
 Parameter* Parameter::m_pInstance = NULL;
 
 void read_parameters(int argc, char *argv[]) {
@@ -44,6 +42,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<std::string> arg_vcf("v", "vcf", "VCF output file name", false, "", "string");
 	TCLAP::ValueArg<std::string> arg_input_vcf("", "Ivcf", "Input VCF file name. Enable force calling", false, "", "string");
 	TCLAP::ValueArg<std::string> arg_bedpe("b", "bedpe", " bedpe output file name", false, "", "string");
+	//TCLAP::ValueArg<std::string> arg_chrs("c", "chrs", " comma seperated list of chrs to scan", false, "", "string");
 	TCLAP::ValueArg<int> arg_support("s", "min_support", "Minimum number of reads that support a SV. Default: 10", false, 10, "int");
 	TCLAP::ValueArg<int> arg_splits("", "max_num_splits", "Maximum number of splits per read to be still taken into account. Default: 7", false, 7, "int");
 	TCLAP::ValueArg<int> arg_dist("d", "max_distance", "Maximum distance to group SV together. Default: 1kb", false, 1000, "int");
@@ -51,8 +50,8 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<int> arg_minlength("l", "min_length", "Minimum length of SV to be reported. Default: 30", false, 30, "int");
 	TCLAP::ValueArg<int> arg_mq("q", "minmapping_qual", "Minimum Mapping Quality. Default: 20", false, 20, "int");
 	TCLAP::ValueArg<int> arg_numreads("n", "num_reads_report", "Report up to N reads that support the SV in the vcf file. -1: report all. Default: 0", false, 0, "int");
-	TCLAP::ValueArg<int> arg_segsize("r","min_seq_size","Discard read if non of its segment is larger then this. Default: 2kb",false,2000,"int");
-	TCLAP::ValueArg<int> arg_zmw("z","min_zmw","Discard SV that are not supported by at least x zmws. This applies only for PacBio recognizable reads. Default: 0",false,0,"int");
+	TCLAP::ValueArg<int> arg_segsize("r", "min_seq_size", "Discard read if non of its segment is larger then this. Default: 2kb", false, 2000, "int");
+	TCLAP::ValueArg<int> arg_zmw("z", "min_zmw", "Discard SV that are not supported by at least x zmws. This applies only for PacBio recognizable reads. Default: 0", false, 0, "int");
 	TCLAP::ValueArg<std::string> arg_tmp_file("", "tmp_file", "path to temporary file otherwise Sniffles will use the current directory.", false, "", "string");
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
@@ -83,12 +82,13 @@ void read_parameters(int argc, char *argv[]) {
 	cmd.add(arg_allelefreq);
 	cmd.add(arg_support);
 	cmd.add(arg_bamfile);
+//	cmd.add(arg_chrs);
 	//parse cmd:
 	cmd.parse(argc, argv);
 
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
-	Parameter::Instance()->read_name = " ";//21_16296949_+";//21_40181680_-";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
+	Parameter::Instance()->read_name = " "; //21_16296949_+";//21_40181680_-";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
 	Parameter::Instance()->bam_files.push_back(arg_bamfile.getValue());
 	Parameter::Instance()->min_mq = arg_mq.getValue();
 	Parameter::Instance()->output_vcf = arg_vcf.getValue();
@@ -105,26 +105,49 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->min_grouping_support = arg_cluster_supp.getValue();
 	Parameter::Instance()->min_allelel_frequency = arg_allelefreq.getValue();
 	Parameter::Instance()->min_segment_size = arg_segsize.getValue();
-	Parameter::Instance()->reportBND= arg_bnd.getValue();
-	Parameter::Instance()->input_vcf=arg_input_vcf.getValue();
-	Parameter::Instance()->print_seq=arg_seq.getValue();
-	Parameter::Instance()->ignore_std=arg_std.getValue();
-	Parameter::Instance()->min_zmw=arg_zmw.getValue();
-	Parameter::Instance()->homfreq=arg_homofreq.getValue();
-	Parameter::Instance()->hetfreq=arg_hetfreq.getValue();
+	Parameter::Instance()->reportBND = arg_bnd.getValue();
+	Parameter::Instance()->input_vcf = arg_input_vcf.getValue();
+	Parameter::Instance()->print_seq = arg_seq.getValue();
+	Parameter::Instance()->ignore_std = arg_std.getValue();
+	Parameter::Instance()->min_zmw = arg_zmw.getValue();
+	Parameter::Instance()->homfreq = arg_homofreq.getValue();
+	Parameter::Instance()->hetfreq = arg_hetfreq.getValue();
 
+	//Parse IDS:
+	/*std::string buffer = arg_chrs.getValue();
+	int count = 0;
+	std::string name = "";
+	for (size_t i = 0; i < buffer.size(); i++) {
+		if (buffer[i] == ',') {
+			Parameter::Instance()->chr_names[name] = true;
+			name.clear();
+		} else {
+			name += buffer[i];
+		}
+	}
+	if (!name.empty()) {
+		Parameter::Instance()->chr_names[name] = true;
+	}
+*/
 	if (Parameter::Instance()->min_allelel_frequency > 0 || !Parameter::Instance()->input_vcf.empty()) {
 		std::cerr << "Automatically enabling genotype mode" << std::endl;
 		Parameter::Instance()->genotype = true;
 	}
 
-	if (Parameter::Instance()->tmp_file.empty()) {
-		std::stringstream ss;
-		srand(time(NULL));
-		ss << arg_bamfile.getValue();
-		ss << "_tmp";
-		Parameter::Instance()->tmp_file = ss.str(); //check if file exists! -> if yes throw the dice again
+	if (Parameter::Instance()->tmp_file.empty()) { //TODO change to genotyper file and phasing file!
+		if(Parameter::Instance()->output_bedpe.empty()){
+			Parameter::Instance()->tmp_file = Parameter::Instance()->output_vcf;
+		}else{
+			Parameter::Instance()->tmp_file = Parameter::Instance()->output_bedpe;
+		}
+
+		Parameter::Instance()->tmp_file += "_tmp";
 	}
+
+	Parameter::Instance()->tmp_genotyp = Parameter::Instance()->tmp_file;
+	Parameter::Instance()->tmp_phasing = Parameter::Instance()->tmp_file;
+	Parameter::Instance()->tmp_genotyp += "_genotype";
+	Parameter::Instance()->tmp_phasing += "_phase";
 }
 
 //some toy/test functions:
@@ -318,13 +341,14 @@ int main(int argc, char *argv[]) {
 		}
 
 		printer->init();
-		if(Parameter::Instance()->input_vcf.empty()){
+		if (Parameter::Instance()->input_vcf.empty()) {
 			//regular calling
 			detect_breakpoints(Parameter::Instance()->bam_files[0], printer); //we could write out all read names for each sVs
-		}else{
+		} else {
 			//force calling was selected:
 			force_calling(Parameter::Instance()->bam_files[0], printer);
 		}
+
 		printer->close_file();
 
 		//cluster the SVs together:
@@ -336,11 +360,10 @@ int main(int argc, char *argv[]) {
 
 		//determine genotypes:
 		if (Parameter::Instance()->genotype) {
-			std::cout << "Start genotype calling" << std::endl;
+			std::cout << "Start genotype calling:" << std::endl;
 			Genotyper * go = new Genotyper();
 			go->update_SVs();
 		}
-
 
 	} catch (TCLAP::ArgException &e)  // catch any exceptions
 	{

@@ -188,6 +188,7 @@ void Breakpoint::add_read(Breakpoint * point) { //point = one read support!
 	if (point != NULL) {
 		//merge the support:
 		std::map<std::string, read_str> support = point->get_coordinates().support;
+		this->set_refcount(max(point->get_refcount(), this->get_refcount())); //set ref count!
 		for (std::map<std::string, read_str>::iterator i = support.begin(); i != support.end(); i++) {
 			this->positions.support[(*i).first] = (*i).second;
 		}
@@ -288,6 +289,13 @@ void Breakpoint::calc_support() {
 	}
 //given the majority type get the stats:
 	this->sv_type = eval_type(sv);
+
+	if (get_SVtype() & TRA) { // we cannot make assumptions abut support yet.
+		set_valid((bool) (get_support() > 1)); // this is needed as we take each chr independently and just look at the primary alignment
+	} else if (get_support() >= Parameter::Instance()->min_support) {
+		predict_SV();
+		set_valid((bool) (get_length() > Parameter::Instance()->min_length));
+	}
 
 }
 
@@ -423,15 +431,8 @@ void Breakpoint::predict_SV() {
 		} else {
 			this->positions.start.most_support = coord;
 		}
-		this->indel_sequence ="";
+		this->indel_sequence = "";
 
-		//maybe getting closer??
-		for (std::map<std::string, read_str>::iterator tmp = positions.support.begin(); tmp != positions.support.end(); tmp++) {
-			if (((*tmp).second.SV & this->sv_type) && (((*tmp).second.coordinates.first == this->positions.start.most_support) && strcmp((*tmp).second.sequence.c_str(),"NA")!=0)) {
-				this->indel_sequence = (*tmp).second.sequence;
-				break;
-			}
-		}
 
 		maxim = 0;
 		coord = 0;
@@ -492,6 +493,19 @@ void Breakpoint::predict_SV() {
 			}
 		}
 		strands.clear();
+
+
+		std::map<std::string, read_str>::iterator tmp = positions.support.begin();
+		int start_prev_dist=1000;
+		int stop_prev_dist=1000;
+		while(tmp != positions.support.end()) {
+			int start_dist=abs((*tmp).second.coordinates.first- this->positions.start.most_support);
+			int stop_dist=abs((*tmp).second.coordinates.second- this->positions.stop.most_support);
+			if (((*tmp).second.SV & this->sv_type) && ( (start_dist<start_prev_dist && stop_dist<stop_prev_dist)  && (strcmp((*tmp).second.sequence.c_str(), "NA") != 0 && !(*tmp).second.sequence.empty()))) {
+				this->indel_sequence = (*tmp).second.sequence;
+			}
+			tmp++;
+		}
 	}
 
 	if (num == 0 && positions.support.find("input") != positions.support.end()) {

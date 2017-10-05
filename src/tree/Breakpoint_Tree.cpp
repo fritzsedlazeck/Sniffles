@@ -25,7 +25,7 @@ void Breakpoint_Tree::find(int position, std::string chr, breakpoint_node *par, 
 	}
 }
 
-void Breakpoint_Tree::overalps(int start, int stop, std::string chr, breakpoint_node *par, bool SV_support) {
+void Breakpoint_Tree::overalps(int start, int stop, std::string chr, breakpoint_node *par) {
 	//start + stop: read coordinates.
 	if (par == NULL) { //not found
 		return;
@@ -44,9 +44,9 @@ void Breakpoint_Tree::overalps(int start, int stop, std::string chr, breakpoint_
 
 	//search goes on:
 	if (start < par->position) {
-		overalps(start, stop, chr, par->left, SV_support);
+		overalps(start, stop, chr, par->left);
 	} else {
-		overalps(start, stop, chr, par->right, SV_support);
+		overalps(start, stop, chr, par->right);
 	}
 }
 

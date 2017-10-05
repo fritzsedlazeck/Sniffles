@@ -25,6 +25,8 @@ private:
 	void careful_screening(Breakpoint *& new_break, TNode *p);
 public:
 	void insert(Breakpoint * point, TNode *&);
+	void insert_ref(Breakpoint * point, TNode *&);
+
 	void insert_existant(Breakpoint * new_break, TNode *&p);
 	void del(Breakpoint * point, TNode *&);
 	int deletemin(TNode *&);

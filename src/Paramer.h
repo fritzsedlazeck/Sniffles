@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <ctime>
+#include <map>
 struct region_str {
 	std::string chr;
 	int start;
@@ -39,10 +40,13 @@ public:
 	std::string read_name;
 	std::string ignore_regions_bed;
 	std::string tmp_file;
+	std::string tmp_genotyp;
+	std::string tmp_phasing;
 	std::string version;
 	std::string input_vcf;
 
 	std::vector<std::string> bam_files;
+	std::map<std::string, bool> chr_names;
 	short min_mq;
 	short report_n_reads;
 	short corridor;

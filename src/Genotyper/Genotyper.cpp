@@ -7,31 +7,17 @@
 
 #include "Genotyper.h"
 
-std::string Genotyper::mod_breakpoint_vcf(char *buffer, int ref) {
-	//find last of\t
-	//parse #reads supporting
-	//print #ref
-	string entry;
-	string tmp = string(buffer);
-	int pos = 0;
-
-	pos = tmp.find_last_of("GT");
-	//tab
-	entry = tmp.substr(0, pos - 2);
-
-	tmp = tmp.substr(pos + 1);	// the right part is only needed:
-	pos = tmp.find_last_of(':');
-	int support = atoi(tmp.substr(pos + 1).c_str());
+std::string Genotyper::assess_genotype(int ref, int support) {
 	double allele = (double) support / (double) (support + ref);
 
 	if (allele < Parameter::Instance()->min_allelel_frequency) {
 		return "";
 	}
+
 	std::stringstream ss;
 	ss << ";AF=";
 	ss << allele;
 	ss << "\tGT:DR:DV\t";
-
 	if (allele > Parameter::Instance()->homfreq) {
 		ss << "1/1:";
 	} else if (allele > Parameter::Instance()->hetfreq) {
@@ -39,24 +25,40 @@ std::string Genotyper::mod_breakpoint_vcf(char *buffer, int ref) {
 	} else {
 		ss << "0/0:";
 	}
-
 	ss << ref;
 	ss << ":";
 	ss << support;
+	return ss.str();
+}
 
-	entry += ss.str();
+std::string Genotyper::mod_breakpoint_vcf(string buffer, int ref) {
+	//find last of\t
+	//parse #reads supporting
+	//print #ref
+	string entry;
+
+	int pos = 0;
+
+	pos = buffer.find_last_of("GT");
+	//tab
+	entry = buffer.substr(0, pos - 2);
+
+	buffer = buffer.substr(pos + 1);		// the right part is only needed:
+	pos = buffer.find_last_of(':');
+	int support = atoi(buffer.substr(pos + 1).c_str());
+	entry += assess_genotype(ref, support);
 	return entry;
 
 }
 
-std::string Genotyper::mod_breakpoint_bedpe(char *buffer, int ref) {
+std::string Genotyper::mod_breakpoint_bedpe( string buffer, int ref) {
 
-	std::string tmp = string(buffer);
+	std::string tmp = buffer;
 	std::string entry = tmp;
 	entry += '\t';
 	//int ref = max(tree.get_ref(node,var.chr,var.pos),tree.get_ref(node,var.chr2,var.pos2));
 
-	int pos = tmp.find_last_of('\t'); //TODO!!
+	int pos = tmp.find_last_of('\t');		//TODO!!
 	int support = atoi(tmp.substr(pos + 1).c_str());
 	double allele = (double) support / (double) (support + ref);
 
@@ -91,7 +93,7 @@ void Genotyper::parse_pos(char * buffer, int & pos, std::string & chr) {
 	}
 }
 
-variant_str Genotyper::get_breakpoint_vcf(char *buffer) {
+variant_str Genotyper::get_breakpoint_vcf(string buffer) {
 	//TODO extend for TRA!
 	size_t i = 0;
 	int count = 0;
@@ -117,7 +119,7 @@ variant_str Genotyper::get_breakpoint_vcf(char *buffer) {
 			}
 		}
 		if (count > 6 && strncmp(";END=", &buffer[i], 5) == 0) {
-			tmp.pos2 = atoi(&buffer[i+5]); //stores right most breakpoint
+			tmp.pos2 = atoi(&buffer[i + 5]); //stores right most breakpoint
 			break;
 		}
 
@@ -128,7 +130,7 @@ variant_str Genotyper::get_breakpoint_vcf(char *buffer) {
 	}
 	return tmp;
 }
-variant_str Genotyper::get_breakpoint_bedpe(char *buffer) {
+variant_str Genotyper::get_breakpoint_bedpe(string buffer) {
 	size_t i = 0;
 	int count = 0;
 	std::string chr;
@@ -170,16 +172,17 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 		myfile.open(Parameter::Instance()->output_bedpe.c_str(), std::ifstream::in);
 	}
 
-	FILE*file = fopen(Parameter::Instance()->tmp_file.c_str(), "w");
+	FILE*file = fopen(Parameter::Instance()->tmp_file.c_str(), "w"); //
 
 	if (!myfile.good()) {
 		std::cout << "SVParse: could not open file: " << std::endl;
 		exit(0);
 	}
-	size_t buffer_size = 25000;
-	char* buffer = new char[buffer_size];
-	myfile.getline(buffer, buffer_size);
+
+	string buffer;
+	getline(myfile,buffer);
 	//parse SVs breakpoints in file
+
 	while (!myfile.eof()) { // TODO:if first -> we need to define AF!
 		if (buffer[0] != '#') {
 
@@ -191,6 +194,7 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 			} else {
 				tmp = get_breakpoint_bedpe(buffer);
 			}
+
 			int ref = max(tree.get_ref(node, tmp.chr, tmp.pos), tree.get_ref(node, tmp.chr2, tmp.pos2));
 			if (is_vcf) {
 				to_print = mod_breakpoint_vcf(buffer, ref);
@@ -202,11 +206,11 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 				fprintf(file, "%c", '\n');
 			}
 		} else {
-			fprintf(file, "%s", buffer);
+			fprintf(file, "%s", buffer.c_str());
 			fprintf(file, "%c", '\n');
 		}
 
-		myfile.getline(buffer, buffer_size);
+		getline(myfile,buffer);
 	}
 	myfile.close();
 	fclose(file);
@@ -218,8 +222,8 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 	system(move.c_str());
 }
 
-void Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_node *& node) {
-
+std::vector<std::string> Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_node * &node) {
+	std::vector<std::string> ref_dict;
 	std::ifstream myfile;
 	bool is_vcf = !Parameter::Instance()->output_vcf.empty();
 
@@ -233,11 +237,17 @@ void Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_node *& node) {
 		std::cout << "SVParse: could not open file: " << std::endl;
 		exit(0);
 	}
-	size_t buffer_size = 25000;
-	char* buffer = new char[buffer_size];
-	myfile.getline(buffer, buffer_size);
+	//size_t buffer_size = 250000000;
+	string buffer;
+
+	getline(myfile,buffer);
+	//char* buffer = new char[buffer_size];
+	//myfile.getline(buffer, buffer_size);
 	//parse SVs breakpoints in file
 
+	int num_sv=0;
+	int prev_pos1 = 0;
+	int prev_pos2 = 0;
 	while (!myfile.eof()) {
 		//cout << buffer << endl;
 		if (buffer[0] != '#') {
@@ -249,33 +259,45 @@ void Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_node *& node) {
 			} else {
 				tmp = get_breakpoint_bedpe(buffer);
 			}
-			//std::cout<<"SV: "<<tmp.pos<<" "<<tmp.pos2<<std::endl;
-			tree.insert(node, tmp.chr, tmp.pos,true); //true: start;
-			tree.insert(node, tmp.chr2, tmp.pos2,false);//false: stop;//
+		//	std::cout << "SV: " << tmp.pos << " " << tmp.pos2 << std::endl;
+			tree.insert(node, tmp.chr, tmp.pos, true); //true: start;
+			tree.insert(node, tmp.chr2, tmp.pos2, false); //false: stop;//
+			num_sv++;
+			if(num_sv%1000==0){
+				cout<<"\t\tRead in SV: "<<num_sv<<endl;
+				}
+		} else if (buffer[2] == 'c' && buffer[3] == 'o') { //##contig=<ID=chr1,length=699930>
+		//fill the refdict.
+			std::string id = "";
+			for (size_t i = 13; i < buffer.size() && buffer[i] != ','; i++) {
+				id += buffer[i];
+			}
+			ref_dict.push_back(id);
 		}
-		myfile.getline(buffer, buffer_size);
+		getline(myfile,buffer);
+		//myfile.getline(buffer, buffer_size);
 	}
 	myfile.close();
+	return ref_dict;
 	//tree.inorder(node);
 }
-void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node) {
-	std::string output = Parameter::Instance()->tmp_file.c_str();
-	output += "ref_allele";
+void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node, std::vector<std::string> ref_dict) {
 
-	FILE * ref_allel_reads = fopen(output.c_str(), "r");
+	FILE * ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "r");
 	if (ref_allel_reads == NULL) {
-		std::cerr << "CovParse: could not open file: " << output.c_str() << std::endl;
+		std::cerr << "CovParse: could not open file: " << Parameter::Instance()->tmp_genotyp << std::endl;
 	}
-
 	//check if we want to compute the full coverage!
 	str_read tmp;
 	size_t nbytes = fread(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
+	int prev_id = -1;
 	while (nbytes != 0) {
-		if (!tmp.SV_support){
-			//std::cout<<"Read: "<<tmp.start<<" "<<tmp.length<<std::endl;
-			//if reads should be included-> Planesweep for +- breakpoint (Maybe hit -> extra function for that region around the breakpoint!
-			tree.overalps(tmp.start, tmp.start + tmp.length, tmp.chr, node, tmp.SV_support);
+		//	 std::cout<<"Read: "<<" " <<tmp.chr_id<<":"<<ref_dict[tmp.chr_id]<<" " <<tmp.start<<" "<<tmp.length<<std::endl;
+			if (prev_id != tmp.chr_id) {
+			cout << "\t\tScanning CHR " << ref_dict[tmp.chr_id] << endl;
+			prev_id = tmp.chr_id;
 		}
+		tree.overalps(tmp.start, tmp.start + tmp.length, ref_dict[tmp.chr_id], node);
 		nbytes = fread(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
 	}
 	fclose(ref_allel_reads);
@@ -284,13 +306,49 @@ void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node) {
 
 void Genotyper::update_SVs() {
 	//parse SVs not just breakpoints and update with the coverage info
-	read_SVs(this->tree, this->node);
-	compute_cov(this->tree, this->node);
+	cout << "\tConstruct tree" << endl;
+	std::vector<std::string> ref_dict = read_SVs(this->tree, this->node);
+	cout << "\tUpdate reference alleles" << endl;
+	compute_cov(this->tree, this->node, ref_dict);
+	cout << "\tWriting SV calls" << endl;
 	update_file(this->tree, this->node);
-	cout << "Cleaning tmp files" << endl;
+	cout << "\tCleaning tmp files" << endl;
 	string del = "rm ";
-	del += Parameter::Instance()->tmp_file;
-	del += "ref_allele";
-	system(del.c_str());
+	del += Parameter::Instance()->tmp_genotyp;
+	//system(del.c_str());
+}
+
+void Genotyper::update_SVs(std::vector<Breakpoint *> & svs, long ref_space) { //refspace for the ref reads!!
+
+	FILE * ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "r");
+	if (ref_allel_reads == NULL) {
+		std::cerr << "Genotype Parser: could not open file: " << Parameter::Instance()->tmp_genotyp << std::endl;
+	}
+	str_read tmp;
+	size_t nbytes = fread(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
+	int num_reads = 0;
+	while (nbytes != 0) {
+		for (size_t i = 0; i < svs.size(); i++) {
+			if (svs[i]->get_valid()) {
+				long start = tmp.start + ref_space;
+				long stop = start + (long) tmp.length;
+				//start - 100 orig!
+				if ((svs[i]->get_coordinates().start.min_pos - 100 > start && svs[i]->get_coordinates().start.min_pos + 100 < stop)) { //found
+					svs[i]->set_refcount(svs[i]->get_refcount() + 1);
+				}
+				//stop coordinate
+				if ((svs[i]->get_coordinates().stop.max_pos - 100 > start + 100 && svs[i]->get_coordinates().stop.max_pos + 100 < stop - 100)) { //found
+					svs[i]->set_refcount(svs[i]->get_refcount() + 1);
+				}
+			}
+		}
+		//if reads should be included-> Planesweep for +- breakpoint (Maybe hit -> extra function for that region around the breakpoint!
+		num_reads++;
+		if (num_reads % 1000 == 0) {
+			cout << "\tProcessed " << num_reads << endl;
+		}
+		nbytes = fread(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
+	}
+	fclose(ref_allel_reads);
 }
 
