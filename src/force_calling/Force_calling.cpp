@@ -88,9 +88,7 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 	//FILE * alt_allel_reads;
 	FILE * ref_allel_reads;
 	if (Parameter::Instance()->genotype) {
-		std::string output = Parameter::Instance()->tmp_file.c_str();
-		output += "ref_allele";
-		ref_allel_reads = fopen(output.c_str(), "wb");
+		ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "wb");
 	}
 	Alignment * tmp_aln = mapped_file->parseRead(Parameter::Instance()->min_mq);
 	long ref_space = ref_lens[ref[tmp_aln->getRefID()].RefName];
