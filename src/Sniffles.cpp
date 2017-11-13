@@ -148,6 +148,7 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->tmp_phasing = Parameter::Instance()->tmp_file;
 	Parameter::Instance()->tmp_genotyp += "_genotype";
 	Parameter::Instance()->tmp_phasing += "_phase";
+	//should I check tmp file path??
 }
 
 //some toy/test functions:
