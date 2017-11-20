@@ -40,6 +40,9 @@ void VCFPrinter::print_header() {
 	fprintf(file, "%s", "##INFO=<ID=SVLEN,Number=1,Type=Integer,Description=\"Length of the SV\">\n");
 	fprintf(file, "%s", "##INFO=<ID=SVMETHOD,Number=1,Type=String,Description=\"Type of approach used to detect SV\">\n");
 	fprintf(file, "%s", "##INFO=<ID=SVTYPE,Number=1,Type=String,Description=\"Type of structural variant\">\n");
+	if (Parameter::Instance()->report_n_reads > 0 || Parameter::Instance()->report_n_reads == -1) {
+		fprintf(file, "%s", "##INFO=<ID=RNAMES,Number=1,Type=String,Description=\"Names of reads supporting SVs (comma seperated)\">\n");
+	}
 	fprintf(file, "%s", "##INFO=<ID=STD_quant_start,Number=.,Type=Integer,Description=\"STD of the start breakpoints across the reads.\">\n");
 	fprintf(file, "%s", "##INFO=<ID=STD_quant_stop,Number=.,Type=Integer,Description=\"STD of the stop breakpoints across the reads.\">\n");
 	fprintf(file, "%s", "##INFO=<ID=Kurtosis_quant_start,Number=.,Type=Integer,Description=\"Kurtosis value of the start breakpoints accross the reads.\">\n");

@@ -151,6 +151,6 @@ void Cluster_SVS::update_SVs() {
 	std::cout << "\tCleaning tmp files" << std::endl;
 	std::string del = "rm ";
 	del += Parameter::Instance()->tmp_phasing;
-//	system(del.c_str());
+	system(del.c_str());
 
 }

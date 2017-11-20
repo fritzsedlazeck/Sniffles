@@ -27,6 +27,7 @@
 //cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
 
 //TODO:
+// define RNAMES
 // strand bias??
 // I think you could make your performance on PacBio reads even better with a few modifications:
 //b. In pbsv, I use a simply mononucleotide consistency check to determine whether to cluster insertions from different reads as supporting the "same" events.  In addition to looking at the similarity of length and breakpoints,
