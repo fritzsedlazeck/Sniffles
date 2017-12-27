@@ -36,7 +36,6 @@ std::string Genotyper::mod_breakpoint_vcf(string buffer, int ref) {
 	//parse #reads supporting
 	//print #ref
 	string entry;
-
 	int pos = 0;
 
 	pos = buffer.find_last_of("GT");
@@ -46,12 +45,16 @@ std::string Genotyper::mod_breakpoint_vcf(string buffer, int ref) {
 	buffer = buffer.substr(pos + 1);		// the right part is only needed:
 	pos = buffer.find_last_of(':');
 	int support = atoi(buffer.substr(pos + 1).c_str());
-	entry += assess_genotype(ref, support);
+	string msg = assess_genotype(ref, support);
+	if (msg.empty()) {
+		return "";
+	}
+	entry += msg;
 	return entry;
 
 }
 
-std::string Genotyper::mod_breakpoint_bedpe( string buffer, int ref) {
+std::string Genotyper::mod_breakpoint_bedpe(string buffer, int ref) {
 
 	std::string tmp = buffer;
 	std::string entry = tmp;
@@ -180,7 +183,7 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 	}
 
 	string buffer;
-	getline(myfile,buffer);
+	getline(myfile, buffer);
 	//parse SVs breakpoints in file
 
 	while (!myfile.eof()) { // TODO:if first -> we need to define AF!
@@ -210,7 +213,7 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 			fprintf(file, "%c", '\n');
 		}
 
-		getline(myfile,buffer);
+		getline(myfile, buffer);
 	}
 	myfile.close();
 	fclose(file);
@@ -240,12 +243,12 @@ std::vector<std::string> Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_
 	//size_t buffer_size = 250000000;
 	string buffer;
 
-	getline(myfile,buffer);
+	getline(myfile, buffer);
 	//char* buffer = new char[buffer_size];
 	//myfile.getline(buffer, buffer_size);
 	//parse SVs breakpoints in file
 
-	int num_sv=0;
+	int num_sv = 0;
 	int prev_pos1 = 0;
 	int prev_pos2 = 0;
 	while (!myfile.eof()) {
@@ -259,13 +262,13 @@ std::vector<std::string> Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_
 			} else {
 				tmp = get_breakpoint_bedpe(buffer);
 			}
-		//	std::cout << "SV: " << tmp.pos << " " << tmp.pos2 << std::endl;
+			//	std::cout << "SV: " << tmp.pos << " " << tmp.pos2 << std::endl;
 			tree.insert(node, tmp.chr, tmp.pos, true); //true: start;
 			tree.insert(node, tmp.chr2, tmp.pos2, false); //false: stop;//
 			num_sv++;
-			if(num_sv%1000==0){
-				cout<<"\t\tRead in SV: "<<num_sv<<endl;
-				}
+			if (num_sv % 1000 == 0) {
+				cout << "\t\tRead in SV: " << num_sv << endl;
+			}
 		} else if (buffer[2] == 'c' && buffer[3] == 'o') { //##contig=<ID=chr1,length=699930>
 		//fill the refdict.
 			std::string id = "";
@@ -274,7 +277,7 @@ std::vector<std::string> Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_
 			}
 			ref_dict.push_back(id);
 		}
-		getline(myfile,buffer);
+		getline(myfile, buffer);
 		//myfile.getline(buffer, buffer_size);
 	}
 	myfile.close();
@@ -293,7 +296,7 @@ void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node, std
 	int prev_id = -1;
 	while (nbytes != 0) {
 		//	 std::cout<<"Read: "<<" " <<tmp.chr_id<<":"<<ref_dict[tmp.chr_id]<<" " <<tmp.start<<" "<<tmp.length<<std::endl;
-			if (prev_id != tmp.chr_id) {
+		if (prev_id != tmp.chr_id) {
 			cout << "\t\tScanning CHR " << ref_dict[tmp.chr_id] << endl;
 			prev_id = tmp.chr_id;
 		}
