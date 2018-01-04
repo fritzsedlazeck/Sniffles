@@ -113,6 +113,18 @@ public:
 		this->grouped_node=NULL;
 		this->length=len;
 	}
+	Breakpoint(position_str sv,long len,char sv_type) {
+		ref_allele=0;
+		should_be_stored=false;
+		this->sv_type =sv_type;
+		type.is_ALN=((*sv.support.begin()).second.type==0);
+		type.is_SR=((*sv.support.begin()).second.type==1);
+		type.is_Noise=((*sv.support.begin()).second.type==2);
+		type_support=-1;
+		this->positions = sv;
+		this->grouped_node=NULL;
+		this->length=len;
+	}
 	~Breakpoint() {
 
 	}

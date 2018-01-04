@@ -163,7 +163,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%s", SV->get_supporting_types().c_str());
 			fprintf(file, "%s", ";SVLEN=");
 
-			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && !SV->get_types().is_SR) {
+			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && !SV->get_types().is_ALN) {//!
 				fprintf(file, "%s", "NA");
 			} else {
 				fprintf(file, "%i", SV->get_length());

@@ -296,7 +296,6 @@ void Breakpoint::calc_support() {
 		predict_SV();
 		set_valid((bool) (get_length() > Parameter::Instance()->min_length));
 	}
-
 }
 
 char Breakpoint::eval_type(ushort* SV) {
@@ -335,11 +334,15 @@ char Breakpoint::eval_type(ushort* SV) {
 }
 
 long get_median(std::vector<long> corrds) {
+
 	sort(corrds.begin(), corrds.end());
 	if (corrds.size() % 2 == 0) {
 		return (corrds[corrds.size() / 2 - 1] + corrds[corrds.size() / 2]) / 2;
 	}
-	return corrds[corrds.size() / 2];
+	if (corrds.size() == 1) {
+		return corrds[0];
+	}
+	return corrds[(int) corrds.size() / 2];
 }
 
 void Breakpoint::predict_SV() {
@@ -355,10 +358,14 @@ void Breakpoint::predict_SV() {
 	std::vector<long> stops2;
 	std::vector<long> lengths2;
 
-	for (std::map<std::string, read_str>::iterator i = positions.support.begin(); i != positions.support.end(); i++) {
+	bool scan_reads=true;
+	if(positions.support.find("input") != positions.support.end() && !Parameter::Instance()->change_coords){
+		scan_reads=false;
+	}
+
+	for (std::map<std::string, read_str>::iterator i = positions.support.begin(); i != positions.support.end() && scan_reads; i++) {
 
 		if (((*i).second.SV & this->sv_type) && strncmp((*i).first.c_str(), "input", 5) != 0) {			// && !((*i).second.SV & INS && (*i).second.length==Parameter::Instance()->huge_ins)) { ///check type
-
 			if ((*i).second.coordinates.first != -1) {
 				if ((*i).second.length != Parameter::Instance()->huge_ins) {
 					if (starts.find((*i).second.coordinates.first) == starts.end()) {
@@ -419,7 +426,7 @@ void Breakpoint::predict_SV() {
 	int maxim = 0;
 	long coord = 0;
 	if (num > 0) {
-
+		//find the start coordinate:
 		for (map<long, int>::iterator i = starts.begin(); i != starts.end(); i++) {
 			if ((*i).second > maxim) {
 				coord = (*i).first;
@@ -433,6 +440,7 @@ void Breakpoint::predict_SV() {
 		}
 		this->indel_sequence = "";
 
+		//find the stop coordinate:
 
 		maxim = 0;
 		coord = 0;
@@ -449,7 +457,7 @@ void Breakpoint::predict_SV() {
 		} else {
 			this->positions.stop.most_support = coord;
 		}
-
+		//find the length:
 		if (!(this->get_SVtype() & INS)) { //all types but Insertions:
 			this->length = this->positions.stop.most_support - this->positions.start.most_support;
 
@@ -463,20 +471,18 @@ void Breakpoint::predict_SV() {
 					coord = (*i).first;
 					maxim = (*i).second;
 				}
-
 			}
-			if (maxim < 3) {
+			if (maxim == 0) { //for forcecalling
+				this->length = this->positions.stop.most_support - this->positions.start.most_support;
+			} else if (maxim < 3) {
 				this->length = get_median(lengths2);
 			} else {
 				this->length = coord;
 			}
-
-			//	if(del)
+			cout << "third len: " << this->length << endl; // problem!
 		}
-
 		starts.clear();
 		stops.clear();
-
 		for (size_t i = 0; i < strands.size(); i++) {
 			maxim = 0;
 			std::string id;
@@ -494,27 +500,29 @@ void Breakpoint::predict_SV() {
 		}
 		strands.clear();
 
-
 		std::map<std::string, read_str>::iterator tmp = positions.support.begin();
-		int start_prev_dist=1000;
-		int stop_prev_dist=1000;
-		while(tmp != positions.support.end()) {
-			int start_dist=abs((*tmp).second.coordinates.first- this->positions.start.most_support);
-			int stop_dist=abs((*tmp).second.coordinates.second- this->positions.stop.most_support);
-			if (((*tmp).second.SV & this->sv_type) && ( (start_dist<start_prev_dist && stop_dist<stop_prev_dist)  && (strcmp((*tmp).second.sequence.c_str(), "NA") != 0 && !(*tmp).second.sequence.empty()))) {
+		int start_prev_dist = 1000;
+		int stop_prev_dist = 1000;
+		while (tmp != positions.support.end()) {
+			int start_dist = abs((*tmp).second.coordinates.first - this->positions.start.most_support);
+			int stop_dist = abs((*tmp).second.coordinates.second - this->positions.stop.most_support);
+			if (((*tmp).second.SV & this->sv_type) && ((start_dist < start_prev_dist && stop_dist < stop_prev_dist) && (strcmp((*tmp).second.sequence.c_str(), "NA") != 0 && !(*tmp).second.sequence.empty()))) {
 				this->indel_sequence = (*tmp).second.sequence;
 			}
 			tmp++;
 		}
 	}
-
-	if (num == 0 && positions.support.find("input") != positions.support.end()) {
-		this->positions.stop.most_support = this->positions.stop.max_pos;
-		this->positions.start.most_support = this->positions.start.min_pos;
-		this->length = this->positions.stop.max_pos - this->positions.start.min_pos;
+	this->supporting_types = "";
+	if (positions.support.find("input") != positions.support.end()) {
+		if (num == 0) {
+			//cout << "Force called: "<< this->positions.support["input"].length << endl;
+			this->positions.start.most_support = this->positions.support["input"].coordinates.first;
+			this->positions.stop.most_support = this->positions.support["input"].coordinates.second;
+			//this->length = this->positions.support["input"].length;
+		}
+		this->supporting_types += "input";
 	}
 
-	this->supporting_types = "";
 	if (aln) {
 		this->type.is_ALN = true;
 		this->supporting_types += "AL";
@@ -613,7 +621,7 @@ std::string Breakpoint::get_strand(int num_best) {
 #include "Detect_Breakpoints.h"
 std::string Breakpoint::to_string() {
 	std::stringstream ss;
-	if (positions.support.size() > 1) {
+	if (positions.support.size() >= 1) {
 		ss << "\t\tTREE: ";
 		ss << TRANS_type(this->get_SVtype());
 		ss << " ";

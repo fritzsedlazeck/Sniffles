@@ -31,8 +31,10 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 	long length = 0;
 	for (size_t i = 0; i < ref.size(); i++) {
 		ref_lens[ref[i].RefName.c_str()] = length;
-		length += ref[i].RefLength + Parameter::Instance()->max_dist;
+		length += (long) ref[i].RefLength + (long) Parameter::Instance()->max_dist;
 	}
+
+	//sometimes the stop coordinates are off especially for smaller chrs!??
 
 	//parse VCF file
 	std::vector<strvcfentry> entries = parse_vcf(Parameter::Instance()->input_vcf, 0);
@@ -43,23 +45,36 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 			svs.start.min_pos = (long) entries[i].start.pos + ref_lens[entries[i].start.chr];
 			svs.stop.max_pos = (long) entries[i].stop.pos + ref_lens[entries[i].stop.chr];
 			read_str read;
+			read.coordinates.first = (long) entries[i].start.pos + ref_lens[entries[i].start.chr];
+			read.coordinates.second = (long) entries[i].stop.pos + ref_lens[entries[i].stop.chr];
+			if (entries[i].type == 4) { //ins?
+				if(entries[i].sv_len== Parameter::Instance()->huge_ins){
+					entries[i].sv_len++; // bad hack!
+				}
+				svs.stop.max_pos += (long) entries[i].sv_len;
+				read.coordinates.second+=(long) entries[i].sv_len;
+			//	cout << "Parse: " << entries[i].start.pos << " " << entries[i].stop.pos << " " << svs.start.min_pos  <<" "<<svs.stop.max_pos  << endl;
+			}
+
 			read.SV = assign_type(entries[i].type);
-			read.strand=entries[i].strands;
+			read.strand = entries[i].strands;
 			read.type = 2; //called
+			read.length = entries[i].sv_len; //svs.stop.max_pos-svs.start.min_pos;//try
 			svs.support["input"] = read;
-			Breakpoint * br = new Breakpoint(svs, (long) entries[i].sv_len);
+			Breakpoint * br = new Breakpoint(svs, (long) entries[i].sv_len, read.SV);
 			final.insert(br, root_final);
-			//std::cout << "Print:" << std::endl;
-			//final.print(root_final);
 		} else {
 			cerr << "Invalid type found skipping" << endl;
 		}
 	}
+
+	//std::cout << "Print:" << std::endl;
+	//final.print(root_final);
 	entries.clear();
 }
 
 void force_calling(std::string bam_file, IPrinter *& printer) {
-	cout<<"Force calling SVs"<<endl;
+	cout << "Force calling SVs" << endl;
 	//parse reads
 	//only process reads overlapping SV
 	estimate_parameters(Parameter::Instance()->bam_files[0]);
@@ -81,9 +96,8 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 	std::map<std::string, long> ref_lens;
 	fill_tree(final, root_final, ref, ref_lens);
 
-	std::cout << "Start parsing..." << std::endl;
-
 	int current_RefID = 0;
+	std::cout << "Start parsing: Chr "<<ref[current_RefID].RefName << std::endl;
 
 	//FILE * alt_allel_reads;
 	FILE * ref_allel_reads;
@@ -91,6 +105,7 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 		ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "wb");
 	}
 	Alignment * tmp_aln = mapped_file->parseRead(Parameter::Instance()->min_mq);
+
 	long ref_space = ref_lens[ref[tmp_aln->getRefID()].RefName];
 	long num_reads = 0;
 	while (!tmp_aln->getQueryBases().empty()) {
@@ -103,9 +118,9 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 			}
 
 			//check if overlap with any breakpoint!!
-			long read_start_pos = (long) tmp_aln->getPosition() - (long)Parameter::Instance()->max_dist;
+			long read_start_pos = (long) tmp_aln->getPosition() - (long) Parameter::Instance()->max_dist;
 			read_start_pos += ref_space;
-			long read_stop_pos = read_start_pos + (long) tmp_aln->getAlignment()->Length + (long)Parameter::Instance()->max_dist;	//getRefLength();//(long) tmp_aln->getPosition();
+			long read_stop_pos = read_start_pos + (long) tmp_aln->getAlignment()->Length + (long) Parameter::Instance()->max_dist;	//getRefLength();//(long) tmp_aln->getPosition();
 
 			if (final.overlaps(read_start_pos, read_stop_pos, root_final)) {
 				//SCAN read:
@@ -166,7 +181,7 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 		}
 	}
 
-	std::cout << "Print:" << std::endl;
+	//std::cout << "Print:" << std::endl;
 	//final.print(root_final);
 
 	//filter and copy results:
@@ -186,4 +201,5 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 		points[i]->predict_SV();
 		printer->printSV(points[i]); //redo! Ignore min support + STD etc.
 	}
+	std::cout << "Fin!" << std::endl;
 }

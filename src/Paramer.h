@@ -26,7 +26,7 @@ private:
 	Parameter() {
 		window_thresh=10;//TODO check!
 		version="1.0.8";
-		huge_ins = 2000;//TODO check??
+		huge_ins = 666000;//TODO check??
 	}
 	~Parameter() {
 
@@ -81,6 +81,7 @@ public:
 	bool ignore_std;
 	bool reportBND;
 	bool print_seq;
+	bool change_coords; //indicating for --Ivcf
 
 	void set_regions(std::string reg) {
 		size_t i = 0;

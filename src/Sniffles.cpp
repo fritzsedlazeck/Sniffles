@@ -27,7 +27,7 @@
 //cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
 
 //TODO:
-// define RNAMES
+//check strand headers.
 // strand bias??
 // I think you could make your performance on PacBio reads even better with a few modifications:
 //b. In pbsv, I use a simply mononucleotide consistency check to determine whether to cluster insertions from different reads as supporting the "same" events.  In addition to looking at the similarity of length and breakpoints,
@@ -51,7 +51,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<int> arg_minlength("l", "min_length", "Minimum length of SV to be reported. Default: 30", false, 30, "int");
 	TCLAP::ValueArg<int> arg_mq("q", "minmapping_qual", "Minimum Mapping Quality. Default: 20", false, 20, "int");
 	TCLAP::ValueArg<int> arg_numreads("n", "num_reads_report", "Report up to N reads that support the SV in the vcf file. -1: report all. Default: 0", false, 0, "int");
-	TCLAP::ValueArg<int> arg_segsize("r", "min_seq_size", "Discard read if non of its segment is larger then this. Default: 2kb", false, 2000, "int");
+	TCLAP::ValueArg<int> arg_segsize("r", "min_seq_size", "Discard read if non of its segment is larger then this. Default: 2000", false, 2000, "int");
 	TCLAP::ValueArg<int> arg_zmw("z", "min_zmw", "Discard SV that are not supported by at least x zmws. This applies only for PacBio recognizable reads. Default: 0", false, 0, "int");
 	TCLAP::ValueArg<std::string> arg_tmp_file("", "tmp_file", "path to temporary file otherwise Sniffles will use the current directory.", false, "", "string");
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
@@ -59,11 +59,11 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::SwitchArg arg_std("", "ignore_sd", "Ignores the sd based filtering. Default: false", cmd, false);
 	TCLAP::SwitchArg arg_bnd("", "report_BND", "Report BND instead of Tra in vcf output. Default: false", cmd, false);
 	TCLAP::SwitchArg arg_seq("", "report_seq", "Report sequences for indels in vcf output. (Beta version!) Default: false", cmd, false);
+	TCLAP::SwitchArg arg_coords("", "change_coords", "Adopt coordinates for force calling if finding evidence. Default: false not change", cmd, false);
 	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV. Default: 1", false, 1, "int");
 	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1). Default=0.0", false, 0.0, "float");
-
-	TCLAP::ValueArg<float> arg_hetfreq("", "min_het_af", "Threshold on allele frequency (0-1). Default=0.0", false, 0.3, "float");
-	TCLAP::ValueArg<float> arg_homofreq("", "min_homo_af", "Threshold on allele frequency (0-1). Default=0.0", false, 0.8, "float");
+	TCLAP::ValueArg<float> arg_hetfreq("", "min_het_af", "Threshold on allele frequency (0-1). Default=0.3", false, 0.3, "float");
+	TCLAP::ValueArg<float> arg_homofreq("", "min_homo_af", "Threshold on allele frequency (0-1). Default=0.8", false, 0.8, "float");
 
 	cmd.add(arg_homofreq);
 	cmd.add(arg_hetfreq);
@@ -87,6 +87,7 @@ void read_parameters(int argc, char *argv[]) {
 	//parse cmd:
 	cmd.parse(argc, argv);
 
+	Parameter::Instance()->change_coords=arg_coords.getValue();
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
 	Parameter::Instance()->read_name = " "; //21_16296949_+";//21_40181680_-";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
