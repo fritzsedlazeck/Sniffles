@@ -5,9 +5,9 @@ project(Sniffles)
  set( SNIF_VERSION_MINOR 0 )
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "Building in debug mode!")
-    set( SNIF_VERSION_BUILD 7-debug )
+    set( SNIF_VERSION_BUILD 8-debug )
 else()
-	set( SNIF_VERSION_BUILD 7 )
+	set( SNIF_VERSION_BUILD 8 )
 ENDIF()
 
 
