@@ -22,6 +22,7 @@
 #include "Ignore_Regions.h"
 #include "plane-sweep/PlaneSweep_slim.h"
 #include "print/BedpePrinter.h"
+#include "ArgParseOutput.h"
 #include "force_calling/Force_calling.h"
 
 //cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
@@ -36,58 +37,138 @@
 //[min(A1,A2)+min(C1,C2)+min(G1,G2)+min(T1,T2)[/[max...]/
 Parameter* Parameter::m_pInstance = NULL;
 
+template<typename T>
+void printParameter(std::stringstream & usage, TCLAP::ValueArg<T> & arg) {
+
+	usage << "    " << arg.longID() << std::endl;
+	usage << "        " << arg.getDescription();
+	if (!arg.isRequired()) {
+		usage << " [" << arg.getValue() << "]";
+	}
+	usage << std::endl;
+}
+
+void printParameter(std::stringstream & usage, TCLAP::SwitchArg & arg) {
+
+	usage << "    " << arg.longID() << std::endl;
+	usage << "        " << arg.getDescription();
+	if (!arg.isRequired()) {
+		usage << " [" << (arg.getValue() ? "true" : "false") << "]";
+	}
+	usage << std::endl;
+}
+
 void read_parameters(int argc, char *argv[]) {
 
+//	TCLAP::CmdLine cmd("", ' ', "", true);
 	TCLAP::CmdLine cmd("Sniffles version ", ' ', Parameter::Instance()->version);
-	TCLAP::ValueArg<std::string> arg_bamfile("m", "mapped_reads", "Sorted bam File", true, "", "string");
-	TCLAP::ValueArg<std::string> arg_vcf("v", "vcf", "VCF output file name", false, "", "string");
-	TCLAP::ValueArg<std::string> arg_input_vcf("", "Ivcf", "Input VCF file name. Enable force calling", false, "", "string");
-	TCLAP::ValueArg<std::string> arg_bedpe("b", "bedpe", " bedpe output file name", false, "", "string");
+
+	TCLAP::ValueArg<std::string> arg_bamfile("m", "mapped_reads", "Sorted bam File", true, "", "string", cmd);
+	TCLAP::ValueArg<std::string> arg_vcf("v", "vcf", "VCF output file name", false, "", "string", cmd);
+	TCLAP::ValueArg<std::string> arg_input_vcf("", "Ivcf", "Input VCF file name. Enable force calling", false, "", "string", cmd);
+	TCLAP::ValueArg<std::string> arg_bedpe("b", "bedpe", " bedpe output file name", false, "", "string", cmd);
+	TCLAP::ValueArg<std::string> arg_tmp_file("", "tmp_file", "path to temporary file otherwise Sniffles will use the current directory.", false, "", "string", cmd);
+
 	//TCLAP::ValueArg<std::string> arg_chrs("c", "chrs", " comma seperated list of chrs to scan", false, "", "string");
-	TCLAP::ValueArg<int> arg_support("s", "min_support", "Minimum number of reads that support a SV. Default: 10", false, 10, "int");
-	TCLAP::ValueArg<int> arg_splits("", "max_num_splits", "Maximum number of splits per read to be still taken into account. Default: 7", false, 7, "int");
-	TCLAP::ValueArg<int> arg_dist("d", "max_distance", "Maximum distance to group SV together. Default: 1kb", false, 1000, "int");
-	TCLAP::ValueArg<int> arg_threads("t", "threads", "Number of threads to use. Default: 3", false, 3, "int");
-	TCLAP::ValueArg<int> arg_minlength("l", "min_length", "Minimum length of SV to be reported. Default: 30", false, 30, "int");
-	TCLAP::ValueArg<int> arg_mq("q", "minmapping_qual", "Minimum Mapping Quality. Default: 20", false, 20, "int");
-	TCLAP::ValueArg<int> arg_numreads("n", "num_reads_report", "Report up to N reads that support the SV in the vcf file. -1: report all. Default: 0", false, 0, "int");
-	TCLAP::ValueArg<int> arg_segsize("r", "min_seq_size", "Discard read if non of its segment is larger then this. Default: 2000", false, 2000, "int");
-	TCLAP::ValueArg<int> arg_zmw("z", "min_zmw", "Discard SV that are not supported by at least x zmws. This applies only for PacBio recognizable reads. Default: 0", false, 0, "int");
-	TCLAP::ValueArg<std::string> arg_tmp_file("", "tmp_file", "path to temporary file otherwise Sniffles will use the current directory.", false, "", "string");
+	TCLAP::ValueArg<int> arg_support("s", "min_support", "Minimum number of reads that support a SV.", false, 10, "int", cmd);
+	TCLAP::ValueArg<int> arg_splits("", "max_num_splits", "Maximum number of splits per read to be still taken into account.", false, 7, "int", cmd);
+	TCLAP::ValueArg<int> arg_dist("d", "max_distance", "Maximum distance to group SV together.", false, 1000, "int", cmd);
+	TCLAP::ValueArg<int> arg_threads("t", "threads", "Number of threads to use.", false, 3, "int", cmd);
+	TCLAP::ValueArg<int> arg_minlength("l", "min_length", "Minimum length of SV to be reported.", false, 30, "int", cmd);
+	TCLAP::ValueArg<int> arg_mq("q", "minmapping_qual", "Minimum Mapping Quality.", false, 20, "int", cmd);
+	TCLAP::ValueArg<int> arg_numreads("n", "num_reads_report", "Report up to N reads that support the SV in the vcf file. -1: report all.", false, 0, "int", cmd);
+	TCLAP::ValueArg<int> arg_segsize("r", "min_seq_size", "Discard read if non of its segment is larger then this.", false, 2000, "int", cmd);
+	TCLAP::ValueArg<int> arg_zmw("z", "min_zmw", "Discard SV that are not supported by at least x zmws. This applies only for PacBio recognizable reads.", false, 0, "int", cmd);
+	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV.", false, 1, "int", cmd);
+	TCLAP::ValueArg<int> arg_parameter_maxdist("", "max_dist_aln_events", "Maximum distance between alignment (indel) events.", false, 4, "int", cmd);
+	TCLAP::ValueArg<int> arg_parameter_maxdiff("", "max_diff_per_window", "Maximum differences per 100bp.", false, 50, "int", cmd);
+
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
-	TCLAP::SwitchArg arg_std("", "ignore_sd", "Ignores the sd based filtering. Default: false", cmd, false);
-	TCLAP::SwitchArg arg_bnd("", "report_BND", "Report BND instead of Tra in vcf output. Default: false", cmd, false);
-	TCLAP::SwitchArg arg_seq("", "report_seq", "Report sequences for indels in vcf output. (Beta version!) Default: false", cmd, false);
-	TCLAP::SwitchArg arg_coords("", "change_coords", "Adopt coordinates for force calling if finding evidence. Default: false not change", cmd, false);
-	TCLAP::ValueArg<int> arg_cluster_supp("", "cluster_support", "Minimum number of reads supporting clustering of SV. Default: 1", false, 1, "int");
-	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1). Default=0.0", false, 0.0, "float");
-	TCLAP::ValueArg<float> arg_hetfreq("", "min_het_af", "Threshold on allele frequency (0-1). Default=0.3", false, 0.3, "float");
-	TCLAP::ValueArg<float> arg_homofreq("", "min_homo_af", "Threshold on allele frequency (0-1). Default=0.8", false, 0.8, "float");
+	TCLAP::SwitchArg arg_std("", "ignore_sd", "Ignores the sd based filtering. ", cmd, false);
+	TCLAP::SwitchArg arg_bnd("", "report_BND", "Report BND instead of Tra in vcf output. ", cmd, false);
+	TCLAP::SwitchArg arg_seq("", "report_seq", "Report sequences for indels in vcf output. (Beta version!) ", cmd, false);
+	TCLAP::SwitchArg arg_coords("", "change_coords", "Adopt coordinates for force calling if finding evidence. ", cmd, false);
+	TCLAP::SwitchArg arg_parameter("", "skip_parameter_estimation", "Enables the scan if only very few reads are present. ", cmd, false);
 
-	cmd.add(arg_homofreq);
-	cmd.add(arg_hetfreq);
-	cmd.add(arg_input_vcf);
-	cmd.add(arg_cluster_supp);
-	cmd.add(arg_numreads);
-	cmd.add(arg_zmw);
-	cmd.add(arg_segsize);
-	cmd.add(arg_tmp_file);
-	cmd.add(arg_dist);
-	cmd.add(arg_threads);
-	cmd.add(arg_minlength);
-	cmd.add(arg_mq);
-	cmd.add(arg_splits);
-	cmd.add(arg_bedpe);
-	cmd.add(arg_vcf);
-	cmd.add(arg_allelefreq);
-	cmd.add(arg_support);
-	cmd.add(arg_bamfile);
-//	cmd.add(arg_chrs);
+	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1). ", false, 0.0, "float", cmd);
+	TCLAP::ValueArg<float> arg_hetfreq("", "min_het_af", "Threshold on allele frequency (0-1). ", false, 0.3, "float", cmd);
+	TCLAP::ValueArg<float> arg_homofreq("", "min_homo_af", "Threshold on allele frequency (0-1). ", false, 0.8, "float", cmd);
+	TCLAP::ValueArg<float> arg_delratio("", "del_ratio", "Estimated ration of deletions per read (0-1). ", false, 0.0458369, "float", cmd);
+	TCLAP::ValueArg<float> arg_insratio("", "ins_ratio", "Estimated ratio of insertions per read (0-1). ", false, 0.049379, "float", cmd);
+
+	std::stringstream usage;
+	usage << "" << std::endl;
+	usage << "Usage: sniffles [options] -m <sorted.bam> -v <output.vcf> " << std::endl;
+
+	usage << "" << std::endl;
+	usage << "Input/Output:" << std::endl;
+	printParameter<std::string>(usage, arg_bamfile);
+	printParameter<std::string>(usage, arg_vcf);
+	printParameter<std::string>(usage, arg_bedpe);
+	printParameter<std::string>(usage, arg_input_vcf);
+	printParameter<std::string>(usage, arg_tmp_file);
+
+	usage << "" << std::endl;
+	usage << "General:" << std::endl;
+	printParameter<int>(usage, arg_support);
+	printParameter<int>(usage, arg_splits);
+	printParameter<int>(usage, arg_dist);
+	printParameter<int>(usage, arg_threads);
+	printParameter<int>(usage, arg_minlength);
+	printParameter<int>(usage, arg_mq);
+	printParameter<int>(usage, arg_numreads);
+	printParameter<int>(usage, arg_segsize);
+	printParameter<int>(usage, arg_zmw);
+
+	usage << "" << std::endl;
+	usage << "Clustering/phasing and genotyping:" << std::endl;
+	printParameter(usage, arg_genotype);
+	printParameter(usage, arg_cluster);
+	printParameter<int>(usage, arg_cluster_supp);
+	printParameter<float>(usage, arg_allelefreq);
+	printParameter<float>(usage, arg_homofreq);
+	printParameter<float>(usage, arg_hetfreq);
+
+	usage << "" << std::endl;
+	usage << "Advanced:" << std::endl;
+	printParameter(usage, arg_bnd);
+	printParameter(usage, arg_seq);
+	printParameter(usage, arg_std);
+
+	usage << "" << std::endl;
+	usage << "Parameter estimation:" << std::endl;
+	printParameter(usage, arg_parameter);
+	printParameter<float>(usage, arg_delratio);
+	printParameter<float>(usage, arg_insratio);
+	printParameter<int>(usage, arg_parameter_maxdiff);
+	printParameter<int>(usage, arg_parameter_maxdist);
+
+	cmd.setOutput(new ArgParseOutput(usage.str(), ""));
+
+	/*	cmd.add(arg_homofreq);
+	 cmd.add(arg_hetfreq);
+	 cmd.add(arg_input_vcf);
+	 cmd.add(arg_cluster_supp);
+	 cmd.add(arg_numreads);
+	 cmd.add(arg_zmw);
+	 cmd.add(arg_segsize);
+	 cmd.add(arg_tmp_file);
+	 cmd.add(arg_dist);
+	 cmd.add(arg_threads);
+	 cmd.add(arg_minlength);
+	 cmd.add(arg_mq);
+	 cmd.add(arg_splits);
+	 cmd.add(arg_bedpe);
+	 cmd.add(arg_vcf);
+	 cmd.add(arg_allelefreq);
+	 cmd.add(arg_support);
+	 cmd.add(arg_bamfile);
+	 //	cmd.add(arg_chrs);*/
 	//parse cmd:
 	cmd.parse(argc, argv);
 
-	Parameter::Instance()->change_coords=arg_coords.getValue();
+	Parameter::Instance()->change_coords = arg_coords.getValue();
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
 	Parameter::Instance()->read_name = " "; //21_16296949_+";//21_40181680_-";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
@@ -114,32 +195,42 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->min_zmw = arg_zmw.getValue();
 	Parameter::Instance()->homfreq = arg_homofreq.getValue();
 	Parameter::Instance()->hetfreq = arg_hetfreq.getValue();
+	Parameter::Instance()->skip_parameter_estimation = arg_parameter.getValue();
+
+	if (Parameter::Instance()->skip_parameter_estimation) {
+		cout<<"\tSkip parameter estimation."<<endl;
+		Parameter::Instance()->score_treshold = 2;
+		Parameter::Instance()->window_thresh = arg_parameter_maxdiff.getValue();
+		Parameter::Instance()->max_dist_alns = arg_parameter_maxdist.getValue();
+		Parameter::Instance()->avg_del =arg_delratio.getValue();
+		Parameter::Instance()->avg_ins = arg_insratio.getValue();
+	}
 
 	//Parse IDS:
 	/*std::string buffer = arg_chrs.getValue();
-	int count = 0;
-	std::string name = "";
-	for (size_t i = 0; i < buffer.size(); i++) {
-		if (buffer[i] == ',') {
-			Parameter::Instance()->chr_names[name] = true;
-			name.clear();
-		} else {
-			name += buffer[i];
-		}
-	}
-	if (!name.empty()) {
-		Parameter::Instance()->chr_names[name] = true;
-	}
-*/
+	 int count = 0;
+	 std::string name = "";
+	 for (size_t i = 0; i < buffer.size(); i++) {
+	 if (buffer[i] == ',') {
+	 Parameter::Instance()->chr_names[name] = true;
+	 name.clear();
+	 } else {
+	 name += buffer[i];
+	 }
+	 }
+	 if (!name.empty()) {
+	 Parameter::Instance()->chr_names[name] = true;
+	 }
+	 */
 	if (Parameter::Instance()->min_allelel_frequency > 0 || !Parameter::Instance()->input_vcf.empty()) {
 		std::cerr << "Automatically enabling genotype mode" << std::endl;
 		Parameter::Instance()->genotype = true;
 	}
 
 	if (Parameter::Instance()->tmp_file.empty()) { //TODO change to genotyper file and phasing file!
-		if(Parameter::Instance()->output_bedpe.empty()){
+		if (Parameter::Instance()->output_bedpe.empty()) {
 			Parameter::Instance()->tmp_file = Parameter::Instance()->output_vcf;
-		}else{
+		} else {
 			Parameter::Instance()->tmp_file = Parameter::Instance()->output_bedpe;
 		}
 

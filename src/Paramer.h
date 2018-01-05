@@ -82,6 +82,7 @@ public:
 	bool reportBND;
 	bool print_seq;
 	bool change_coords; //indicating for --Ivcf
+	bool skip_parameter_estimation;
 
 	void set_regions(std::string reg) {
 		size_t i = 0;

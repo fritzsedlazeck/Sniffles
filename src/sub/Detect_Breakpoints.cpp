@@ -654,6 +654,9 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 }
 
 void estimate_parameters(std::string read_filename) {
+	if(Parameter::Instance()->skip_parameter_estimation){
+		return;
+	}
 	cout << "Estimating parameter..." << endl;
 	BamParser * mapped_file = 0;
 	RefVector ref;
