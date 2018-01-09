@@ -302,6 +302,9 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 		}
 	}
 //filter and copy results:
+
+
+
 	std::cout << "Finalizing  .." << std::endl;
 	std::vector<Breakpoint *> points;
 	bst.get_breakpoints(root, points);
@@ -314,7 +317,6 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 		del += "ref_allele";
 		system(del.c_str());
 	}*/
-
 	for (int i = 0; i < points.size(); i++) {
 		points[i]->calc_support();
 		if (points[i]->get_valid()) {

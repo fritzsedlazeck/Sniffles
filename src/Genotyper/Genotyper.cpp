@@ -318,7 +318,7 @@ void Genotyper::update_SVs() {
 	cout << "\tCleaning tmp files" << endl;
 	string del = "rm ";
 	del += Parameter::Instance()->tmp_genotyp;
-//	system(del.c_str());
+	system(del.c_str());
 }
 
 void Genotyper::update_SVs(std::vector<Breakpoint *> & svs, long ref_space) { //refspace for the ref reads!!

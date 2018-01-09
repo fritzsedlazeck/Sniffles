@@ -291,7 +291,7 @@ void Breakpoint::calc_support() {
 	this->sv_type = eval_type(sv);
 
 	if (get_SVtype() & TRA) { // we cannot make assumptions abut support yet.
-		set_valid((bool) (get_support() > 1)); // this is needed as we take each chr independently and just look at the primary alignment
+		set_valid((bool) (get_support() >= 1)); // this is needed as we take each chr independently and just look at the primary alignment
 	} else if (get_support() >= Parameter::Instance()->min_support) {
 		predict_SV();
 		set_valid((bool) (get_length() > Parameter::Instance()->min_length));
@@ -362,7 +362,6 @@ void Breakpoint::predict_SV() {
 	if(positions.support.find("input") != positions.support.end() && !Parameter::Instance()->change_coords){
 		scan_reads=false;
 	}
-
 	for (std::map<std::string, read_str>::iterator i = positions.support.begin(); i != positions.support.end() && scan_reads; i++) {
 
 		if (((*i).second.SV & this->sv_type) && strncmp((*i).first.c_str(), "input", 5) != 0) {			// && !((*i).second.SV & INS && (*i).second.length==Parameter::Instance()->huge_ins)) { ///check type
@@ -479,7 +478,7 @@ void Breakpoint::predict_SV() {
 			} else {
 				this->length = coord;
 			}
-			cout << "third len: " << this->length << endl; // problem!
+		//	cout << "third len: " << this->length << endl; // problem!
 		}
 		starts.clear();
 		stops.clear();
