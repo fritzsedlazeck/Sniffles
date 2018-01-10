@@ -362,6 +362,7 @@ void Breakpoint::predict_SV() {
 	if(positions.support.find("input") != positions.support.end() && !Parameter::Instance()->change_coords){
 		scan_reads=false;
 	}
+
 	for (std::map<std::string, read_str>::iterator i = positions.support.begin(); i != positions.support.end() && scan_reads; i++) {
 
 		if (((*i).second.SV & this->sv_type) && strncmp((*i).first.c_str(), "input", 5) != 0) {			// && !((*i).second.SV & INS && (*i).second.length==Parameter::Instance()->huge_ins)) { ///check type

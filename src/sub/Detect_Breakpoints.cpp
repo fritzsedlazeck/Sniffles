@@ -184,8 +184,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	}
 //Using PlaneSweep to comp coverage and iterate through reads:
 //PlaneSweep * sweep = new PlaneSweep();
-	std::cout << "Start parsing..." << std::endl;
-//Using Interval tree to store and manage breakpoints:
+	//Using Interval tree to store and manage breakpoints:
 
 	IntervallTree final;
 	IntervallTree bst;
@@ -207,6 +206,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	if (Parameter::Instance()->genotype) {
 		go = new Genotyper();
 	}*/
+	std::cout << "Start parsing... "<<ref[tmp_aln->getRefID()].RefName  << std::endl;
 
 	while (!tmp_aln->getQueryBases().empty()) {
 
@@ -259,6 +259,8 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 							if ((score == -1 || score > Parameter::Instance()->score_treshold)) {
 								aln_event = tmp_aln->get_events_Aln();
 							}
+							cout<<"ALN: "<<aln_event.size()<<endl;
+
 							//		Parameter::Instance()->meassure_time(begin, " Alignment ");
 						}
 #pragma omp section
@@ -302,9 +304,6 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 		}
 	}
 //filter and copy results:
-
-
-
 	std::cout << "Finalizing  .." << std::endl;
 	std::vector<Breakpoint *> points;
 	bst.get_breakpoints(root, points);
@@ -317,6 +316,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 		del += "ref_allele";
 		system(del.c_str());
 	}*/
+
 	for (int i = 0; i < points.size(); i++) {
 		points[i]->calc_support();
 		if (points[i]->get_valid()) {

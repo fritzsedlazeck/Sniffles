@@ -1009,7 +1009,7 @@ vector<int> Alignment::get_avg_diff(double & dist, double & avg_del, double & av
 
 vector<str_event> Alignment::get_events_Aln() {
 
-	bool flag = (strcmp(this->getName().c_str(),Parameter::Instance()->read_name.c_str()) == 0);
+	bool flag = (strcmp(this->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
 
 //clock_t comp_aln = clock();
 	std::vector<indel_str> dels;
@@ -1030,9 +1030,9 @@ vector<str_event> Alignment::get_events_Aln() {
 	int noise_events = 0;
 //compute the profile of differences:
 	for (size_t i = 0; i < event_aln.size(); i++) {
-		pair_str tmp;
+			pair_str tmp;
 		tmp.position = -1;
-		if (event_aln[i].type == 0) {
+		if (event_aln[i].type == 0) { //substitutions.
 			tmp = plane->add_mut(event_aln[i].position, 1, Parameter::Instance()->window_thresh);
 		} else {
 			tmp = plane->add_mut(event_aln[i].position, 1, Parameter::Instance()->window_thresh);	// abs(event_aln[i].type)
@@ -1049,7 +1049,6 @@ vector<str_event> Alignment::get_events_Aln() {
 	int stop = 0;
 	size_t start = 0;
 	for (size_t i = 0; i < profile.size() && stop < event_aln.size(); i++) {
-
 		if (profile[i].position >= event_aln[stop].position) {
 			//find the postion:
 			size_t pos = 0;
@@ -1072,8 +1071,10 @@ vector<str_event> Alignment::get_events_Aln() {
 				}
 				prev += prev_type;
 			}
-			start++; //we are running one too far!
 
+			if(start+1<event_aln.size()){ //TODO do some testing!
+				start++; //we are running one too far!
+			}
 			//run forward to identify the stop:
 			prev = event_aln[pos].position;
 			stop = pos;
@@ -1091,8 +1092,12 @@ vector<str_event> Alignment::get_events_Aln() {
 			if (stop > 0) {
 				stop--;
 			}
+
+
+		//	cout<<start<<" events: "<<event_aln[start].type <<" pos "<<event_aln[start].readposition<<endl;
 			int insert_max_pos = 0;
 			int insert_max = 0;
+
 			if (event_aln[start].type < 0) {
 				insert_max_pos = event_aln[start].position;
 				insert_max = abs(event_aln[start].type);
@@ -1100,6 +1105,13 @@ vector<str_event> Alignment::get_events_Aln() {
 
 			int del_max = 0;
 			int del_max_pos = 0;
+
+			if (event_aln[start].type >0) {
+			//	cout<<"HIT"<<endl;
+				del_max_pos = event_aln[start].position;
+				del_max = event_aln[start].type;
+
+			}
 
 			double insert = 0;
 			double del = 0;
@@ -1122,6 +1134,8 @@ vector<str_event> Alignment::get_events_Aln() {
 					}
 				}
 			}
+
+		//	cout << "DELMAX: " << del_max << " " << Parameter::Instance()->avg_del << endl;
 			str_event tmp;
 			tmp.pos = event_aln[start].position;
 
@@ -1148,11 +1162,8 @@ vector<str_event> Alignment::get_events_Aln() {
 					}
 					tmp.read_pos = event_aln[start].readposition;
 					if (Parameter::Instance()->print_seq) {
-						//if (tmp.read_pos + tmp.length > this->getAlignment()->QueryBases.size() || tmp.read_pos<0) {
-						//	cerr << "BUG! ALN event INS: " << this->getName() << " " << tmp.read_pos << " " << tmp.length << " " << this->getAlignment()->QueryBases.size() << endl;
-						//	}
-						if(flag){
-							std::cout<<"Seq+:"<<this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length)<<std::endl;
+						if (flag) {
+							std::cout << "Seq+:" << this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length) << std::endl;
 
 						}
 						tmp.sequence = this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length);
@@ -1193,14 +1204,14 @@ vector<str_event> Alignment::get_events_Aln() {
 			}
 
 			if (flag) {
-			 cout << "Read: " << " " << (double) this->getRefLength() << " events: " << event_aln.size() << " " << this->al->Name << std::endl;
-			 cout << "INS max " << insert_max << " del_max " << del_max << std::endl;
-			 cout << "INS:" << insert << " DEL: " << del << " MIS: " << mismatch << endl;
-			 cout << event_aln[start].position << " " << event_aln[stop].position << endl;
-			 cout << "store: " << tmp.pos << " " << tmp.pos + abs(tmp.length) << " " << tmp.length << endl;
-			 cout << tmp.sequence<<endl;
-			 cout << endl;
-			 }
+				cout << "Read: " << " " << (double) this->getRefLength() << " events: " << event_aln.size() << " " << this->al->Name << std::endl;
+				cout << "INS max " << insert_max << " del_max " << del_max << std::endl;
+				cout << "INS:" << insert << " DEL: " << del << " MIS: " << mismatch << endl;
+				cout << event_aln[start].position << " " << event_aln[stop].position << endl;
+				cout << "store: " << tmp.pos << " " << tmp.pos + abs(tmp.length) << " " << tmp.length << endl;
+				cout << tmp.sequence << endl;
+				cout << endl;
+			}
 
 			if (tmp.type != 0) {
 				events.push_back(tmp);

@@ -75,7 +75,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 		double std_length = 0;
 		int zmws = 0;
 		bool ok_to_print = (to_print(SV, std_quant, kurtosis, std_length, zmws) || Parameter::Instance()->ignore_std);
-	//	std::cout << "Print check: " << std_quant.first << " " << std_quant.second << endl;
+		//std::cout << "Print check: " << std_quant.first << " " << std_quant.second << endl;
 		if (ok_to_print && (zmws == 0 || zmws >= Parameter::Instance()->min_zmw)) {
 			if (Parameter::Instance()->phase) {
 				store_readnames(SV->get_read_ids(), id);
