@@ -259,8 +259,6 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 							if ((score == -1 || score > Parameter::Instance()->score_treshold)) {
 								aln_event = tmp_aln->get_events_Aln();
 							}
-							cout<<"ALN: "<<aln_event.size()<<endl;
-
 							//		Parameter::Instance()->meassure_time(begin, " Alignment ");
 						}
 #pragma omp section
