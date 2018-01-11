@@ -50,7 +50,7 @@ void VCFPrinter::print_header() {
 	fprintf(file, "%s", "##INFO=<ID=SUPTYPE,Number=1,Type=String,Description=\"Type by which the variant is supported.(SR,ALN)\">\n");
 	fprintf(file, "%s", "##INFO=<ID=SUPTYPE,Number=1,Type=String,Description=\"Type by which the variant is supported.(SR,ALN)\">\n");
 	fprintf(file, "%s", "##INFO=<ID=STRANDS,Number=.,Type=String,Description=\"Strand orientation of the adjacency in BEDPE format (DEL:+-, DUP:-+, INV:++/--)\">\n");
-	fprintf(file, "%s", "##INFO=<ID=AF,Number=.,Type=Integer,Description=\"Allele Frequency.\">\n");
+	fprintf(file, "%s", "##INFO=<ID=AF,Number=.,Type=Float,Description=\"Allele Frequency.\">\n");
 	fprintf(file, "%s", "##INFO=<ID=ZMW,Number=.,Type=Integer,Description=\"Number of ZMWs (Pacbio) supporting SV.\">\n");
 	fprintf(file, "%s", "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n");
 	fprintf(file, "%s", "##FORMAT=<ID=DR,Number=1,Type=Integer,Description=\"# high-quality reference reads\">\n");
