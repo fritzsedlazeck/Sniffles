@@ -43,15 +43,15 @@ void VCFPrinter::print_header() {
 	if (Parameter::Instance()->report_n_reads > 0 || Parameter::Instance()->report_n_reads == -1) {
 		fprintf(file, "%s", "##INFO=<ID=RNAMES,Number=1,Type=String,Description=\"Names of reads supporting SVs (comma seperated)\">\n");
 	}
-	fprintf(file, "%s", "##INFO=<ID=STD_quant_start,Number=R,Type=Integer,Description=\"STD of the start breakpoints across the reads.\">\n");
-	fprintf(file, "%s", "##INFO=<ID=STD_quant_stop,Number=R,Type=Integer,Description=\"STD of the stop breakpoints across the reads.\">\n");
-	fprintf(file, "%s", "##INFO=<ID=Kurtosis_quant_start,Number=R,Type=Integer,Description=\"Kurtosis value of the start breakpoints accross the reads.\">\n");
-	fprintf(file, "%s", "##INFO=<ID=Kurtosis_quant_stop,Number=R,Type=Integer,Description=\"Kurtosis value of the stop breakpoints accross the reads.\">\n");
+	fprintf(file, "%s", "##INFO=<ID=STD_quant_start,Number=A,Type=Integer,Description=\"STD of the start breakpoints across the reads.\">\n");
+	fprintf(file, "%s", "##INFO=<ID=STD_quant_stop,Number=A,Type=Integer,Description=\"STD of the stop breakpoints across the reads.\">\n");
+	fprintf(file, "%s", "##INFO=<ID=Kurtosis_quant_start,Number=A,Type=Integer,Description=\"Kurtosis value of the start breakpoints accross the reads.\">\n");
+	fprintf(file, "%s", "##INFO=<ID=Kurtosis_quant_stop,Number=A,Type=Integer,Description=\"Kurtosis value of the stop breakpoints accross the reads.\">\n");
 	fprintf(file, "%s", "##INFO=<ID=SUPTYPE,Number=1,Type=String,Description=\"Type by which the variant is supported.(SR,ALN)\">\n");
 	fprintf(file, "%s", "##INFO=<ID=SUPTYPE,Number=1,Type=String,Description=\"Type by which the variant is supported.(SR,ALN)\">\n");
-	fprintf(file, "%s", "##INFO=<ID=STRANDS,Number=R,Type=String,Description=\"Strand orientation of the adjacency in BEDPE format (DEL:+-, DUP:-+, INV:++/--)\">\n");
-	fprintf(file, "%s", "##INFO=<ID=AF,Number=R,Type=Float,Description=\"Allele Frequency.\">\n");
-	fprintf(file, "%s", "##INFO=<ID=ZMW,Number=R,Type=Integer,Description=\"Number of ZMWs (Pacbio) supporting SV.\">\n");
+	fprintf(file, "%s", "##INFO=<ID=STRANDS,Number=A,Type=String,Description=\"Strand orientation of the adjacency in BEDPE format (DEL:+-, DUP:-+, INV:++/--)\">\n");
+	fprintf(file, "%s", "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Allele Frequency.\">\n");
+	fprintf(file, "%s", "##INFO=<ID=ZMW,Number=A,Type=Integer,Description=\"Number of ZMWs (Pacbio) supporting SV.\">\n");
 	fprintf(file, "%s", "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n");
 	fprintf(file, "%s", "##FORMAT=<ID=DR,Number=1,Type=Integer,Description=\"# high-quality reference reads\">\n");
 	fprintf(file, "%s", "##FORMAT=<ID=DV,Number=1,Type=Integer,Description=\"# high-quality variant reads\">\n");
