@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 project(Sniffles)
 
+option(STATIC "Build static binary" OFF)
+
  set( SNIF_VERSION_MAJOR 1 )
  set( SNIF_VERSION_MINOR 0 )
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
