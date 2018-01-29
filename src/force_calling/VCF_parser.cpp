@@ -96,6 +96,7 @@ short get_type(std::string type) {
 	} else if (strncmp(type.c_str(), "BND", 3) == 0) { //can be inv/inter/tra
 		return 5;
 	}
+	//std::cout << "type:" << type[0] << type[1] << type[2] << std::endl;
 	return -1;
 }
 
@@ -276,8 +277,8 @@ std::string get_most_effect(std::string alt, int ref) {
 }
 
 std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
-	size_t buffer_size = 200000000;
-	char*buffer = new char[buffer_size];
+	//size_t buffer_size = 200000000;
+	std::string buffer; //= new char[buffer_size];
 	std::ifstream myfile;
 	myfile.open(filename.c_str(), std::ifstream::in);
 	if (!myfile.good()) {
@@ -286,8 +287,8 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 	}
 
 	std::vector<strvcfentry> calls;
-	myfile.getline(buffer, buffer_size);
-
+	//myfile.getline(buffer, buffer_size);
+	getline(myfile, buffer);
 	int num = 0;
 	while (!myfile.eof()) {
 		if (buffer[0] != '#') {
@@ -306,7 +307,7 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 			tmp.num_reads.first = 0;
 			tmp.num_reads.second = 0;
 			tmp.sv_len = -1;
-			for (size_t i = 0; i < buffer_size && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
+			for (size_t i = 0; i < buffer.size() && buffer[i] != '\0' && buffer[i] != '\n'; i++) {
 
 				if (count == 0 && buffer[i] != '\t') {
 					tmp.start.chr += buffer[i];
@@ -328,7 +329,7 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 					tmp.stop = parse_stop(&buffer[i]);
 					//std::cout<<"Stop:"<<tmp.stop.pos<<std::endl;
 				}
-				if (count == 7 && strncmp(&buffer[i], "SVTYPE=", 7) == 0) {
+				if (count == 7 && (tmp.type == -1 && strncmp(&buffer[i], "SVTYPE=", 7) == 0)) {
 					tmp.type = get_type(std::string(&buffer[i + 7]));
 				}
 				if (count == 7 && strncmp(&buffer[i], ";SU=", 4) == 0) { //for lumpy!
@@ -376,16 +377,11 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 					tmp.num_reads = parse_delly(&buffer[i]);
 				}
 
-				if (count == 4 && buffer[i - 1] == '<') {
+				if (count == 4 && (tmp.type == -1 && buffer[i - 1] == '<')) {
 					tmp.type = get_type(std::string(&buffer[i]));
 				}
 				if (tmp.stop.pos == -1 && (count == 4 && (buffer[i - 1] == '[' || buffer[i - 1] == ']'))) {
 					tmp.stop = parse_pos(&buffer[i - 1]);
-				}
-
-				if (count == 9 && buffer[i - 1] == '\t') {
-					tmp.calls[filename] = std::string(&buffer[i]);
-					break;
 				}
 
 				if (count < 9) {
@@ -452,11 +448,12 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 				}
 				calls.push_back(tmp);
 			}
+
 			tmp.calls.clear();
 		} else {
 
 		}
-		myfile.getline(buffer, buffer_size);
+		getline(myfile, buffer);
 	}
 	myfile.close();
 //std::cout << calls.size() << std::endl;

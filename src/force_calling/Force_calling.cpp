@@ -39,6 +39,7 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 	//parse VCF file
 	std::vector<strvcfentry> entries = parse_vcf(Parameter::Instance()->input_vcf, 0);
 	std::cout << "\t\t" << entries.size() << " SVs found in input." << std::endl;
+	int invalid_svs=0;
 	for (size_t i = 0; i < entries.size(); i++) {
 		if (entries[i].type != -1) {
 			position_str svs;
@@ -64,10 +65,11 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 			Breakpoint * br = new Breakpoint(svs, (long) entries[i].sv_len, read.SV);
 			final.insert(br, root_final);
 		} else {
-			cerr << "Invalid type found skipping" << endl;
+			invalid_svs++;
+
 		}
 	}
-
+	cerr << "Invalid types found skipping " << invalid_svs    <<" entries." << endl;
 	//std::cout << "Print:" << std::endl;
 	//final.print(root_final);
 	entries.clear();
