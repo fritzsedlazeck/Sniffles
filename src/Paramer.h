@@ -26,7 +26,7 @@ private:
 	Parameter() {
 		window_thresh=10;//TODO check!
 		version="1.0.8";
-		huge_ins = 666000;//TODO check??
+		huge_ins = 999;//TODO check??
 	}
 	~Parameter() {
 

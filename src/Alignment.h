@@ -40,6 +40,7 @@ struct differences_str{
 	int position;
 	int readposition;
 	short type;
+	bool resolved;
 };
 struct indel_str{
 	int pos;

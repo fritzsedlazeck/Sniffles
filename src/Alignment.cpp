@@ -69,16 +69,19 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 			ev.position = pos;
 			ev.type = al->CigarData[i].Length; //deletion
 			ev.readposition = read_pos;
+			ev.resolved=true;
 			events.push_back(ev);
 			pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'I') {
 			ev.position = pos;
+			ev.resolved=true;
 			ev.readposition = read_pos;
 			ev.type = al->CigarData[i].Length * -1; //insertion
 			events.push_back(ev);
 			read_pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'N') {
 			pos += al->CigarData[i].Length;
+			ev.resolved=true;
 			read_pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'S' && al->CigarData[i].Length > Parameter::Instance()->huge_ins) { /// Used for reads ranging into an inser
 			string sa;
@@ -91,6 +94,7 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 				} else {
 					ev.readposition = read_pos;
 				}
+				ev.resolved=false;
 				ev.type = Parameter::Instance()->huge_ins * -1; //insertion: WE have to fix the length since we cannot estimate it!]
 				events.push_back(ev);
 			}

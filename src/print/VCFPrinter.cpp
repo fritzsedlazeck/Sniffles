@@ -115,7 +115,14 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 				fprintf(file, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());
 				fprintf(file, "%c", '>');
 			}
-			fprintf(file, "%s", "\t.\tPASS\t");
+
+			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
+				fprintf(file, "%s", "\t.\tUNRESOLVED\t");
+			}else{
+				fprintf(file, "%s", "\t.\tPASS\t");
+			}
+
+
 			if (std_quant.first < 10 && std_quant.second < 10) {
 				fprintf(file, "%s", "PRECISE");
 			} else {
@@ -163,8 +170,8 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%s", SV->get_supporting_types().c_str());
 			fprintf(file, "%s", ";SVLEN=");
 
-			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && !SV->get_types().is_ALN) {//!
-				fprintf(file, "%s", "NA");
+			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {//!
+				fprintf(file, "%i", 999999999);
 			} else {
 				fprintf(file, "%i", SV->get_length());
 			}
