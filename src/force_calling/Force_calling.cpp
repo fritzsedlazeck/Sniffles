@@ -46,6 +46,12 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 			svs.start.min_pos = (long) entries[i].start.pos + ref_lens[entries[i].start.chr];
 			svs.stop.max_pos = (long) entries[i].stop.pos + ref_lens[entries[i].stop.chr];
 			read_str read;
+			if(ref_lens.find(entries[i].start.chr)==ref_lens.end()){
+				cerr<<"Warning undefined CHR in VCF vs. BAM header: "<<entries[i].start.chr<<endl;
+			}
+			if(ref_lens.find(entries[i].stop.chr)==ref_lens.end()){
+				cerr<<"Warning undefined CHR in VCF vs. BAM header: "<<entries[i].stop.chr<<endl;
+			}
 			read.coordinates.first = (long) entries[i].start.pos + ref_lens[entries[i].start.chr];
 			read.coordinates.second = (long) entries[i].stop.pos + ref_lens[entries[i].stop.chr];
 			if (entries[i].type == 4) { //ins?

@@ -51,6 +51,81 @@ void add_event(int pos, size_t & i, vector<differences_str> & events) {
 	events.insert(events.begin() + i, ev);
 }
 
+/*
+ * :6-ata:10+gtc:4*at:3,
+ * -ata: del
+ * +gtc: ins
+ * *at a->t
+ * :10 match bp
+ * cs:Z::5+g:7+t:4+c:7-a:6*tg:15*tg:2+g:6+c:1+c:1+c:4+a:15+g:4+c:12*gt*ta:2+c:7+t:8+t:17+t:8+g:5+g:10-g:4+g*tc:5+t*ag:10+a:4-ttt
+ */
+
+vector<differences_str> Alignment::summarize_csstring(std::vector<indel_str> &dels) {
+	string cs = this->get_cs();
+	int pos = this->getPosition();
+	int corr = 0;
+	int ref_pos = 0;
+	size_t pos_events = 0;
+	int max_size = (this->getRefLength() * 0.9) + getPosition();
+	//	comp_aln = clock();
+
+	indel_str del;
+	del.sequence = "";
+	del.pos = -1;
+
+	vector<differences_str> events;
+	differences_str ev;
+	std::cout<<"CS: "<<cs<<std::endl;
+	for (size_t i = 0; i < cs.size() && pos < max_size; i++) {
+		ev.position = pos;
+		if (cs[i] == ':') { //match (can be numbers or bp!)
+			i++;
+			int num = atoi(&cs[i]); //is 0 if letter!
+			bool is_long = ((num == 0 && cs[i] != '0'));
+			while ((i < cs.size() && cs[i] != '+') && (cs[i] != '-' && cs[i] != '+')) {
+				i++;
+				if (is_long) {
+					num++;
+				}
+			}
+			cout<<"\tMatch: "<<num<<std::endl;
+			pos += num;
+		} else if (cs[i] == '*') { //mismatch (ref,alt) pairs
+			//only every second char counts!
+			add_event(pos, pos_events, events);
+			pos++;
+			i += 2;
+			ev.type = 0; //mismatch
+			cout<<"\tMiss: "<<1<<std::endl;
+		} else if (cs[i] == '-') { //del
+			//collet del seq in dels!
+			indel_str del;
+			del.sequence = "";
+			del.pos = pos;
+			while ((i < cs.size() && cs[i] != '+') && (cs[i] != '-' && cs[i] != '+')) {
+				del.sequence += cs[i];
+			}
+			dels.push_back(del);
+			pos += del.sequence.size();
+			ev.type = del.sequence.size();
+			cout<<"\tDEL: "<<del.sequence.size()<<std::endl;
+
+		} else if (cs[i] == '+') { //ins
+			int num=0;
+			while ((i < cs.size() && cs[i] != '+') && (cs[i] != '-' && cs[i] != '+')) {
+				i++;
+				num++;
+			}
+			ev.type =num*-1;
+			cout<<"\tINS: "<<num<<std::endl;
+		}
+		events.push_back(ev);
+
+	}
+	std::cout<<"end CS: "<<cs<<std::endl;
+	return events;
+}
+
 vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &dels) {
 //	clock_t comp_aln = clock();
 	vector<differences_str> events;
@@ -69,19 +144,19 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 			ev.position = pos;
 			ev.type = al->CigarData[i].Length; //deletion
 			ev.readposition = read_pos;
-			ev.resolved=true;
+			ev.resolved = true;
 			events.push_back(ev);
 			pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'I') {
 			ev.position = pos;
-			ev.resolved=true;
+			ev.resolved = true;
 			ev.readposition = read_pos;
 			ev.type = al->CigarData[i].Length * -1; //insertion
 			events.push_back(ev);
 			read_pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'N') {
 			pos += al->CigarData[i].Length;
-			ev.resolved=true;
+			ev.resolved = true;
 			read_pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'S' && al->CigarData[i].Length > Parameter::Instance()->huge_ins) { /// Used for reads ranging into an inser
 			string sa;
@@ -94,7 +169,7 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 				} else {
 					ev.readposition = read_pos;
 				}
-				ev.resolved=false;
+				ev.resolved = false;
 				ev.type = Parameter::Instance()->huge_ins * -1; //insertion: WE have to fix the length since we cannot estimate it!]
 				events.push_back(ev);
 			}
@@ -206,7 +281,7 @@ void Alignment::computeAlignment() {
 	}
 	if (to_del > 0) {
 		alignment.second = alignment.second.substr(0, alignment.second.size() - to_del);
-		//alignment.second.erase(alignment.second.size() - to_del, to_del);
+//alignment.second.erase(alignment.second.size() - to_del, to_del);
 	}
 	Parameter::Instance()->meassure_time(comp_aln, "\t\tCIGAR opterations ");
 	comp_aln = clock();
@@ -252,8 +327,8 @@ void Alignment::computeAlignment() {
 
 		cout << this->get_md() << endl;
 
-		//	exit(0);
-		//	return;
+//	exit(0);
+//	return;
 	}
 }
 int32_t Alignment::getPosition() {
@@ -604,7 +679,7 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 	string sa;
 	vector<aln_str> entries;
 	if (al->GetTag("SA", sa) && !sa.empty()) {
-		//store the main aln:
+//store the main aln:
 		aln_str tmp;
 		tmp.RefID = this->getRefID();
 		tmp.cigar = this->getCigar();
@@ -846,9 +921,24 @@ std::string Alignment::get_md() {
 	std::string md;
 	if (al->GetTag("MD", md)) {
 		return md;
+	}else{
+		std::cerr<<"No MD string detected! Check bam file! Otherwise generate using e.g. samtools."<<std::endl;
+		exit(0);
 	}
 	return md;
 }
+
+std::string Alignment::get_cs() {
+	std::string cs;
+	if (al->GetTag("cs", cs)) {
+		return cs;
+	}else{
+		std::cerr<<"No CS string detected! Check bam file!"<<std::endl;
+		exit(0);
+	}
+	return cs;
+}
+
 vector<str_event> Alignment::get_events_MD(int min_mis) {
 	vector<str_event> events;
 	/*std::string md;
@@ -1017,7 +1107,13 @@ vector<str_event> Alignment::get_events_Aln() {
 
 //clock_t comp_aln = clock();
 	std::vector<indel_str> dels;
-	vector<differences_str> event_aln = summarizeAlignment(dels);
+	vector<differences_str> event_aln;
+	if (Parameter::Instance()->cs_string) {
+		cout<<"run cs check "<<std::endl;
+		event_aln = summarize_csstring(dels);
+	} else {
+		event_aln = summarizeAlignment(dels);
+	}
 //double time2 = Parameter::Instance()->meassure_time(comp_aln, "\tcompAln Events: ");
 
 	vector<str_event> events;
@@ -1034,7 +1130,7 @@ vector<str_event> Alignment::get_events_Aln() {
 	int noise_events = 0;
 //compute the profile of differences:
 	for (size_t i = 0; i < event_aln.size(); i++) {
-			pair_str tmp;
+		pair_str tmp;
 		tmp.position = -1;
 		if (event_aln[i].type == 0) { //substitutions.
 			tmp = plane->add_mut(event_aln[i].position, 1, Parameter::Instance()->window_thresh);
@@ -1076,7 +1172,7 @@ vector<str_event> Alignment::get_events_Aln() {
 				prev += prev_type;
 			}
 
-			if(start+1<event_aln.size()){ //TODO do some testing!
+			if (start + 1 < event_aln.size()) { //TODO do some testing!
 				start++; //we are running one too far!
 			}
 			//run forward to identify the stop:
@@ -1097,8 +1193,7 @@ vector<str_event> Alignment::get_events_Aln() {
 				stop--;
 			}
 
-
-		//	cout<<start<<" events: "<<event_aln[start].type <<" pos "<<event_aln[start].readposition<<endl;
+			//	cout<<start<<" events: "<<event_aln[start].type <<" pos "<<event_aln[start].readposition<<endl;
 			int insert_max_pos = 0;
 			int insert_max = 0;
 
@@ -1110,8 +1205,8 @@ vector<str_event> Alignment::get_events_Aln() {
 			int del_max = 0;
 			int del_max_pos = 0;
 
-			if (event_aln[start].type >0) {
-			//	cout<<"HIT"<<endl;
+			if (event_aln[start].type > 0) {
+				//	cout<<"HIT"<<endl;
 				del_max_pos = event_aln[start].position;
 				del_max = event_aln[start].type;
 
@@ -1139,7 +1234,7 @@ vector<str_event> Alignment::get_events_Aln() {
 				}
 			}
 
-		//	cout << "DELMAX: " << del_max << " " << Parameter::Instance()->avg_del << endl;
+			//	cout << "DELMAX: " << del_max << " " << Parameter::Instance()->avg_del << endl;
 			str_event tmp;
 			tmp.pos = event_aln[start].position;
 

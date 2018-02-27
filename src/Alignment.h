@@ -82,6 +82,7 @@ private:
 	 size_t get_length(std::vector<CigarOp> CigarData);
 	 int get_id(RefVector ref, std::string chr);
 	 vector<differences_str> summarizeAlignment(std::vector<indel_str> &dels);
+	 vector<differences_str> summarize_csstring (std::vector<indel_str> &dels) ;
 	 void sort_insert(aln_str tmp, vector<aln_str> &entries);
 
 	 void sort_insert_ref(aln_str tmp, vector<aln_str> &entries);
@@ -142,6 +143,7 @@ public:
 	 double get_num_mismatches(std::string md);
 	 double get_scrore_ratio();
 	 std::string get_md();
+	 std::string get_cs();
 	 double get_avg_indel_length_Cigar();
 	 vector<int> get_avg_diff(double & dist,double & avg_del, double & avg_len);
 

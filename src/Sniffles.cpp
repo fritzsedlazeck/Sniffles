@@ -90,6 +90,8 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::SwitchArg arg_seq("", "report_seq", "Report sequences for indels in vcf output. (Beta version!) ", cmd, false);
 	TCLAP::SwitchArg arg_coords("", "change_coords", "Adopt coordinates for force calling if finding evidence. ", cmd, false);
 	TCLAP::SwitchArg arg_parameter("", "skip_parameter_estimation", "Enables the scan if only very few reads are present. ", cmd, false);
+	TCLAP::SwitchArg arg_cs_string("", "cs_string", "Enables the scan of CS string instead of Cigar and MD. ", cmd, false);
+
 
 	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1). ", false, 0.0, "float", cmd);
 	TCLAP::ValueArg<float> arg_hetfreq("", "min_het_af", "Threshold on allele frequency (0-1). ", false, 0.3, "float", cmd);
@@ -120,6 +122,7 @@ void read_parameters(int argc, char *argv[]) {
 	printParameter<int>(usage, arg_numreads);
 	printParameter<int>(usage, arg_segsize);
 	printParameter<int>(usage, arg_zmw);
+	printParameter(usage,arg_cs_string);
 
 	usage << "" << std::endl;
 	usage << "Clustering/phasing and genotyping:" << std::endl;
@@ -196,6 +199,7 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->homfreq = arg_homofreq.getValue();
 	Parameter::Instance()->hetfreq = arg_hetfreq.getValue();
 	Parameter::Instance()->skip_parameter_estimation = arg_parameter.getValue();
+	Parameter::Instance()->cs_string = arg_cs_string.getValue();
 
 	if (Parameter::Instance()->skip_parameter_estimation) {
 		cout<<"\tSkip parameter estimation."<<endl;

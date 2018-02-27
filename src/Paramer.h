@@ -83,6 +83,7 @@ public:
 	bool print_seq;
 	bool change_coords; //indicating for --Ivcf
 	bool skip_parameter_estimation;
+	bool cs_string;
 
 	void set_regions(std::string reg) {
 		size_t i = 0;

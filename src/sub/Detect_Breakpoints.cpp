@@ -249,6 +249,9 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 			std::vector<aln_str> split_events;
 			if (tmp_aln->getMappingQual() > Parameter::Instance()->min_mq) {
 				double score = tmp_aln->get_scrore_ratio();
+
+				//
+
 #pragma omp parallel // starts a new team
 				{
 #pragma omp sections
