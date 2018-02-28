@@ -430,14 +430,7 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 				tmp.sv_len = abs(tmp.start.pos - tmp.stop.pos);
 			}
 			if ((strcmp(tmp.start.chr.c_str(), tmp.stop.chr.c_str()) != 0 || (tmp.sv_len >= min_svs))) { // || tmp.type==4
-				std::size_t found = tmp.stop.chr.find("chr");
-				if (found != std::string::npos) {
-					tmp.stop.chr.erase(tmp.stop.chr.begin() + found, tmp.stop.chr.begin() + found + 3);
-				}
-				found = tmp.start.chr.find("chr");
-				if (found != std::string::npos) {
-					tmp.start.chr.erase(tmp.start.chr.begin() + found, tmp.start.chr.begin() + found + 3);
-				}
+
 
 				if (tmp.type == 5) { //BND
 					if (strcmp(tmp.stop.chr.c_str(), tmp.start.chr.c_str()) == 0) {
