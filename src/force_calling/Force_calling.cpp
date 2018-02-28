@@ -43,7 +43,7 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 	for (size_t i = 0; i < entries.size(); i++) {
 		if (entries[i].type != -1) {
 			position_str svs;
-			cout<<"start: "<<entries[i].start.chr << " stop "<<entries[i].stop.chr<<endl;
+			//cout<<"start: "<<entries[i].start.chr << " stop "<<entries[i].stop.chr<<endl;
 			svs.start.min_pos = (long) entries[i].start.pos + ref_lens[entries[i].start.chr];
 			svs.stop.max_pos = (long) entries[i].stop.pos + ref_lens[entries[i].stop.chr];
 			read_str read;
