@@ -8,7 +8,7 @@
 #include "BedpePrinter.h"
 
 void BedpePrinter::print_header() {
-	fprintf(file, "%s", "#Chrom\tstart\tstop\tchrom2\tstart2\tstop2\tvariant_name/ID\tscore (smaller is better)\tstrand1\tstrand2\ttype\tnumber_of_split_reads\tbest_chr1\tbest_start\tbest_chr2\tbest_stop\tpredicted_length\n");
+	fprintf(file, "%s", "#Chrom\tstart\tstop\tchrom2\tstart2\tstop2\tvariant_name/ID\tscore (smaller is better)\tstrand1\tstrand2\ttype\tnumber_of_split_reads\tbest_chr1\tbest_start\tbest_chr2\tbest_stop\tpredicted_length\tFILTER\n");
 }
 void BedpePrinter::print_body(Breakpoint * &SV, RefVector ref) {
 	if (!this->bed_tree.is_in(SV->get_coordinates().start.most_support, this->root) && !this->bed_tree.is_in(SV->get_coordinates().stop.most_support, this->root)) {
@@ -29,18 +29,35 @@ void BedpePrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			std::string chr;
 			std::string strands = SV->get_strand(2);
 			int pos = IPrinter::calc_pos(SV->get_coordinates().start.min_pos, ref, chr);
+
+			//start coordinates:
 			fprintf(file, "%s", chr.c_str());
 			fprintf(file, "%c", '\t');
 			fprintf(file, "%i", pos);
 			fprintf(file, "%c", '\t');
 			fprintf(file, "%i", IPrinter::calc_pos(SV->get_coordinates().start.max_pos, ref, chr));
 			fprintf(file, "%c", '\t');
-			pos = IPrinter::calc_pos(SV->get_coordinates().stop.min_pos, ref, chr);
+
+			//stop coordinates
+			string chr_start;
+			int start = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr_start);
+
+			long end_coord = SV->get_coordinates().stop.min_pos;
+			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
+				end_coord = std::max((SV->get_coordinates().stop.min_pos -(long)SV->get_length()), (long)start);
+			}
+
+			pos = IPrinter::calc_pos(end_coord, ref, chr);
+
 			fprintf(file, "%s", chr.c_str());
 			fprintf(file, "%c", '\t');
 			fprintf(file, "%i", pos);
 			fprintf(file, "%c", '\t');
-			fprintf(file, "%i", IPrinter::calc_pos(SV->get_coordinates().stop.max_pos, ref, chr));
+			end_coord = SV->get_coordinates().stop.max_pos;
+			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
+				end_coord = std::max((SV->get_coordinates().stop.max_pos - (long) SV->get_length()), (long)start);
+			}
+			fprintf(file, "%i", IPrinter::calc_pos(end_coord, ref, chr));
 			fprintf(file, "%c", '\t');
 			fprintf(file, "%i", id);
 			id++;
@@ -55,21 +72,37 @@ void BedpePrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%c", '\t');
 			fprintf(file, "%i", SV->get_support());
 			fprintf(file, "%c", '\t');
-			pos = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr);
+			fprintf(file, "%s", chr_start.c_str());
+			fprintf(file, "%c", '\t');
+			fprintf(file, "%i", start);
+			fprintf(file, "%c", '\t');
+
+			end_coord = SV->get_coordinates().stop.most_support;
+			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
+				end_coord =  std::max((SV->get_coordinates().stop.most_support - (long) SV->get_length()), (long)start);
+			}
+
+			pos = IPrinter::calc_pos(end_coord, ref, chr);
 			fprintf(file, "%s", chr.c_str());
 			fprintf(file, "%c", '\t');
 			fprintf(file, "%i", pos);
 			fprintf(file, "%c", '\t');
-			pos = IPrinter::calc_pos(SV->get_coordinates().stop.most_support, ref, chr);
-			fprintf(file, "%s", chr.c_str());
-			fprintf(file, "%c", '\t');
-			fprintf(file, "%i", pos);
-			fprintf(file, "%c", '\t');
-			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && !SV->get_types().is_SR) {
+
+
+			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {//!
 				fprintf(file, "%s", "NA");
 			} else {
 				fprintf(file, "%i", SV->get_length());
 			}
+
+			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
+				fprintf(file, "%s", "\tUNRESOLVED\t");
+			} else 	if (std_quant.first < 10 && std_quant.second < 10) {
+				fprintf(file, "%s", "PRECISE");
+			} else {
+				fprintf(file, "%s", "IMPRECISE");
+			}
+
 			//fprintf(file, "%c", '\t');
 			//fprintf(file, "%i", SV->get_support());
 			fprintf(file, "%c", '\n');

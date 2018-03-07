@@ -89,7 +89,12 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%i", id);
 			id++;
 
-			int end = IPrinter::calc_pos(SV->get_coordinates().stop.most_support, ref, chr);
+			long end_coord=SV->get_coordinates().stop.most_support;
+			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
+				end_coord=std::max((SV->get_coordinates().stop.most_support - (long)SV->get_length()),(long) start);
+			}
+
+			int end = IPrinter::calc_pos(end_coord, ref, chr);
 			std::string strands = SV->get_strand(1);
 			fprintf(file, "%s", "\tN\t");
 			if (Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA)) {
@@ -136,11 +141,11 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 				fprintf(file, "%s", chr.c_str());
 				fprintf(file, "%s", ";END=");
 
-				if (SV->get_SVtype() & INS) {
-					fprintf(file, "%i", std::max((int) (end - SV->get_length()), start));
-				} else {
+				//if (SV->get_SVtype() & INS) {
+				//	fprintf(file, "%i", std::max((int) (end - SV->get_length()), start));
+				//} else {
 					fprintf(file, "%i", end);
-				}
+				//}
 			}
 			if (zmws != 0) {
 				fprintf(file, "%s", ";ZMW=");
