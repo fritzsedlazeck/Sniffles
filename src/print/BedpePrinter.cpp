@@ -96,11 +96,11 @@ void BedpePrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			}
 
 			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
-				fprintf(file, "%s", "\tUNRESOLVED\t");
+				fprintf(file, "%s", "\tUNRESOLVED");
 			} else 	if (std_quant.first < 10 && std_quant.second < 10) {
-				fprintf(file, "%s", "PRECISE");
+				fprintf(file, "%s", "\tPRECISE");
 			} else {
-				fprintf(file, "%s", "IMPRECISE");
+				fprintf(file, "%s", "\tIMPRECISE");
 			}
 
 			//fprintf(file, "%c", '\t');
