@@ -803,7 +803,7 @@ bool Alignment::get_is_save() {
 	string sa;
 
 	double score = get_scrore_ratio(); //TODO should I use this again for bwa?
-	cout<<score<<endl;
+//	cout<<score<<endl;
 
 	return !((al->GetTag("XA", sa) && !sa.empty()) || (al->GetTag("XT", sa) && !sa.empty())) && (score == -1 || score > Parameter::Instance()->score_treshold); //|| //TODO: 7.5
 }
