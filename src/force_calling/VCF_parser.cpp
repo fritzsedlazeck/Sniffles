@@ -354,7 +354,7 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 				if (count == 7 && strncmp(&buffer[i], ";STRANDS=", 9) == 0) {
 					set_strand = true;
 					tmp.strands.first = (bool) (buffer[i + 9] == '+');
-					tmp.strands.second = (bool) (buffer[i + 10] == '+');
+					tmp.strands.second = (bool)(buffer[i + 10] == '+');
 				}
 
 				if (count == 9 && buffer[i - 1] == '\t') { //parsing genotype;
@@ -430,7 +430,6 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 				tmp.sv_len = abs(tmp.start.pos - tmp.stop.pos);
 			}
 			if ((strcmp(tmp.start.chr.c_str(), tmp.stop.chr.c_str()) != 0 || (tmp.sv_len >= min_svs))) { // || tmp.type==4
-
 
 				if (tmp.type == 5) { //BND
 					if (strcmp(tmp.stop.chr.c_str(), tmp.start.chr.c_str()) == 0) {

@@ -358,9 +358,9 @@ void Breakpoint::predict_SV() {
 	std::vector<long> stops2;
 	std::vector<long> lengths2;
 
-	bool scan_reads=true;
-	if(positions.support.find("input") != positions.support.end() && !Parameter::Instance()->change_coords){
-		scan_reads=false;
+	bool scan_reads = true;
+	if (positions.support.find("input") != positions.support.end() && !Parameter::Instance()->change_coords) {
+		scan_reads = false;
 	}
 
 	for (std::map<std::string, read_str>::iterator i = positions.support.begin(); i != positions.support.end() && scan_reads; i++) {
@@ -441,7 +441,6 @@ void Breakpoint::predict_SV() {
 		this->indel_sequence = "";
 
 		//find the stop coordinate:
-
 		maxim = 0;
 		coord = 0;
 		mean = 0;
@@ -457,6 +456,7 @@ void Breakpoint::predict_SV() {
 		} else {
 			this->positions.stop.most_support = coord;
 		}
+
 		//find the length:
 		if (!(this->get_SVtype() & INS)) { //all types but Insertions:
 			this->length = this->positions.stop.most_support - this->positions.start.most_support;
@@ -479,10 +479,11 @@ void Breakpoint::predict_SV() {
 			} else {
 				this->length = coord;
 			}
-		//	cout << "third len: " << this->length << endl; // problem!
+			//	cout << "third len: " << this->length << endl; // problem!
 		}
 		starts.clear();
 		stops.clear();
+		//strand information:
 		for (size_t i = 0; i < strands.size(); i++) {
 			maxim = 0;
 			std::string id;
@@ -499,19 +500,40 @@ void Breakpoint::predict_SV() {
 			}
 		}
 		strands.clear();
+	}
 
-		std::map<std::string, read_str>::iterator tmp = positions.support.begin();
-		int start_prev_dist = 1000;
-		int stop_prev_dist = 1000;
-		while (tmp != positions.support.end()) {
-			int start_dist = abs((*tmp).second.coordinates.first - this->positions.start.most_support);
-			int stop_dist = abs((*tmp).second.coordinates.second - this->positions.stop.most_support);
-			if (((*tmp).second.SV & this->sv_type) && ((start_dist < start_prev_dist && stop_dist < stop_prev_dist) && (strcmp((*tmp).second.sequence.c_str(), "NA") != 0 && !(*tmp).second.sequence.empty()))) {
-				this->indel_sequence = (*tmp).second.sequence;
-			}
-			tmp++;
+	if (!scan_reads) {
+	//	std::cout<<"Test strand"<<std::endl;
+		//if forcecalling we need to define the strands:
+		std::map<std::string, read_str>::iterator it = positions.support.find("input");
+
+		//no output!??
+		/*if ((*it).second.strand.first) {
+			std::cout << "s1: true" << endl;
+		}
+		if ((*it).second.strand.second) {
+			std::cout << "s2: true" << endl;
+		}*/
+		if (it != positions.support.end()) {
+			this->strand.push_back(translate_strand((*it).second.strand));
 		}
 	}
+	std::map<std::string, read_str>::iterator tmp = positions.support.begin();
+	int start_prev_dist = 1000;
+	int stop_prev_dist = 1000;
+
+	while (tmp != positions.support.end()) {
+		int start_dist = abs((*tmp).second.coordinates.first - this->positions.start.most_support);
+		int stop_dist = abs((*tmp).second.coordinates.second - this->positions.stop.most_support);
+		if (((*tmp).second.SV & this->sv_type) && ((start_dist < start_prev_dist && stop_dist < stop_prev_dist) && (strcmp((*tmp).second.sequence.c_str(), "NA") != 0 && !(*tmp).second.sequence.empty()))) {
+			this->indel_sequence = (*tmp).second.sequence;
+
+			stop_prev_dist = stop_dist; //new to test!
+			start_prev_dist = start_dist;
+		}
+		tmp++;
+	}
+	//}
 	this->supporting_types = "";
 	if (positions.support.find("input") != positions.support.end()) {
 		if (num == 0) {

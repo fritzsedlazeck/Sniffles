@@ -39,7 +39,7 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 	//parse VCF file
 	std::vector<strvcfentry> entries = parse_vcf(Parameter::Instance()->input_vcf, 0);
 	std::cout << "\t\t" << entries.size() << " SVs found in input." << std::endl;
-	int invalid_svs=0;
+	int invalid_svs = 0;
 	for (size_t i = 0; i < entries.size(); i++) {
 		if (entries[i].type != -1) {
 			position_str svs;
@@ -47,21 +47,21 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 			svs.start.min_pos = (long) entries[i].start.pos + ref_lens[entries[i].start.chr];
 			svs.stop.max_pos = (long) entries[i].stop.pos + ref_lens[entries[i].stop.chr];
 			read_str read;
-			if(ref_lens.find(entries[i].start.chr)==ref_lens.end()){
-				cerr<<"Warning undefined CHR in VCF vs. BAM header: "<<entries[i].start.chr<<endl;
+			if (ref_lens.find(entries[i].start.chr) == ref_lens.end()) {
+				cerr << "Warning undefined CHR in VCF vs. BAM header: " << entries[i].start.chr << endl;
 			}
-			if(ref_lens.find(entries[i].stop.chr)==ref_lens.end()){
-				cerr<<"Warning undefined CHR in VCF vs. BAM header: "<<entries[i].stop.chr<<endl;
+			if (ref_lens.find(entries[i].stop.chr) == ref_lens.end()) {
+				cerr << "Warning undefined CHR in VCF vs. BAM header: " << entries[i].stop.chr << endl;
 			}
 			read.coordinates.first = (long) entries[i].start.pos + ref_lens[entries[i].start.chr];
 			read.coordinates.second = (long) entries[i].stop.pos + ref_lens[entries[i].stop.chr];
 			if (entries[i].type == 4) { //ins?
-				if(entries[i].sv_len== Parameter::Instance()->huge_ins){
+				if (entries[i].sv_len == Parameter::Instance()->huge_ins) {
 					entries[i].sv_len++; // bad hack!
 				}
 				svs.stop.max_pos += (long) entries[i].sv_len;
-				read.coordinates.second+=(long) entries[i].sv_len;
-			//	cout << "Parse: " << entries[i].start.pos << " " << entries[i].stop.pos << " " << svs.start.min_pos  <<" "<<svs.stop.max_pos  << endl;
+				read.coordinates.second += (long) entries[i].sv_len;
+				//	cout << "Parse: " << entries[i].start.pos << " " << entries[i].stop.pos << " " << svs.start.min_pos  <<" "<<svs.stop.max_pos  << endl;
 			}
 
 			read.SV = assign_type(entries[i].type);
@@ -76,7 +76,7 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 
 		}
 	}
-	cerr << "Invalid types found skipping " << invalid_svs    <<" entries." << endl;
+	cerr << "Invalid types found skipping " << invalid_svs << " entries." << endl;
 	//std::cout << "Print:" << std::endl;
 	//final.print(root_final);
 	entries.clear();
@@ -106,7 +106,7 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 	fill_tree(final, root_final, ref, ref_lens);
 
 	int current_RefID = 0;
-	std::cout << "Start parsing: Chr "<<ref[current_RefID].RefName << std::endl;
+	std::cout << "Start parsing: Chr " << ref[current_RefID].RefName << std::endl;
 
 	//FILE * alt_allel_reads;
 	FILE * ref_allel_reads;
@@ -210,5 +210,5 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 		points[i]->predict_SV();
 		printer->printSV(points[i]); //redo! Ignore min support + STD etc.
 	}
-	std::cout << "Fin!" << std::endl;
+
 }

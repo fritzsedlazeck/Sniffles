@@ -176,7 +176,7 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 		}
 	}
 
-	/*if (flag) {
+	if (flag) {
 	 std::cout << "FIRST:" << std::endl;
 	 for (size_t i = 0; i < events.size(); i++) {
 	 if (abs(events[i].type) > 200) {
@@ -184,7 +184,7 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 	 }
 	 }
 	 cout << endl;
-	 }*/
+	 }
 
 //set ref length requ. later on:
 	this->ref_len = pos - getPosition(); //TODO compare to get_length!
@@ -791,8 +791,7 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 double Alignment::get_scrore_ratio() {
 	uint score = -1;
 	uint subscore = -1;
-	if (al->GetTag("AS", score)) {
-		al->GetTag("XS", subscore);
+	if (al->GetTag("AS", score) && al->GetTag("XS", subscore)) {
 		if (subscore == 0) {
 			subscore = 1;
 		}
@@ -804,6 +803,7 @@ bool Alignment::get_is_save() {
 	string sa;
 
 	double score = get_scrore_ratio(); //TODO should I use this again for bwa?
+	cout<<score<<endl;
 
 	return !((al->GetTag("XA", sa) && !sa.empty()) || (al->GetTag("XT", sa) && !sa.empty())) && (score == -1 || score > Parameter::Instance()->score_treshold); //|| //TODO: 7.5
 }
@@ -1108,12 +1108,12 @@ vector<str_event> Alignment::get_events_Aln() {
 //clock_t comp_aln = clock();
 	std::vector<indel_str> dels;
 	vector<differences_str> event_aln;
-	if (Parameter::Instance()->cs_string) {
+/*	if (Parameter::Instance()->cs_string) {
 		cout<<"run cs check "<<std::endl;
 		event_aln = summarize_csstring(dels);
-	} else {
+	} else {*/
 		event_aln = summarizeAlignment(dels);
-	}
+//	}
 //double time2 = Parameter::Instance()->meassure_time(comp_aln, "\tcompAln Events: ");
 
 	vector<str_event> events;
