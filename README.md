@@ -12,8 +12,8 @@ https://github.com/philres/ngmlr
 
 ****************************************
 ## Citation:
-Please see and cite our preprint:
-http://www.biorxiv.org/content/early/2017/07/28/169557
+Please see and cite our paper:
+https://www.nature.com/articles/s41592-018-0001-7
   
 **************************************
 ## Poster & Talks:
