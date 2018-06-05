@@ -44,6 +44,9 @@ void VCFPrinter::print_header() {
 	if (Parameter::Instance()->report_n_reads > 0 || Parameter::Instance()->report_n_reads == -1) {
 		fprintf(file, "%s", "##INFO=<ID=RNAMES,Number=1,Type=String,Description=\"Names of reads supporting SVs (comma separated)\">\n");
 	}
+	if (Parameter::Instance()->print_seq && !SV->get_sequence().empty()) {
+		fprintf(file, "%s", "##INFO=<ID=SEQ,Number=1,Type=String,Description=\"Extracted sequence from the best representative read.\">\n");
+	}
 
 	fprintf(file, "%s", "##INFO=<ID=STD_quant_start,Number=A,Type=Integer,Description=\"STD of the start breakpoints across the reads.\">\n");
 	fprintf(file, "%s", "##INFO=<ID=STD_quant_stop,Number=A,Type=Integer,Description=\"STD of the stop breakpoints across the reads.\">\n");
