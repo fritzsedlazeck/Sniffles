@@ -4,6 +4,24 @@ Sniffles is a structural variation caller using third generation sequencing (Pac
 
 Please see our github wiki for more information (https://github.com/fritzsedlazeck/Sniffles/wiki)
 
+
+# How to build Sniffles
+<pre>wget https://github.com/fritzsedlazeck/Sniffles/archive/master.tar.gz -O Sniffles.tar.gz
+tar xzvf Sniffles.tar.gz
+cd Sniffles-master/
+mkdir -p build/
+cd build/
+cmake ..
+make
+
+cd ../bin/sniffles*
+./sniffles</pre>
+
+Note Mac users often have to provide parameters to the cmake command:
+<pre>cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 .. 
+</pre>
+
+
 **************************************
 ## NGMLR
 Sniffles performs best with the mappings of NGMLR our novel long read mapping method. 
