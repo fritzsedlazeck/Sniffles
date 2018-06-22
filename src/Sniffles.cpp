@@ -2,16 +2,16 @@
 // Name        : Sniffles.cpp
 // Author      : Fritz Sedlazeck
 // Version     :
-// Copyright   : Your copyright notice
-// Description : Hello World in C++, Ansi-style
+// Copyright   : MIT License
+// Description : Detection of SVs for long read data.
 //============================================================================
-// phil: cd ~/hetero/philipp/pacbio/example-svs/reads
 //For mac: cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
 #include <iostream>
 #include "Paramer.h"
 #include <tclap/CmdLine.h>
 #include <unistd.h>
 #include <omp.h>
+
 #include "Genotyper/Genotyper.h"
 #include "realign/Realign.h"
 #include "sub/Detect_Breakpoints.h"
@@ -26,6 +26,7 @@
 #include "force_calling/Force_calling.h"
 
 //cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
+//cmake -D CMAKE_C_COMPILER=gcc-mp-7 -D CMAKE_CXX_COMPILER=g++-mp-7 ..
 
 //TODO:
 //check strand headers.
@@ -91,6 +92,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::SwitchArg arg_coords("", "change_coords", "Adopt coordinates for force calling if finding evidence. ", cmd, false);
 	TCLAP::SwitchArg arg_parameter("", "skip_parameter_estimation", "Enables the scan if only very few reads are present. ", cmd, false);
 	TCLAP::SwitchArg arg_cs_string("", "cs_string", "Enables the scan of CS string instead of Cigar and MD. ", cmd, false);
+	TCLAP::SwitchArg arg_read_strand("", "report_read_strands", "Enables the report of the strand categories per read. (Beta) ", cmd, false);
 
 	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1). ", false, 0.0, "float", cmd);
 	TCLAP::ValueArg<float> arg_hetfreq("", "min_het_af", "Threshold on allele frequency (0-1). ", false, 0.3, "float", cmd);
@@ -137,6 +139,7 @@ void read_parameters(int argc, char *argv[]) {
 	printParameter(usage, arg_bnd);
 	printParameter(usage, arg_seq);
 	printParameter(usage, arg_std);
+	printParameter(usage,arg_read_strand);
 
 	usage << "" << std::endl;
 	usage << "Parameter estimation:" << std::endl;
@@ -199,6 +202,7 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->hetfreq = arg_hetfreq.getValue();
 	Parameter::Instance()->skip_parameter_estimation = arg_parameter.getValue();
 	Parameter::Instance()->cs_string = arg_cs_string.getValue();
+	Parameter::Instance()->read_strand=arg_read_strand.getValue();
 
 	if (Parameter::Instance()->skip_parameter_estimation) {
 		cout<<"\tSkip parameter estimation."<<endl;

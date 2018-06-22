@@ -25,28 +25,36 @@ void Breakpoint_Tree::find(int position, std::string chr, breakpoint_node *par, 
 	}
 }
 
-void Breakpoint_Tree::overalps(int start, int stop, std::string chr, breakpoint_node *par) {
+void Breakpoint_Tree::overalps(int start, int stop, std::string chr, breakpoint_node *par, bool ref_strand) {
 	//start + stop: read coordinates.
 	if (par == NULL) { //not found
 		return;
 	}
 	if (par->direction) { //start
-		if ((par->position-100 > start && par->position+100 < stop) && strcmp(chr.c_str(), par->chr.c_str()) == 0) { //found
-			par->ref_support++;
-	//		std::cout<<"start: "<<start<<" "<<stop<<std::endl;
+		if ((par->position - 100 > start && par->position + 100 < stop) && strcmp(chr.c_str(), par->chr.c_str()) == 0) { //found
+			if (ref_strand) {
+				par->ref_support.first++;
+			} else {
+				par->ref_support.second++;
+			}
+			//		std::cout<<"start: "<<start<<" "<<stop<<std::endl;
 		}
 	} else { //stop coordinate
-		if ((par->position > start+100 && par->position < stop-100) && strcmp(chr.c_str(), par->chr.c_str()) == 0) { //found
-			par->ref_support++;
-	//		std::cout<<"stop: "<< start<<" "<<stop<<std::endl;
+		if ((par->position > start + 100 && par->position < stop - 100) && strcmp(chr.c_str(), par->chr.c_str()) == 0) { //found
+			if (ref_strand) {
+				par->ref_support.first++;
+			} else {
+				par->ref_support.second++;
+			}
+			//		std::cout<<"stop: "<< start<<" "<<stop<<std::endl;
 		}
 	}
 
 	//search goes on:
 	if (start < par->position) {
-		overalps(start, stop, chr, par->left);
+		overalps(start, stop, chr, par->left, ref_strand);
 	} else {
-		overalps(start, stop, chr, par->right);
+		overalps(start, stop, chr, par->right, ref_strand);
 	}
 }
 
@@ -57,7 +65,8 @@ void Breakpoint_Tree::insert(breakpoint_node *&tree, std::string chr, int positi
 	if (tree == NULL) {
 		tree = new breakpoint_node;
 		tree->position = position;
-		tree->ref_support = 0;
+		tree->ref_support.first = 0;
+		tree->ref_support.second = 0;
 		tree->chr = chr;
 		tree->direction = direction;
 		tree->left = NULL;
@@ -70,19 +79,23 @@ void Breakpoint_Tree::insert(breakpoint_node *&tree, std::string chr, int positi
 		//std::cerr << "Element exists!" << std::endl;
 		//TODO we should use this information to assess the reliability of this call!
 	} else {
-		insert(tree->left, chr, position,position); //think about that!
+		insert(tree->left, chr, position, position); //think about that!
 	}
 }
 
-int Breakpoint_Tree::get_ref(breakpoint_node *&tree, std::string chr, int position) {
+std::pair<int,int> Breakpoint_Tree::get_ref(breakpoint_node *&tree, std::string chr, int position ) {
 	if (tree == NULL) {
-		return -1;
+		std::pair<int,int> tmp;
+		tmp.first=-1;
+		tmp.second=-1;
+		return tmp;
 	}
 	if (tree->position > position) {
 		return get_ref(tree->left, chr, position);
 	} else if (tree->position < position) {
 		return get_ref(tree->right, chr, position);
 	} else if (strcmp(chr.c_str(), tree->chr.c_str()) == 0) { // found element
+
 		return tree->ref_support;
 	} else {
 		return get_ref(tree->left, chr, position); //just in case.
@@ -231,7 +244,7 @@ void Breakpoint_Tree::inorder(breakpoint_node *ptr) {
 	}
 	if (ptr != NULL) {
 		inorder(ptr->left);
-		std::cout << ptr->chr << " " << ptr->position << "  " << ptr->ref_support << std::endl;
+		std::cout << ptr->chr << " " << ptr->position << "  " << ptr->ref_support.first <<" "<< ptr->ref_support.second<< std::endl;
 		inorder(ptr->right);
 	}
 }

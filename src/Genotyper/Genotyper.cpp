@@ -31,7 +31,8 @@ std::string Genotyper::assess_genotype(int ref, int support) {
 	return ss.str();
 }
 
-std::string Genotyper::mod_breakpoint_vcf(string buffer, int ref) {
+std::string Genotyper::mod_breakpoint_vcf(string buffer, std::pair<int, int> ref_strand) {
+	int ref=ref_strand.first+ref_strand.second;
 	//find last of\t
 	//parse #reads supporting
 	//print #ref
@@ -41,6 +42,12 @@ std::string Genotyper::mod_breakpoint_vcf(string buffer, int ref) {
 	pos = buffer.find_last_of("GT");
 	//tab
 	entry = buffer.substr(0, pos - 2);
+	std::stringstream ss;
+	ss << ";REF_strand=";
+	ss << ref_strand.first;
+	ss << ",";
+	ss << ref_strand.second;
+	entry +=ss.str();
 
 	buffer = buffer.substr(pos + 1);		// the right part is only needed:
 	pos = buffer.find_last_of(':');
@@ -54,8 +61,9 @@ std::string Genotyper::mod_breakpoint_vcf(string buffer, int ref) {
 
 }
 
-std::string Genotyper::mod_breakpoint_bedpe(string buffer, int ref) {
+std::string Genotyper::mod_breakpoint_bedpe(string buffer, std::pair<int,int> ref_strand) {
 
+	int ref=ref_strand.first+ref_strand.second;
 	std::string tmp = buffer;
 	std::string entry = tmp;
 	entry += '\t';
@@ -198,11 +206,24 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 				tmp = get_breakpoint_bedpe(buffer);
 			}
 
-			int ref = max(tree.get_ref(node, tmp.chr, tmp.pos), tree.get_ref(node, tmp.chr2, tmp.pos2));
+			std::pair<int,int> first_node=tree.get_ref(node, tmp.chr, tmp.pos);
+			std::pair<int,int> second_node=tree.get_ref(node, tmp.chr2, tmp.pos2);
+
+			std::pair<int,int> final_ref;
+			if(first_node.first+first_node.second>second_node.first+second_node.second){
+				final_ref=first_node;
+			}else{
+				final_ref=second_node;
+			}
+
+			if(final_ref.first==-1){
+				std::cerr<<"Error in GT: Tree node not found. Exiting."<<std::endl;
+				exit(0);
+			}
 			if (is_vcf) {
-				to_print = mod_breakpoint_vcf(buffer, ref);
+				to_print = mod_breakpoint_vcf(buffer,final_ref);
 			} else {
-				to_print = mod_breakpoint_bedpe(buffer, ref);
+				to_print = mod_breakpoint_bedpe(buffer,final_ref);
 			}
 			if (!to_print.empty()) {
 				fprintf(file, "%s", to_print.c_str());
@@ -300,7 +321,11 @@ void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node, std
 			cout << "\t\tScanning CHR " << ref_dict[tmp.chr_id] << endl;
 			prev_id = tmp.chr_id;
 		}
-		tree.overalps(tmp.start, tmp.start + tmp.length, ref_dict[tmp.chr_id], node);
+		if (tmp.strand == 1) {		//strand of read
+			tree.overalps(tmp.start, tmp.start + tmp.length, ref_dict[tmp.chr_id], node, true);
+		} else {
+			tree.overalps(tmp.start, tmp.start + tmp.length, ref_dict[tmp.chr_id], node, false);
+		}
 		nbytes = fread(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
 	}
 	fclose(ref_allel_reads);

@@ -16,7 +16,7 @@ struct breakpoint_node {
 	std::string chr;
 	int position; // value to store!
 	bool direction;
-	int ref_support;
+	std::pair<int,int> ref_support;
 	breakpoint_node *left;
 	breakpoint_node *right;
 };
@@ -40,8 +40,8 @@ public:
 	void postorder(breakpoint_node *ptr);
 	void display(breakpoint_node *ptr, int);
 	void get_nodes(breakpoint_node *ptr, std::vector<int> & nodes);
-	void overalps(int start,int stop,std::string chr, breakpoint_node *par);
-	int get_ref(breakpoint_node *&tree, std::string chr, int position);
+	void overalps(int start,int stop,std::string chr, breakpoint_node *par,bool ref_strand);
+	std::pair<int,int> get_ref(breakpoint_node *&tree, std::string chr, int position);
 };
 
 

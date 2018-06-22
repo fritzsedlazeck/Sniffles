@@ -14,6 +14,7 @@ struct str_read{
 	uint chr_id;
 	uint start;
 	ushort length;
+	ushort strand; //1=forward, 2=backward;
 };
 
 class Parser {

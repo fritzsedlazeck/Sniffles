@@ -48,6 +48,11 @@ void VCFPrinter::print_header() {
 		fprintf(file, "%s", "##INFO=<ID=SEQ,Number=1,Type=String,Description=\"Extracted sequence from the best representative read.\">\n");
 	}
 
+	if (Parameter::Instance()->read_strand) {
+		fprintf(file, "%s", "##INFO=<ID=STRANDS2,Number=4,Type=Integer,Description=\"alt reads first + ,alt reads first -,alt reads second + ,alt reads second -.\">\n");
+		fprintf(file, "%s", "##INFO=<ID=REF_strand,Number=2,Type=Integer,Description=\"plus strand ref, minus strand ref.\">\n");
+	}
+
 	fprintf(file, "%s", "##INFO=<ID=STD_quant_start,Number=A,Type=Integer,Description=\"STD of the start breakpoints across the reads.\">\n");
 	fprintf(file, "%s", "##INFO=<ID=STD_quant_stop,Number=A,Type=Integer,Description=\"STD of the stop breakpoints across the reads.\">\n");
 	fprintf(file, "%s", "##INFO=<ID=Kurtosis_quant_start,Number=A,Type=Integer,Description=\"Kurtosis value of the start breakpoints across the reads.\">\n");
@@ -93,9 +98,9 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%i", id);
 			id++;
 
-			long end_coord=SV->get_coordinates().stop.most_support;
+			long end_coord = SV->get_coordinates().stop.most_support;
 			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
-				end_coord=std::max((SV->get_coordinates().stop.most_support - (long)SV->get_length()),(long) start);
+				end_coord = std::max((SV->get_coordinates().stop.most_support - (long) SV->get_length()), (long) start);
 			}
 
 			int end = IPrinter::calc_pos(end_coord, ref, chr);
@@ -127,10 +132,9 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 
 			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
 				fprintf(file, "%s", "\t.\tUNRESOLVED\t");
-			}else{
+			} else {
 				fprintf(file, "%s", "\t.\tPASS\t");
 			}
-
 
 			if (std_quant.first < 10 && std_quant.second < 10) {
 				fprintf(file, "%s", "PRECISE");
@@ -148,7 +152,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 				//if (SV->get_SVtype() & INS) {
 				//	fprintf(file, "%i", std::max((int) (end - SV->get_length()), start));
 				//} else {
-					fprintf(file, "%i", end);
+				fprintf(file, "%i", end);
 				//}
 			}
 			if (zmws != 0) {
@@ -179,7 +183,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%s", SV->get_supporting_types().c_str());
 			fprintf(file, "%s", ";SVLEN=");
 
-			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {//!
+			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {				//!
 				fprintf(file, "%i", 999999999);
 			} else {
 				fprintf(file, "%i", SV->get_length());
@@ -187,6 +191,36 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			//	}
 			fprintf(file, "%s", ";STRANDS=");
 			fprintf(file, "%s", strands.c_str());
+			if (Parameter::Instance()->read_strand) {
+				fprintf(file, "%s", ";STRANDS2=");
+				std::map<std::string, read_str> support = SV->get_coordinates().support;
+				pair<int, int> tmp_start;
+				pair<int, int> tmp_stop;
+				tmp_start.first = 0;
+				tmp_start.second = 0;
+				tmp_stop.first = 0;
+				tmp_stop.second = 0;
+				for (std::map<std::string, read_str>::iterator i = support.begin(); i != support.end(); i++) {
+					if ((*i).second.read_strand.first) {
+						tmp_start.first++;
+					} else {
+						tmp_start.second++;
+					}
+					if ((*i).second.read_strand.second) {
+						tmp_stop.first++;
+					} else {
+						tmp_stop.second++;
+					}
+				}
+				fprintf(file, "%i", tmp_start.first);
+				fprintf(file, "%s", ",");
+				fprintf(file, "%i", tmp_start.second);
+				fprintf(file, "%s", ",");
+				fprintf(file, "%i", tmp_stop.first);
+				fprintf(file, "%s", ",");
+				fprintf(file, "%i", tmp_stop.second);
+			}
+
 			if (Parameter::Instance()->print_seq && !SV->get_sequence().empty()) {
 				fprintf(file, "%s", ";SEQ=");
 				fprintf(file, "%s", SV->get_sequence().c_str());

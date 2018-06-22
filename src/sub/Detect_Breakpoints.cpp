@@ -283,6 +283,11 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 					tmp.chr_id = tmp_aln->getRefID();	//check string in binary???
 					tmp.start = tmp_aln->getPosition();
 					tmp.length = tmp_aln->getRefLength();
+					if(tmp_aln->getStrand()){
+						tmp.strand=1;
+					}else{
+						tmp.strand=2;
+					}
 					fwrite(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
 				}
 

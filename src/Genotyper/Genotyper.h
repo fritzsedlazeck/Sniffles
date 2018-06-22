@@ -25,8 +25,8 @@ private:
 	void update_file(Breakpoint_Tree & tree,breakpoint_node *& node);
 	variant_str get_breakpoint_vcf(string buffer);
 	variant_str get_breakpoint_bedpe(string buffer);
-	std::string mod_breakpoint_vcf(string buffer, int ref);
-	std::string mod_breakpoint_bedpe(string buffer, int ref);
+	std::string mod_breakpoint_vcf(string buffer, std::pair<int,int> ref);
+	std::string mod_breakpoint_bedpe(string buffer, std::pair<int,int> ref);
 	void parse_pos(char * buffer, int & pos, std::string & chr);
 
 
