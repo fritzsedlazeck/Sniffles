@@ -43,7 +43,8 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 	for (size_t i = 0; i < entries.size(); i++) {
 		if (entries[i].type != -1) {
 			position_str svs;
-			//cout<<"start: "<<entries[i].start.chr << " stop "<<entries[i].stop.chr<<endl;
+
+			//cout<<"start: "<<entries[i].start.chr << " stop "<<entries[i].start.pos<< " "<<entries[i].type<<endl;
 			svs.start.min_pos = (long) entries[i].start.pos + ref_lens[entries[i].start.chr];
 			svs.stop.max_pos = (long) entries[i].stop.pos + ref_lens[entries[i].stop.chr];
 			read_str read;
@@ -59,6 +60,7 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 				if (entries[i].sv_len == Parameter::Instance()->huge_ins) {
 					entries[i].sv_len++; // bad hack!
 				}
+
 				svs.stop.max_pos += (long) entries[i].sv_len;
 				read.coordinates.second += (long) entries[i].sv_len;
 				//	cout << "Parse: " << entries[i].start.pos << " " << entries[i].stop.pos << " " << svs.start.min_pos  <<" "<<svs.stop.max_pos  << endl;
@@ -69,17 +71,18 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 			read.type = 2; //called
 			read.length = entries[i].sv_len; //svs.stop.max_pos-svs.start.min_pos;//try
 			svs.support["input"] = read;
+		//	cout<<"Submit: "<<entries[i].type <<endl;
 			Breakpoint * br = new Breakpoint(svs, (long) entries[i].sv_len, read.SV);
 			final.insert(br, root_final);
 		} else {
 			invalid_svs++;
-
 		}
 	}
-	cerr << "Invalid types found skipping " << invalid_svs << " entries." << endl;
+	cerr << "\tInvalid types found skipping " << invalid_svs << " entries." << endl;
 	//std::cout << "Print:" << std::endl;
 	//final.print(root_final);
 	entries.clear();
+	exit(0);
 }
 
 void force_calling(std::string bam_file, IPrinter *& printer) {

@@ -12,6 +12,7 @@ void IntervallTree::careful_screening(Breakpoint *& new_break, TNode *p) { //may
 		careful_screening(new_break, p->left);
 		if (p->get_data()->overlap(new_break) == 0) { //SV type
 			p->get_data()->add_read(new_break);
+			//cout<<"Merged: "<<endl;
 			new_break->set_coordinates(-1, -1);
 			return;
 		}
@@ -32,6 +33,7 @@ void IntervallTree::insert(Breakpoint * new_break, TNode *&p) {
 	} else { // find on tree:
 		long score = p->get_data()->overlap(new_break); //comparison function
 		if (score == 0) { //add SV types?
+			//cout<<"Merged"<<endl;
 			p->get_data()->add_read(new_break);
 			new_break->set_coordinates(-1, -1);
 			//delete new_break;

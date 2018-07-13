@@ -242,6 +242,13 @@ void VCFPrinter::print_body_recall(Breakpoint * &SV, RefVector ref) {
 	if (Parameter::Instance()->phase) {
 		store_readnames(SV->get_read_ids(), id);
 	}
+
+	pair<double, double> kurtosis;
+	pair<double, double> std_quant;
+	double std_length = 0;
+	int zmws = 0;
+	bool ok_to_print = to_print(SV, std_quant, kurtosis, std_length, zmws);
+
 	std::string chr;
 	int start = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr);
 	fprintf(file, "%s", chr.c_str());

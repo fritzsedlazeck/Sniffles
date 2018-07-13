@@ -287,7 +287,7 @@ std::vector<std::string> Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_
 			tree.insert(node, tmp.chr, tmp.pos, true); //true: start;
 			tree.insert(node, tmp.chr2, tmp.pos2, false); //false: stop;//
 			num_sv++;
-			if (num_sv % 1000 == 0) {
+			if (num_sv % 5000 == 0) {
 				cout << "\t\tRead in SV: " << num_sv << endl;
 			}
 		} else if (buffer[2] == 'c' && buffer[3] == 'o') { //##contig=<ID=chr1,length=699930>

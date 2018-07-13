@@ -75,7 +75,7 @@ vector<differences_str> Alignment::summarize_csstring(std::vector<indel_str> &de
 
 	vector<differences_str> events;
 	differences_str ev;
-	std::cout<<"CS: "<<cs<<std::endl;
+	std::cout << "CS: " << cs << std::endl;
 	for (size_t i = 0; i < cs.size() && pos < max_size; i++) {
 		ev.position = pos;
 		if (cs[i] == ':') { //match (can be numbers or bp!)
@@ -88,7 +88,7 @@ vector<differences_str> Alignment::summarize_csstring(std::vector<indel_str> &de
 					num++;
 				}
 			}
-			cout<<"\tMatch: "<<num<<std::endl;
+			cout << "\tMatch: " << num << std::endl;
 			pos += num;
 		} else if (cs[i] == '*') { //mismatch (ref,alt) pairs
 			//only every second char counts!
@@ -96,7 +96,7 @@ vector<differences_str> Alignment::summarize_csstring(std::vector<indel_str> &de
 			pos++;
 			i += 2;
 			ev.type = 0; //mismatch
-			cout<<"\tMiss: "<<1<<std::endl;
+			cout << "\tMiss: " << 1 << std::endl;
 		} else if (cs[i] == '-') { //del
 			//collet del seq in dels!
 			indel_str del;
@@ -108,21 +108,21 @@ vector<differences_str> Alignment::summarize_csstring(std::vector<indel_str> &de
 			dels.push_back(del);
 			pos += del.sequence.size();
 			ev.type = del.sequence.size();
-			cout<<"\tDEL: "<<del.sequence.size()<<std::endl;
+			cout << "\tDEL: " << del.sequence.size() << std::endl;
 
 		} else if (cs[i] == '+') { //ins
-			int num=0;
+			int num = 0;
 			while ((i < cs.size() && cs[i] != '+') && (cs[i] != '-' && cs[i] != '+')) {
 				i++;
 				num++;
 			}
-			ev.type =num*-1;
-			cout<<"\tINS: "<<num<<std::endl;
+			ev.type = num * -1;
+			cout << "\tINS: " << num << std::endl;
 		}
 		events.push_back(ev);
 
 	}
-	std::cout<<"end CS: "<<cs<<std::endl;
+	std::cout << "end CS: " << cs << std::endl;
 	return events;
 }
 
@@ -136,6 +136,7 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 	if (al->CigarData[0].Type == 'S') {
 		read_pos += al->CigarData[0].Length;
 	}
+
 	for (size_t i = 0; i < al->CigarData.size(); i++) {
 		if (al->CigarData[i].Type == 'M') {
 			pos += al->CigarData[i].Length;
@@ -176,15 +177,16 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 		}
 	}
 
+	//exit(0);
 	if (flag) {
-	 std::cout << "FIRST:" << std::endl;
-	 for (size_t i = 0; i < events.size(); i++) {
-	 if (abs(events[i].type) > 200) {
-	 cout << events[i].position << " " << events[i].type << endl;
-	 }
-	 }
-	 cout << endl;
-	 }
+		std::cout << "FIRST:" << std::endl;
+		for (size_t i = 0; i < events.size(); i++) {
+			// if (abs(events[i].type) > 200) {
+			cout << events[i].position << " " << events[i].type << endl;
+			// }
+		}
+		cout << endl;
+	}
 
 //set ref length requ. later on:
 	this->ref_len = pos - getPosition(); //TODO compare to get_length!
@@ -921,8 +923,8 @@ std::string Alignment::get_md() {
 	std::string md;
 	if (al->GetTag("MD", md)) {
 		return md;
-	}else{
-		std::cerr<<"No MD string detected! Check bam file! Otherwise generate using e.g. samtools."<<std::endl;
+	} else {
+		std::cerr << "No MD string detected! Check bam file! Otherwise generate using e.g. samtools." << std::endl;
 		exit(0);
 	}
 	return md;
@@ -932,8 +934,8 @@ std::string Alignment::get_cs() {
 	std::string cs;
 	if (al->GetTag("cs", cs)) {
 		return cs;
-	}else{
-		std::cerr<<"No CS string detected! Check bam file!"<<std::endl;
+	} else {
+		std::cerr << "No CS string detected! Check bam file!" << std::endl;
 		exit(0);
 	}
 	return cs;
@@ -1056,6 +1058,8 @@ vector<int> Alignment::get_avg_diff(double & dist, double & avg_del, double & av
 //computeAlignment();
 //cout<<alignment.first<<endl;
 //cout<<alignment.second<<endl;
+	avg_del = 0;
+	avg_ins = 0;
 	vector<int> mis_per_window;
 	std::vector<indel_str> dels;
 	vector<differences_str> event_aln = summarizeAlignment(dels);
@@ -1070,34 +1074,37 @@ vector<int> Alignment::get_avg_diff(double & dist, double & avg_del, double & av
 	double del = 0;
 	double ins = 0;
 	double mis = 0;
-	double length = event_aln[event_aln.size() - 1].position - event_aln[0].position;
-	for (size_t i = 0; i < event_aln.size(); i++) {
-		if (i != 0) {
-			dist += event_aln[i].position - event_aln[i - 1].position;
-		}
+	if (event_aln.size() > 1) {
+		double length = event_aln[event_aln.size() - 1].position - event_aln[0].position;
+		for (size_t i = 0; i < event_aln.size(); i++) {
+			if (i != 0) {
+				dist += event_aln[i].position - event_aln[i - 1].position;
+			}
 
-		pair_str tmp;
-		tmp.position = -1;
-		if (event_aln[i].type == 0) {
-			tmp = plane->add_mut(event_aln[i].position, 1, min_tresh);
-		} else {
-			tmp = plane->add_mut(event_aln[i].position, abs(event_aln[i].type), min_tresh);
+			pair_str tmp;
+			tmp.position = -1;
+			if (event_aln[i].type == 0) {
+				tmp = plane->add_mut(event_aln[i].position, 1, min_tresh);
+			} else {
+				tmp = plane->add_mut(event_aln[i].position, abs(event_aln[i].type), min_tresh);
+			}
+			if (tmp.position != -1) { //check that its not the prev event!
+				mis_per_window.push_back(tmp.coverage); //store #mismatch per window each time it exceeds. (which might be every event position!)
+			}
+			if (event_aln[i].type > 0) {
+				avg_del += event_aln[i].type;
+			} else if (event_aln[i].type < 0) {
+				avg_ins += event_aln[i].type * -1;
+			}
 		}
-		if (tmp.position != -1) { //check that its not the prev event!
-			mis_per_window.push_back(tmp.coverage); //store #mismatch per window each time it exceeds. (which might be every event position!)
-		}
-		if (event_aln[i].type > 0) {
-			avg_del += event_aln[i].type;
-		} else if (event_aln[i].type < 0) {
-			avg_ins += event_aln[i].type * -1;
-		}
+		//cout << "len: " << length << endl;
+		avg_ins = avg_ins / length;
+		avg_del = avg_del / length;
+
+		dist = dist / (double) event_aln.size();
 	}
-
-	avg_ins = avg_ins / length;
-	avg_del = avg_del / length;
-
-	dist = dist / (double) event_aln.size();
 	plane->finalyze();
+
 	return mis_per_window;	//total_num /num;
 }
 
@@ -1108,11 +1115,11 @@ vector<str_event> Alignment::get_events_Aln() {
 //clock_t comp_aln = clock();
 	std::vector<indel_str> dels;
 	vector<differences_str> event_aln;
-/*	if (Parameter::Instance()->cs_string) {
-		cout<<"run cs check "<<std::endl;
-		event_aln = summarize_csstring(dels);
-	} else {*/
-		event_aln = summarizeAlignment(dels);
+	/*	if (Parameter::Instance()->cs_string) {
+	 cout<<"run cs check "<<std::endl;
+	 event_aln = summarize_csstring(dels);
+	 } else {*/
+	event_aln = summarizeAlignment(dels);
 //	}
 //double time2 = Parameter::Instance()->meassure_time(comp_aln, "\tcompAln Events: ");
 
