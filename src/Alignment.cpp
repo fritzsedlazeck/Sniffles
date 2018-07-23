@@ -925,6 +925,7 @@ std::string Alignment::get_md() {
 		return md;
 	} else {
 		std::cerr << "No MD string detected! Check bam file! Otherwise generate using e.g. samtools." << std::endl;
+		cout<<"MD: TEST" << this->getName()<<endl;
 		exit(0);
 	}
 	return md;
