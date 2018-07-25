@@ -82,7 +82,7 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 	//std::cout << "Print:" << std::endl;
 	//final.print(root_final);
 	entries.clear();
-	exit(0);
+	//exit(0);
 }
 
 void force_calling(std::string bam_file, IPrinter *& printer) {
