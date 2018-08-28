@@ -44,16 +44,18 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 		if (entries[i].type != -1) {
 			position_str svs;
 
-			//cout<<"start: "<<entries[i].start.chr << " stop "<<entries[i].start.pos<< " "<<entries[i].type<<endl;
+			if (ref_lens.find(entries[i].start.chr) == ref_lens.end()) { // check why this is not called!
+				cerr << "Error undefined CHR in VCF vs. BAM header: " << entries[i].start.chr << endl;
+				exit(0);
+			}
+			if (ref_lens.find(entries[i].stop.chr) == ref_lens.end()) {
+				cerr << "Error undefined CHR in VCF vs. BAM header: " << entries[i].stop.chr << endl;
+				exit(0);
+			}
 			svs.start.min_pos = (long) entries[i].start.pos + ref_lens[entries[i].start.chr];
 			svs.stop.max_pos = (long) entries[i].stop.pos + ref_lens[entries[i].stop.chr];
 			read_str read;
-			if (ref_lens.find(entries[i].start.chr) == ref_lens.end()) {
-				cerr << "Warning undefined CHR in VCF vs. BAM header: " << entries[i].start.chr << endl;
-			}
-			if (ref_lens.find(entries[i].stop.chr) == ref_lens.end()) {
-				cerr << "Warning undefined CHR in VCF vs. BAM header: " << entries[i].stop.chr << endl;
-			}
+
 			read.coordinates.first = (long) entries[i].start.pos + ref_lens[entries[i].start.chr];
 			read.coordinates.second = (long) entries[i].stop.pos + ref_lens[entries[i].stop.chr];
 			if (entries[i].type == 4) { //ins?
@@ -71,7 +73,7 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 			read.type = 2; //called
 			read.length = entries[i].sv_len; //svs.stop.max_pos-svs.start.min_pos;//try
 			svs.support["input"] = read;
-		//	cout<<"Submit: "<<entries[i].type <<endl;
+			//	cout<<"Submit: "<<entries[i].type <<endl;
 			Breakpoint * br = new Breakpoint(svs, (long) entries[i].sv_len, read.SV);
 			final.insert(br, root_final);
 		} else {

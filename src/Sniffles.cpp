@@ -25,8 +25,9 @@
 #include "ArgParseOutput.h"
 #include "force_calling/Force_calling.h"
 
-//cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 ..
-//cmake -D CMAKE_C_COMPILER=gcc-mp-7 -D CMAKE_CXX_COMPILER=g++-mp-7 ..
+//cmake -D CMAKE_C_COMPILER=/usr/local/bin/gcc-8 -D CMAKE_CXX_COMPILER=/usr/local/bin/g++-8 ..
+
+
 
 //TODO:
 //check strand headers.
