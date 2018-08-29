@@ -104,9 +104,11 @@ void read_parameters(int argc, char *argv[]) {
 	std::stringstream usage;
 	usage << "" << std::endl;
 	usage << "Usage: sniffles [options] -m <sorted.bam> -v <output.vcf> " << std::endl;
-
-	usage << "" << std::endl;
+	usage << "Version: "<<Parameter::Instance()->version << std::endl;
+	usage << "Contact: fritz.sedlazeck@gmail.com" << std::endl;
+	usage  << std::endl;
 	usage << "Input/Output:" << std::endl;
+
 	printParameter<std::string>(usage, arg_bamfile);
 	printParameter<std::string>(usage, arg_vcf);
 	printParameter<std::string>(usage, arg_bedpe);

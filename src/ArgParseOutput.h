@@ -11,8 +11,7 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
-class ArgParseOutput : public TCLAP::StdOutput
-{
+class ArgParseOutput: public TCLAP::StdOutput {
 private:
 
 	std::string usageStr;
@@ -36,6 +35,8 @@ public:
 		cerr << endl;
 		cerr << "Short usage:" << endl;
 		cerr << "       sniffles [options] -m <sorted.bam> -v <output.vcf> " << endl;
+		cerr << "Version: " << Parameter::Instance()->version << std::endl;
+		cerr << "Contact: fritz.sedlazeck@gmail.com" << std::endl;
 		cerr << endl;
 		cerr << "For complete USAGE and HELP type:" << endl;
 		cerr << "    sniffles --help" << endl;
