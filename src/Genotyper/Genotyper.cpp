@@ -18,7 +18,9 @@ std::string Genotyper::assess_genotype(int ref, int support) {
 	ss << ";AF=";
 	ss << allele;
 	ss << "\tGT:DR:DV\t";
-	if (allele > Parameter::Instance()->homfreq) {
+	if(ref==0 && support==0){
+		ss << "./."; //we cannot define it.
+	}else if (allele > Parameter::Instance()->homfreq) {
 		ss << "1/1:";
 	} else if (allele > Parameter::Instance()->hetfreq) {
 		ss << "0/1:";
