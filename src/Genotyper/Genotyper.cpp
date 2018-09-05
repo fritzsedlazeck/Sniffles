@@ -19,14 +19,15 @@ std::string Genotyper::assess_genotype(int ref, int support) {
 	ss << allele;
 	ss << "\tGT:DR:DV\t";
 	if(ref==0 && support==0){
-		ss << "./."; //we cannot define it.
+		ss << "./." //we cannot define it.
 	}else if (allele > Parameter::Instance()->homfreq) {
-		ss << "1/1:";
+		ss << "1/1";
 	} else if (allele > Parameter::Instance()->hetfreq) {
-		ss << "0/1:";
+		ss << "0/1";
 	} else {
-		ss << "0/0:";
+		ss << "0/0";
 	}
+	ss<<":"
 	ss << ref;
 	ss << ":";
 	ss << support;
