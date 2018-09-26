@@ -186,7 +186,9 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 
 			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {				//!
 				fprintf(file, "%i", 999999999);
-			} else {
+			}else if (SV->get_SVtype() & TRA){
+				fprintf(file, "%i",0);
+			}else {
 				fprintf(file, "%i", SV->get_length());
 			}
 			//	}

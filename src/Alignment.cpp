@@ -678,6 +678,7 @@ bool Alignment::overlapping_segments(vector<aln_str> entries) {
 	return (entries.size() == 2 && abs(entries[0].pos - entries[1].pos) < 100);
 }
 vector<aln_str> Alignment::getSA(RefVector ref) {
+
 	string sa;
 	vector<aln_str> entries;
 	if (al->GetTag("SA", sa) && !sa.empty()) {
@@ -692,7 +693,7 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 		uint32_t sv;
 		al->GetTag("SV", sv);
 		tmp.cross_N = ((sv & Ns_CLIPPED));
-		bool flag = strcmp(getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0;
+		bool flag = strcmp(getName().c_str(),"0bac61ef-7819-462b-ae3d-32c68fe580c0")==0; //Parameter::Instance()->read_name.c_str()) == 0;
 
 		get_coords(tmp, tmp.read_pos_start, tmp.read_pos_stop);
 		if (flag) {
