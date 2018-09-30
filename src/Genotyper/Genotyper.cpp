@@ -13,6 +13,9 @@ std::string Genotyper::assess_genotype(int ref, int support) {
 	if (allele < Parameter::Instance()->min_allelel_frequency) {
 		return "";
 	}
+	if((support + ref)==0){
+		allele=0;
+	}
 
 	std::stringstream ss;
 	ss << ";AF=";
