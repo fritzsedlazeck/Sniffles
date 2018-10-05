@@ -188,6 +188,8 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 				fprintf(file, "%i", 999999999);
 			}else if (SV->get_SVtype() & TRA){
 				fprintf(file, "%i",0);
+			}else if (SV->get_SVtype() & DEL){
+				fprintf(file, "%i", SV->get_length()*-1);
 			}else {
 				fprintf(file, "%i", SV->get_length());
 			}

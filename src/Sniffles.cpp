@@ -88,7 +88,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
 	TCLAP::SwitchArg arg_std("", "ignore_sd", "Ignores the sd based filtering. ", cmd, false);
-	TCLAP::SwitchArg arg_bnd("", "report_BND", "Report BND instead of Tra in vcf output. ", cmd, false);
+	TCLAP::SwitchArg arg_bnd("", "report_BND", "Dont report BND instead use Tra in vcf output. ", cmd, true);
 	TCLAP::SwitchArg arg_seq("", "report_seq", "Report sequences for indels in vcf output. (Beta version!) ", cmd, false);
 	TCLAP::SwitchArg arg_coords("", "change_coords", "Adopt coordinates for force calling if finding evidence. ", cmd, false);
 	TCLAP::SwitchArg arg_parameter("", "skip_parameter_estimation", "Enables the scan if only very few reads are present. ", cmd, false);
