@@ -8,7 +8,7 @@
 #include "VCFPrinter.h"
 
 void VCFPrinter::print_header() {
-	fprintf(file, "%s", "##fileformat=VCFv4.2\n");
+	fprintf(file, "%s", "##fileformat=VCFv4.3\n");
 	fprintf(file, "%s", "##source=Sniffles\n");
 	string time = currentDateTime();
 	fprintf(file, "%s", "##fileDate=");

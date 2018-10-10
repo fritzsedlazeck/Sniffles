@@ -9,7 +9,7 @@ IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "Building in debug mode!")
     set( SNIF_VERSION_BUILD 10-debug )
 else()
-	set( SNIF_VERSION_BUILD 9 )
+	set( SNIF_VERSION_BUILD 10 )
 ENDIF()
 
 
