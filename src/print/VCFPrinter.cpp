@@ -43,7 +43,7 @@ void VCFPrinter::print_header() {
 	fprintf(file, "%s", "##INFO=<ID=SVMETHOD,Number=1,Type=String,Description=\"Type of approach used to detect SV\">\n");
 	fprintf(file, "%s", "##INFO=<ID=SVTYPE,Number=1,Type=String,Description=\"Type of structural variant\">\n");
 	if (Parameter::Instance()->report_n_reads > 0 || Parameter::Instance()->report_n_reads == -1) {
-		fprintf(file, "%s", "##INFO=<ID=RNAMES,Number=1,Type=String,Description=\"Names of reads supporting SVs (comma separated)\">\n");
+		fprintf(file, "%s", "##INFO=<ID=RNAMES,Number=.,Type=String,Description=\"Names of reads supporting SVs (comma separated)\">\n");
 	}
 	if (Parameter::Instance()->print_seq) {
 		fprintf(file, "%s", "##INFO=<ID=SEQ,Number=1,Type=String,Description=\"Extracted sequence from the best representative read.\">\n");
