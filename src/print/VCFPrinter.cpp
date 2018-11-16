@@ -8,7 +8,7 @@
 #include "VCFPrinter.h"
 
 void VCFPrinter::print_header() {
-	fprintf(file, "%s", "##fileformat=VCFv4.3\n");
+	fprintf(file, "%s", "##fileformat=VCFv4.1\n");
 	fprintf(file, "%s", "##source=Sniffles\n");
 	string time = currentDateTime();
 	fprintf(file, "%s", "##fileDate=");
@@ -54,11 +54,11 @@ void VCFPrinter::print_header() {
 		fprintf(file, "%s", "##INFO=<ID=REF_strand,Number=2,Type=Integer,Description=\"plus strand ref, minus strand ref.\">\n");
 	}
 
-	fprintf(file, "%s", "##INFO=<ID=STD_quant_start,Number=A,Type=Integer,Description=\"STD of the start breakpoints across the reads.\">\n");
-	fprintf(file, "%s", "##INFO=<ID=STD_quant_stop,Number=A,Type=Integer,Description=\"STD of the stop breakpoints across the reads.\">\n");
-	fprintf(file, "%s", "##INFO=<ID=Kurtosis_quant_start,Number=A,Type=Integer,Description=\"Kurtosis value of the start breakpoints across the reads.\">\n");
-	fprintf(file, "%s", "##INFO=<ID=Kurtosis_quant_stop,Number=A,Type=Integer,Description=\"Kurtosis value of the stop breakpoints across the reads.\">\n");
-	fprintf(file, "%s", "##INFO=<ID=SUPTYPE,Number=1,Type=String,Description=\"Type by which the variant is supported.(SR,ALN,NR)\">\n");
+	fprintf(file, "%s", "##INFO=<ID=STD_quant_start,Number=A,Type=Float,Description=\"STD of the start breakpoints across the reads.\">\n");
+	fprintf(file, "%s", "##INFO=<ID=STD_quant_stop,Number=A,Type=Float,Description=\"STD of the stop breakpoints across the reads.\">\n");
+	fprintf(file, "%s", "##INFO=<ID=Kurtosis_quant_start,Number=A,Type=Float,Description=\"Kurtosis value of the start breakpoints across the reads.\">\n");
+	fprintf(file, "%s", "##INFO=<ID=Kurtosis_quant_stop,Number=A,Type=Float,Description=\"Kurtosis value of the stop breakpoints across the reads.\">\n");
+	fprintf(file, "%s", "##INFO=<ID=SUPTYPE,Number=A,Type=String,Description=\"Type by which the variant is supported.(SR,ALN,NR)\">\n");
 	fprintf(file, "%s", "##INFO=<ID=STRANDS,Number=A,Type=String,Description=\"Strand orientation of the adjacency in BEDPE format (DEL:+-, DUP:-+, INV:++/--)\">\n");
 	fprintf(file, "%s", "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Allele Frequency.\">\n");
 	fprintf(file, "%s", "##INFO=<ID=ZMW,Number=A,Type=Integer,Description=\"Number of ZMWs (Pacbio) supporting SV.\">\n");
@@ -106,10 +106,11 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 
 			int end = IPrinter::calc_pos(end_coord, ref, chr);
 			std::string strands = SV->get_strand(1);
-			fprintf(file, "%s", "\tN\t");
+
 			if (Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA)) {
 				//N[22:36765684[ +-
 				//]21:10540232]N -+
+				fprintf(file, "%s", "\tN\t");
 				if (strands[0] == '-') { //&&
 					fprintf(file, "%s", "]");
 					fprintf(file, "%s", chr.c_str());
@@ -124,8 +125,22 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 					fprintf(file, "%i", end);
 					fprintf(file, "%c", '[');
 				}
-			} else {
+			} else if (!SV->get_sequence().empty() && ((SV->get_SVtype() & INS) || (SV->get_SVtype() & DEL))) {
+				fprintf(file, "%c", '\t');
+				if ((SV->get_SVtype() & DEL)) {
+					fprintf(file, "%s", SV->get_sequence().c_str());
+				} else {
+					fprintf(file, "%c", 'N');
+				}
+				fprintf(file, "%c", '\t');
+				if ((SV->get_SVtype() & INS)) {
+					fprintf(file, "%s", SV->get_sequence().c_str());
+				} else {
+					fprintf(file, "%c", 'N');
+				}
 
+			} else {
+				fprintf(file, "%s", "\tN\t");
 				fprintf(file, "%c", '<');
 				fprintf(file, "%s", IPrinter::get_type(SV->get_SVtype()).c_str());
 				fprintf(file, "%c", '>');
@@ -145,16 +160,19 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 
 			fprintf(file, "%s", ";SVMETHOD=Snifflesv");
 			fprintf(file, "%s", Parameter::Instance()->version.c_str());
+
 			if (!(Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA))) {
+
 				fprintf(file, "%s", ";CHR2=");
 				fprintf(file, "%s", chr.c_str());
 				fprintf(file, "%s", ";END=");
 
-				//if (SV->get_SVtype() & INS) {
-				//	fprintf(file, "%i", std::max((int) (end - SV->get_length()), start));
-				//} else {
-				fprintf(file, "%i", end);
-				//}
+				if (SV->get_SVtype() & INS) {
+					fprintf(file, "%i", std::max((int) end, start));
+				} else {
+
+					fprintf(file, "%i", end);
+				}
 			}
 			if (zmws != 0) {
 				fprintf(file, "%s", ";ZMW=");
@@ -186,11 +204,11 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 
 			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {				//!
 				fprintf(file, "%i", 999999999);
-			}else if (SV->get_SVtype() & TRA){
-				fprintf(file, "%i",0);
-			}else if (SV->get_SVtype() & DEL){
-				fprintf(file, "%i", SV->get_length()*-1);
-			}else {
+			} else if (SV->get_SVtype() & TRA) {
+				fprintf(file, "%i", 0);
+			} else if (SV->get_SVtype() & DEL) {
+				fprintf(file, "%i", SV->get_length() * -1);
+			} else {
 				fprintf(file, "%i", SV->get_length());
 			}
 			//	}
@@ -226,10 +244,10 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 				fprintf(file, "%i", tmp_stop.second);
 			}
 
-			if (Parameter::Instance()->print_seq && !SV->get_sequence().empty()) {
-				fprintf(file, "%s", ";SEQ=");
-				fprintf(file, "%s", SV->get_sequence().c_str());
-			}
+			//	if (Parameter::Instance()->print_seq && !SV->get_sequence().empty()) {
+			//		fprintf(file, "%s", ";SEQ=");
+			//		fprintf(file, "%s", SV->get_sequence().c_str());
+			//	}
 			fprintf(file, "%s", ";RE=");
 			fprintf(file, "%i", SV->get_support());
 			//if(Parameter::Instance()->genotype){

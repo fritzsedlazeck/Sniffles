@@ -95,6 +95,9 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::SwitchArg arg_cs_string("", "cs_string", "Enables the scan of CS string instead of Cigar and MD. ", cmd, false);
 	TCLAP::SwitchArg arg_read_strand("", "report_read_strands", "Enables the report of the strand categories per read. (Beta) ", cmd, false);
 
+	TCLAP::SwitchArg arg_ccs("", "ccs_reads", "Preset CCS Pacbio setting. (Beta) ", cmd, false);
+
+
 	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1). ", false, 0.0, "float", cmd);
 	TCLAP::ValueArg<float> arg_hetfreq("", "min_het_af", "Threshold on allele frequency (0-1). ", false, 0.3, "float", cmd);
 	TCLAP::ValueArg<float> arg_homofreq("", "min_homo_af", "Threshold on allele frequency (0-1). ", false, 0.8, "float", cmd);
@@ -143,6 +146,7 @@ void read_parameters(int argc, char *argv[]) {
 	printParameter(usage, arg_seq);
 	printParameter(usage, arg_std);
 	printParameter(usage,arg_read_strand);
+	printParameter(usage,arg_ccs);
 
 	usage << "" << std::endl;
 	usage << "Parameter estimation:" << std::endl;
@@ -179,7 +183,7 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->change_coords = arg_coords.getValue();
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
-	Parameter::Instance()->read_name = "0bac61ef-7819-462b-ae3d-32c68fe580c0"; //21_16296949_+";//21_40181680_-";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
+	Parameter::Instance()->read_name = " ";//m54238_180925_225123/56099701/ccs";//m54238_180926_231301/43516780/ccs"; //21_16296949_+";//21_40181680_-";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
 	Parameter::Instance()->bam_files.push_back(arg_bamfile.getValue());
 	Parameter::Instance()->min_mq = arg_mq.getValue();
 	Parameter::Instance()->output_vcf = arg_vcf.getValue();
@@ -198,7 +202,7 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->min_segment_size = arg_segsize.getValue();
 	Parameter::Instance()->reportBND = arg_bnd.getValue();
 	Parameter::Instance()->input_vcf = arg_input_vcf.getValue();
-	Parameter::Instance()->print_seq = arg_seq.getValue();
+	Parameter::Instance()->print_seq = true;//arg_seq.getValue();
 	Parameter::Instance()->ignore_std = arg_std.getValue();
 	Parameter::Instance()->min_zmw = arg_zmw.getValue();
 	Parameter::Instance()->homfreq = arg_homofreq.getValue();
@@ -206,7 +210,13 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->skip_parameter_estimation = arg_parameter.getValue();
 	Parameter::Instance()->cs_string = arg_cs_string.getValue();
 	Parameter::Instance()->read_strand=arg_read_strand.getValue();
+	Parameter::Instance()->ccs_reads=arg_ccs.getValue();
 
+	if(Parameter::Instance()->ccs_reads){
+		Parameter::Instance()->skip_parameter_estimation=true;
+		Parameter::Instance()->ignore_std=false;
+
+	}
 	if (Parameter::Instance()->skip_parameter_estimation) {
 		cout<<"\tSkip parameter estimation."<<endl;
 		Parameter::Instance()->score_treshold = 2;
@@ -215,6 +225,7 @@ void read_parameters(int argc, char *argv[]) {
 		Parameter::Instance()->avg_del =arg_delratio.getValue();
 		Parameter::Instance()->avg_ins = arg_insratio.getValue();
 	}
+
 
 	//Parse IDS:
 	/*std::string buffer = arg_chrs.getValue();

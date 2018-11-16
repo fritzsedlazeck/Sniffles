@@ -61,6 +61,7 @@ void add_event(int pos, size_t & i, vector<differences_str> & events) {
  */
 
 vector<differences_str> Alignment::summarize_csstring(std::vector<indel_str> &dels) {
+
 	string cs = this->get_cs();
 	int pos = this->getPosition();
 	int corr = 0;
@@ -137,8 +138,11 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 		read_pos += al->CigarData[0].Length;
 	}
 
+	int sum_mis = 0;
+	int sum_events=0;
+	int sum_single=0;
 	for (size_t i = 0; i < al->CigarData.size(); i++) {
-		if (al->CigarData[i].Type == 'M') {
+		if (al->CigarData[i].Type == 'M' || (al->CigarData[i].Type == '=' || al->CigarData[i].Type == 'X')) {
 			pos += al->CigarData[i].Length;
 			read_pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'D') {
@@ -146,6 +150,11 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 			ev.type = al->CigarData[i].Length; //deletion
 			ev.readposition = read_pos;
 			ev.resolved = true;
+			if (al->CigarData[i].Length >2) {
+				sum_events++;
+			}else{
+				sum_single++;
+			}
 			events.push_back(ev);
 			pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'I') {
@@ -153,6 +162,12 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 			ev.resolved = true;
 			ev.readposition = read_pos;
 			ev.type = al->CigarData[i].Length * -1; //insertion
+			if (al->CigarData[i].Length >2) {
+				sum_events++;
+			}else{
+				sum_single++;
+			}
+
 			events.push_back(ev);
 			read_pos += al->CigarData[i].Length;
 		} else if (al->CigarData[i].Type == 'N') {
@@ -217,6 +232,7 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 					}
 					ref_pos++;
 				}
+				sum_mis++;
 				//store in sorted order:
 				add_event(pos, pos_events, events);
 				pos++;			//just the pos on ref!
@@ -240,6 +256,12 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 		}
 	}
 
+	//if (flag) {
+	//	std::cout << this->getName() << " " << (double) sum_mis << " " << (double) sum_events<<" "<<sum_single <<" "<< (double) sum_mis / (double) (sum_single+sum_mis)<< endl;
+	//}
+	//if (Parameter::Instance()->ccs_reads && (double) sum_mis / (double) (sum_events+sum_mis) > 0.95) {
+	//	events.clear();
+	//}
 //	Parameter::Instance()->meassure_time(comp_aln, "\t\tMD string: ");
 
 	return events;
@@ -693,7 +715,7 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 		uint32_t sv;
 		al->GetTag("SV", sv);
 		tmp.cross_N = ((sv & Ns_CLIPPED));
-		bool flag = strcmp(getName().c_str(),"0bac61ef-7819-462b-ae3d-32c68fe580c0")==0; //Parameter::Instance()->read_name.c_str()) == 0;
+		bool flag = strcmp(getName().c_str(), "0bac61ef-7819-462b-ae3d-32c68fe580c0") == 0; //Parameter::Instance()->read_name.c_str()) == 0;
 
 		get_coords(tmp, tmp.read_pos_start, tmp.read_pos_stop);
 		if (flag) {
@@ -926,7 +948,7 @@ std::string Alignment::get_md() {
 		return md;
 	} else {
 		std::cerr << "No MD string detected! Check bam file! Otherwise generate using e.g. samtools." << std::endl;
-		cout<<"MD: TEST" << this->getName()<<endl;
+		cout << "MD: TEST" << this->getName() << endl;
 		exit(0);
 	}
 	return md;
@@ -1117,10 +1139,10 @@ vector<str_event> Alignment::get_events_Aln() {
 //clock_t comp_aln = clock();
 	std::vector<indel_str> dels;
 	vector<differences_str> event_aln;
-	/*	if (Parameter::Instance()->cs_string) {
-	 cout<<"run cs check "<<std::endl;
-	 event_aln = summarize_csstring(dels);
-	 } else {*/
+//	if (Parameter::Instance()->cs_string) {/
+//		cout << "run cs check " << std::endl;
+//		event_aln = summarize_csstring(dels);
+//	} else {
 	event_aln = summarizeAlignment(dels);
 //	}
 //double time2 = Parameter::Instance()->meassure_time(comp_aln, "\tcompAln Events: ");

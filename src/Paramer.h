@@ -85,6 +85,7 @@ public:
 	bool skip_parameter_estimation;
 	bool cs_string;
 	bool read_strand;
+	bool ccs_reads;
 
 	void set_regions(std::string reg) {
 		size_t i = 0;
