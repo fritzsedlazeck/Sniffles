@@ -174,7 +174,7 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 			pos += al->CigarData[i].Length;
 			ev.resolved = true;
 			read_pos += al->CigarData[i].Length;
-		} else if (al->CigarData[i].Type == 'S' && al->CigarData[i].Length > Parameter::Instance()->huge_ins) { /// Used for reads ranging into an inser
+		} else if ((al->CigarData[i].Type == 'S' ||  al->CigarData[i].Type == 'H' )&& al->CigarData[i].Length > Parameter::Instance()->huge_ins) { /// Used for reads ranging into an inser
 			string sa;
 			al->GetTag("SA", sa);
 			uint32_t sv;
