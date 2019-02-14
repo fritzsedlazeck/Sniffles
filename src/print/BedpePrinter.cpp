@@ -28,36 +28,40 @@ void BedpePrinter::print_body(Breakpoint * &SV, RefVector ref) {
 
 			std::string chr;
 			std::string strands = SV->get_strand(2);
-			int pos = IPrinter::calc_pos(SV->get_coordinates().start.min_pos, ref, chr);
-
+			int start_pos = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr);
 			//start coordinates:
 			fprintf(file, "%s", chr.c_str());
 			fprintf(file, "%c", '\t');
-			fprintf(file, "%i", pos);
+			fprintf(file, "%i", start_pos);
 			fprintf(file, "%c", '\t');
-			fprintf(file, "%i", IPrinter::calc_pos(SV->get_coordinates().start.max_pos, ref, chr));
+			fprintf(file, "%i", start_pos+1);
 			fprintf(file, "%c", '\t');
 
 			//stop coordinates
-			string chr_start;
-			int start = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr_start);
+			string chr_stop;
+			int stop_pos = IPrinter::calc_pos(SV->get_coordinates().stop.most_support, ref, chr_stop);
 
-			long end_coord = SV->get_coordinates().stop.min_pos;
-			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
-				end_coord = std::max((SV->get_coordinates().stop.min_pos -(long)SV->get_length()), (long)start);
+			if(SV->get_SVtype()& INS){
+				stop_pos=std::max(stop_pos-(int)SV->get_length(),start_pos);
+			}
+
+	/*		long end_coord = SV->get_coordinates().stop.most_support;
+			if (((SV->get_SVtype() & INS))){// && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
+				end_coord = std::max((SV->get_coordinates().stop.most_support -(long)SV->get_length()), (long)start);
 			}
 
 			pos = IPrinter::calc_pos(end_coord, ref, chr);
 
-			fprintf(file, "%s", chr.c_str());
+*/
+			fprintf(file, "%s", chr_stop.c_str());
 			fprintf(file, "%c", '\t');
-			fprintf(file, "%i", pos);
+			fprintf(file, "%i", stop_pos);
 			fprintf(file, "%c", '\t');
-			end_coord = SV->get_coordinates().stop.max_pos;
+			/*end_coord = SV->get_coordinates().stop.most_support;
 			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
-				end_coord = std::max((SV->get_coordinates().stop.max_pos - (long) SV->get_length()), (long)start);
-			}
-			fprintf(file, "%i", IPrinter::calc_pos(end_coord, ref, chr));
+				end_coord = std::max((SV->get_coordinates().stop.most_support - (long) SV->get_length()), (long)start);
+			}*/
+			fprintf(file, "%i", stop_pos+1);
 			fprintf(file, "%c", '\t');
 			fprintf(file, "%i", id);
 			id++;
@@ -72,25 +76,25 @@ void BedpePrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%c", '\t');
 			fprintf(file, "%i", SV->get_support());
 			fprintf(file, "%c", '\t');
-			fprintf(file, "%s", chr_start.c_str());
+			fprintf(file, "%s", chr.c_str());
 			fprintf(file, "%c", '\t');
-			fprintf(file, "%i", start);
+			fprintf(file, "%i", start_pos);
 			fprintf(file, "%c", '\t');
-
+/*
 			end_coord = SV->get_coordinates().stop.most_support;
-			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
+			if (((SV->get_SVtype() & INS) )){//&& SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
 				end_coord =  std::max((SV->get_coordinates().stop.most_support - (long) SV->get_length()), (long)start);
 			}
 
-			pos = IPrinter::calc_pos(end_coord, ref, chr);
-			fprintf(file, "%s", chr.c_str());
+			pos = IPrinter::calc_pos(end_coord, ref, chr);*/
+			fprintf(file, "%s", chr_stop.c_str());
 			fprintf(file, "%c", '\t');
-			fprintf(file, "%i", pos);
+			fprintf(file, "%i", stop_pos);
 			fprintf(file, "%c", '\t');
 
 
 			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {//!
-				fprintf(file, "%s", "NA");
+				fprintf(file, "%i", 999999999);
 			} else {
 				fprintf(file, "%i", SV->get_length());
 			}

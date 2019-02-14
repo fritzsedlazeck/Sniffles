@@ -100,7 +100,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			id++;
 
 			long end_coord = SV->get_coordinates().stop.most_support;
-			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
+			if (((SV->get_SVtype() & INS))){ // && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
 				end_coord = std::max((SV->get_coordinates().stop.most_support - (long) SV->get_length()), (long) start);
 			}
 
