@@ -40,7 +40,7 @@ void Cluster_SVS::update_SVs(std::vector<combine_str> & ids) {
 	myfile.open(filename.c_str(), std::ifstream::in);
 	if (!myfile.good()) {
 		std::cout << "Cluster Parse: could not open file: " << std::endl;
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 
 	std::string tmp_name_file = filename;

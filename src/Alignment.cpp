@@ -949,7 +949,7 @@ std::string Alignment::get_md() {
 	} else {
 		std::cerr << "No MD string detected! Check bam file! Otherwise generate using e.g. samtools." << std::endl;
 		cout << "MD: TEST" << this->getName() << endl;
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 	return md;
 }
@@ -960,7 +960,7 @@ std::string Alignment::get_cs() {
 		return cs;
 	} else {
 		std::cerr << "No CS string detected! Check bam file!" << std::endl;
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 	return cs;
 }

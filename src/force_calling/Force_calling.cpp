@@ -46,11 +46,11 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 
 			if (ref_lens.find(entries[i].start.chr) == ref_lens.end()) { // check why this is not called!
 				cerr << "Error undefined CHR in VCF vs. BAM header: " << entries[i].start.chr << endl;
-				exit(0);
+				exit(EXIT_FAILURE);
 			}
 			if (ref_lens.find(entries[i].stop.chr) == ref_lens.end()) {
 				cerr << "Error undefined CHR in VCF vs. BAM header: " << entries[i].stop.chr << endl;
-				exit(0);
+				exit(EXIT_FAILURE);
 			}
 			svs.start.min_pos = (long) entries[i].start.pos + ref_lens[entries[i].start.chr];
 			svs.stop.max_pos = (long) entries[i].stop.pos + ref_lens[entries[i].stop.chr];
@@ -100,7 +100,7 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 		ref = mapped_file->get_refInfo();
 	} else {
 		cerr << "File Format not recognized. File must be a sorted .bam file!" << endl;
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 	std::cout << "Construct Tree..." << std::endl;
 

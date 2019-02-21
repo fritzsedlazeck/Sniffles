@@ -13,7 +13,7 @@ BamParser::BamParser(string file){
 
 	if(!reader.Open(tmps)){
 		cerr<<"BAM Parser: could not open file: "<<file<<endl;
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 
 }

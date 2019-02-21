@@ -180,7 +180,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 		ref = mapped_file->get_refInfo();
 	} else {
 		cerr << "File Format not recognized. File must be a sorted .bam file!" << endl;
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 //Using PlaneSweep to comp coverage and iterate through reads:
 //PlaneSweep * sweep = new PlaneSweep();
@@ -677,7 +677,7 @@ void estimate_parameters(std::string read_filename) {
 		ref = mapped_file->get_refInfo();
 	} else {
 		cerr << "File Format not recognized. File must be a sorted .bam file!" << endl;
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 
 	Alignment * tmp_aln = mapped_file->parseRead(Parameter::Instance()->min_mq);
@@ -731,7 +731,7 @@ void estimate_parameters(std::string read_filename) {
 	}
 	if (num == 0) {
 		std::cerr << "Too few reads detected in " << Parameter::Instance()->bam_files[0] << std::endl;
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	vector<int> nums;
 	size_t pos = 0;

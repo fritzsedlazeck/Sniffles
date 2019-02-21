@@ -442,7 +442,7 @@ int main(int argc, char *argv[]) {
 
 		if ((!Parameter::Instance()->output_vcf.empty()) && (!Parameter::Instance()->output_bedpe.empty())) {
 			std::cerr << "Please select only vcf OR bedpe output format!" << std::endl;
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 		//init printer:
 		IPrinter * printer;

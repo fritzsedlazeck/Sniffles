@@ -193,7 +193,7 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 
 	if (!myfile.good()) {
 		std::cout << "SVParse: could not open file: " << std::endl;
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 
 	string buffer;
@@ -224,7 +224,7 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 
 			if(final_ref.first==-1){
 				std::cerr<<"Error in GT: Tree node not found. Exiting."<<std::endl;
-				exit(0);
+				exit(EXIT_FAILURE);
 			}
 			if (is_vcf) {
 				to_print = mod_breakpoint_vcf(buffer,final_ref);
@@ -265,7 +265,7 @@ std::vector<std::string> Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_
 
 	if (!myfile.good()) {
 		std::cout << "SVParse: could not open file: " << std::endl;
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 	//size_t buffer_size = 250000000;
 	string buffer;

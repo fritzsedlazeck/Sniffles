@@ -283,7 +283,7 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 	myfile.open(filename.c_str(), std::ifstream::in);
 	if (!myfile.good()) {
 		std::cout << "VCF Parser: could not open file: " << filename.c_str() << std::endl;
-		exit(0);
+		exit(EXIT_FAILURE);
 	}
 
 	std::vector<strvcfentry> calls;
