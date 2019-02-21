@@ -31,13 +31,15 @@ void VCFPrinter::print_header() {
 	fprintf(file, "%s", "##ALT=<ID=INVDUP,Description=\"InvertedDUP with unknown boundaries\">\n");
 	fprintf(file, "%s", "##ALT=<ID=TRA,Description=\"Translocation\">\n");
 	fprintf(file, "%s", "##ALT=<ID=INS,Description=\"Insertion\">\n");
+	fprintf(file, "%s", "##FILTER=<ID=UNRESOLVED,Description=\"An insertion that is longer than the read and thus we cannot predict the full size.\">\n");
 	fprintf(file, "%s", "##INFO=<ID=CHR2,Number=1,Type=String,Description=\"Chromosome for END coordinate in case of a translocation\">\n");
 	fprintf(file, "%s", "##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the structural variant\">\n");
 	fprintf(file, "%s", "##INFO=<ID=MAPQ,Number=1,Type=Integer,Description=\"Median mapping quality of paired-ends\">\n");
 	fprintf(file, "%s", "##INFO=<ID=RE,Number=1,Type=Integer,Description=\"read support\">\n");
 	fprintf(file, "%s", "##INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description=\"Imprecise structural variation\">\n");
 	fprintf(file, "%s", "##INFO=<ID=PRECISE,Number=0,Type=Flag,Description=\"Precise structural variation\">\n");
-	fprintf(file, "%s", "##INFO=<ID=UNRESOLVED,Number=0,Type=Flag,Description=\"An insertion that is longer than the read and thus we cannot predict the full size.\">\n");
+
+	//##FILTER=<ID=LowQual,Description="PE/SR support below 3 or mapping quality below 20.">
 	fprintf(file, "%s", "##INFO=<ID=SVLEN,Number=1,Type=Integer,Description=\"Length of the SV\">\n");
 	fprintf(file, "%s", "##INFO=<ID=REF_strand,Number=2,Type=Integer,Description=\"Length of the SV\">\n");
 	fprintf(file, "%s", "##INFO=<ID=SVMETHOD,Number=1,Type=String,Description=\"Type of approach used to detect SV\">\n");
@@ -91,7 +93,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 				store_readnames(SV->get_read_ids(), id);
 			}
 			std::string chr;
-			int start = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr);
+			int start = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr)+1; //vcfs are 1 based!
 			fprintf(file, "%s", chr.c_str());
 			fprintf(file, "%c", '\t');
 			fprintf(file, "%i", start);
@@ -104,7 +106,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 				end_coord = std::max((SV->get_coordinates().stop.most_support - (long) SV->get_length()), (long) start);
 			}
 
-			int end = IPrinter::calc_pos(end_coord, ref, chr);
+			int end = IPrinter::calc_pos(end_coord, ref, chr)+1;
 			std::string strands = SV->get_strand(1);
 
 			if (Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA)) {
