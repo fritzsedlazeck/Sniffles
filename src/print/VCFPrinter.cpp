@@ -93,20 +93,26 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 				store_readnames(SV->get_read_ids(), id);
 			}
 			std::string chr;
-			int start = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr)+1; //vcfs are 1 based!
+			int start = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr);
 			fprintf(file, "%s", chr.c_str());
 			fprintf(file, "%c", '\t');
+			if (start < 1) {
+				start = 1;
+			}
 			fprintf(file, "%i", start);
 			fprintf(file, "%c", '\t');
 			fprintf(file, "%i", id);
 			id++;
 
 			long end_coord = SV->get_coordinates().stop.most_support;
-			if (((SV->get_SVtype() & INS))){ // && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
+			if (((SV->get_SVtype() & INS))) { // && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
 				end_coord = std::max((SV->get_coordinates().stop.most_support - (long) SV->get_length()), (long) start);
 			}
 
-			int end = IPrinter::calc_pos(end_coord, ref, chr)+1;
+			int end = IPrinter::calc_pos(end_coord, ref, chr);
+			if (end < 1) {
+				end = 1;
+			}
 			std::string strands = SV->get_strand(1);
 
 			if (Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA)) {
