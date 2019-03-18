@@ -210,10 +210,14 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%s", SV->get_supporting_types().c_str());
 			fprintf(file, "%s", ";SVLEN=");
 
-			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {				//!
-				fprintf(file, "%i", 999999999);
+			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
+				if (SV->get_sequence().size() != 0) { //!
+					fprintf(file, "%i", SV->get_sequence().size());
+				} else {
+					fprintf(file, "%i", 1);
+				}
 			} else if (SV->get_SVtype() & TRA) {
-				fprintf(file, "%i", 0);
+				fprintf(file, "%i", 1);
 			} else if (SV->get_SVtype() & DEL) {
 				fprintf(file, "%i", SV->get_length() * -1);
 			} else {
