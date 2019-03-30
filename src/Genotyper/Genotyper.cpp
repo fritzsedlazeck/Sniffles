@@ -13,24 +13,24 @@ std::string Genotyper::assess_genotype(int ref, int support) {
 	if (allele < Parameter::Instance()->min_allelel_frequency) {
 		return "";
 	}
-	if((support + ref)==0){
-		allele=0;
+	if ((support + ref) == 0) {
+		allele = 0;
 	}
 
 	std::stringstream ss;
 	ss << ";AF=";
 	ss << allele;
 	ss << "\tGT:DR:DV\t";
-	if(ref==0 && support==0){
+	if (ref == 0 && support == 0) {
 		ss << "./."; //we cannot define it.
-	}else if (allele > Parameter::Instance()->homfreq) {
+	} else if (allele > Parameter::Instance()->homfreq) {
 		ss << "1/1";
 	} else if (allele > Parameter::Instance()->hetfreq) {
 		ss << "0/1";
 	} else {
 		ss << "0/0";
 	}
-	ss<<":";
+	ss << ":";
 	ss << ref;
 	ss << ":";
 	ss << support;
@@ -38,7 +38,7 @@ std::string Genotyper::assess_genotype(int ref, int support) {
 }
 
 std::string Genotyper::mod_breakpoint_vcf(string buffer, std::pair<int, int> ref_strand) {
-	int ref=ref_strand.first+ref_strand.second;
+	int ref = ref_strand.first + ref_strand.second;
 	//find last of\t
 	//parse #reads supporting
 	//print #ref
@@ -53,7 +53,7 @@ std::string Genotyper::mod_breakpoint_vcf(string buffer, std::pair<int, int> ref
 	ss << ref_strand.first;
 	ss << ",";
 	ss << ref_strand.second;
-	entry +=ss.str();
+	entry += ss.str();
 
 	buffer = buffer.substr(pos + 1);		// the right part is only needed:
 	pos = buffer.find_last_of(':');
@@ -67,9 +67,9 @@ std::string Genotyper::mod_breakpoint_vcf(string buffer, std::pair<int, int> ref
 
 }
 
-std::string Genotyper::mod_breakpoint_bedpe(string buffer, std::pair<int,int> ref_strand) {
+std::string Genotyper::mod_breakpoint_bedpe(string buffer, std::pair<int, int> ref_strand) {
 
-	int ref=ref_strand.first+ref_strand.second;
+	int ref = ref_strand.first + ref_strand.second;
 	std::string tmp = buffer;
 	std::string entry = tmp;
 	entry += '\t';
@@ -212,24 +212,24 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 				tmp = get_breakpoint_bedpe(buffer);
 			}
 
-			std::pair<int,int> first_node=tree.get_ref(node, tmp.chr, tmp.pos);
-			std::pair<int,int> second_node=tree.get_ref(node, tmp.chr2, tmp.pos2);
+			std::pair<int, int> first_node = tree.get_ref(node, tmp.chr, tmp.pos);
+			std::pair<int, int> second_node = tree.get_ref(node, tmp.chr2, tmp.pos2);
 
-			std::pair<int,int> final_ref;
-			if(first_node.first+first_node.second>second_node.first+second_node.second){
-				final_ref=first_node;
-			}else{
-				final_ref=second_node;
+			std::pair<int, int> final_ref;
+			if (first_node.first + first_node.second > second_node.first + second_node.second) {
+				final_ref = first_node;
+			} else {
+				final_ref = second_node;
 			}
 
-			if(final_ref.first==-1){
-				std::cerr<<"Error in GT: Tree node not found. Exiting."<<std::endl;
+			if (final_ref.first == -1) {
+				std::cerr << "Error in GT: Tree node not found. Exiting." << std::endl;
 				exit(EXIT_FAILURE);
 			}
 			if (is_vcf) {
-				to_print = mod_breakpoint_vcf(buffer,final_ref);
+				to_print = mod_breakpoint_vcf(buffer, final_ref);
 			} else {
-				to_print = mod_breakpoint_bedpe(buffer,final_ref);
+				to_print = mod_breakpoint_bedpe(buffer, final_ref);
 			}
 			if (!to_print.empty()) {
 				fprintf(file, "%s", to_print.c_str());
@@ -313,16 +313,58 @@ std::vector<std::string> Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_
 }
 void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node, std::vector<std::string> ref_dict) {
 
-	FILE * ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "r");
-	if (ref_allel_reads == NULL) {
-		std::cerr << "CovParse: could not open file: " << Parameter::Instance()->tmp_genotyp << std::endl;
-	}
-	//check if we want to compute the full coverage!
+	/*FILE * ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "r");
+	 if (ref_allel_reads == NULL) {
+	 std::cerr << "CovParse: could not open file: " << Parameter::Instance()->tmp_genotyp << std::endl;
+	 }
+	 //check if we want to compute the full coverage!
+
+	 size_t nbytes = fread(&tmp, sizeof(struct str_read), 1, ref_allel_reads);*/
+	std::string buffer;
+	std::ifstream myfile;
+
 	str_read tmp;
-	size_t nbytes = fread(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
+	//cout<<"File: "<< Parameter::Instance()->tmp_genotyp.c_str()<<endl;
+	myfile.open(Parameter::Instance()->tmp_genotyp.c_str(), std::ifstream::in);
+	if (!myfile.good()) {
+		std::cout << "Genotype Parser: could not open file: " << Parameter::Instance()->tmp_genotyp << std::endl;
+		exit(0);
+	}
 	int prev_id = -1;
-	while (nbytes != 0) {
-		//	 std::cout<<"Read: "<<" " <<tmp.chr_id<<":"<<ref_dict[tmp.chr_id]<<" " <<tmp.start<<" "<<tmp.length<<std::endl;
+	int num_reads = 0;
+
+	/*fprintf(ref_allel_reads, "%i",tmp_aln->getRefID());
+	 fprintf(ref_allel_reads, "%i",tmp_aln->getPosition());
+	 fprintf(ref_allel_reads, "%i",tmp_aln->getRefLength());
+	 if (tmp_aln->getStrand()) {
+	 fprintf(ref_allel_reads, "%c",'1');
+	 } else {
+	 fprintf(ref_allel_reads, "%c",'2');
+	 }*/
+	getline(myfile, buffer);
+	//cout<<buffer<<endl;
+	while (!myfile.eof()) {
+		int count = 0;
+
+		tmp.chr_id = atoi(&buffer[0]);
+		for (size_t i = 0; i < buffer.size() && buffer[i] != '\n' && buffer[i] != '\0'; i++) {
+			if (count == 1 && buffer[i - 1] == '\t') {
+				tmp.start = atoi(&buffer[i]);
+			}
+			if (count == 2 && buffer[i - 1] == '\t') {
+				tmp.length = atoi(&buffer[i]);
+			}
+			if (count == 3 && buffer[i - 1] == '\t') {
+				tmp.strand = atoi(&buffer[i]);
+				break;
+			}
+			if (buffer[i] == '\t') {
+				count++;
+			}
+		}
+
+		//while (nbytes != 0) {
+	//	std::cout << "Read: " << " " << tmp.chr_id << ":" << ref_dict[tmp.chr_id] << " " << tmp.start << " " << tmp.length << std::endl;
 		if (prev_id != tmp.chr_id) {
 			cout << "\t\tScanning CHR " << ref_dict[tmp.chr_id] << endl;
 			prev_id = tmp.chr_id;
@@ -332,9 +374,14 @@ void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node, std
 		} else {
 			tree.overalps(tmp.start, tmp.start + tmp.length, ref_dict[tmp.chr_id], node, false);
 		}
-		nbytes = fread(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
+		//nbytes = fread(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
+		num_reads++;
+		getline(myfile, buffer);
 	}
-	fclose(ref_allel_reads);
+
+	//cout << "Num: " << num_reads << endl;
+	myfile.close();
+	//fclose (ref_allel_reads);
 //	tree.inorder(node);
 }
 
