@@ -215,6 +215,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	TNode * root_final = NULL;
 	int current_RefID = 0;
 
+
 	TNode *root = NULL;
 //FILE * alt_allel_reads;
 	FILE * ref_allel_reads;
@@ -386,7 +387,9 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 		}
 	}
 	//std::cout<<"Done"<<std::endl;
-	fclose(ref_allel_reads);
+	if (Parameter::Instance()->genotype) {
+		fclose(ref_allel_reads);
+	}
 }
 
 void add_events(Alignment *& tmp, std::vector<str_event> events, short type, long ref_space, IntervallTree & bst, TNode *&root, long read_id, bool add) {
