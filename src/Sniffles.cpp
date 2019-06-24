@@ -89,7 +89,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
 	TCLAP::SwitchArg arg_std("", "ignore_sd", "Ignores the sd based filtering. ", cmd, false);
 	TCLAP::SwitchArg arg_bnd("", "report_BND", "Dont report BND instead use Tra in vcf output. ", cmd, true);
-	TCLAP::SwitchArg arg_seq("", "report_seq", "Report sequences for indels in vcf output. (Beta version!) ", cmd, false);
+	TCLAP::SwitchArg arg_seq("", "report_seq", "Report sequences for indels in vcf output. (Beta version!) ", cmd, true);
 	TCLAP::SwitchArg arg_coords("", "change_coords", "Adopt coordinates for force calling if finding evidence. ", cmd, false);
 	TCLAP::SwitchArg arg_parameter("", "skip_parameter_estimation", "Enables the scan if only very few reads are present. ", cmd, false);
 	TCLAP::SwitchArg arg_cs_string("", "cs_string", "Enables the scan of CS string instead of Cigar and MD. ", cmd, false);
@@ -202,7 +202,7 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->min_segment_size = arg_segsize.getValue();
 	Parameter::Instance()->reportBND = arg_bnd.getValue();
 	Parameter::Instance()->input_vcf = arg_input_vcf.getValue();
-	Parameter::Instance()->print_seq = true;//arg_seq.getValue();
+	Parameter::Instance()->print_seq = arg_seq.getValue();
 	Parameter::Instance()->ignore_std = arg_std.getValue();
 	Parameter::Instance()->min_zmw = arg_zmw.getValue();
 	Parameter::Instance()->homfreq = arg_homofreq.getValue();
