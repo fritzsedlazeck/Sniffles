@@ -171,29 +171,7 @@ void polish_points(std::vector<Breakpoint *> & points, RefVector ref) { //TODO m
 	}
 }
 
-void write_read(Alignment * tmp_aln, FILE * & ref_allel_reads) {
-/*	tmp.chr_id = tmp_aln->getRefID();	//check string in binary???
-	tmp.start = tmp_aln->getPosition();
-	tmp.length = tmp_aln->getRefLength();
-	if (tmp_aln->getStrand()) {
-		tmp.strand = 1;
-	} else {
-		tmp.strand = 2;
-	}*/
 
-	fprintf(ref_allel_reads, "%i",tmp_aln->getRefID());
-	fprintf(ref_allel_reads, "%c",'\t');
-	fprintf(ref_allel_reads, "%i",tmp_aln->getPosition());
-	fprintf(ref_allel_reads, "%c",'\t');
-	fprintf(ref_allel_reads, "%i",tmp_aln->getRefLength());
-	fprintf(ref_allel_reads, "%c",'\t');
-	if (tmp_aln->getStrand()) {
-		fprintf(ref_allel_reads, "%c",'1');
-	} else {
-		fprintf(ref_allel_reads, "%c",'2');
-	}
-	fprintf(ref_allel_reads, "%c",'\n');
-}
 void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 	estimate_parameters(read_filename);
 	BamParser * mapped_file = 0;
@@ -214,7 +192,6 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 
 	TNode * root_final = NULL;
 	int current_RefID = 0;
-
 
 	TNode *root = NULL;
 //FILE * alt_allel_reads;
@@ -286,6 +263,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 							//		clock_t begin = clock();
 							if ((score == -1 || score > Parameter::Instance()->score_treshold)) {
 								aln_event = tmp_aln->get_events_Aln();
+
 							}
 							//		Parameter::Instance()->meassure_time(begin, " Alignment ");
 						}
@@ -297,23 +275,23 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 						}
 					}
 				}
+
+			//	bool flag = (strcmp(tmp_aln->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0);
+
 				//tmp_aln->set_supports_SV(aln_event.empty() && split_events.empty());
 
 				//Store reference supporting reads for genotype estimation:
-
-				bool SV_support = (!aln_event.empty() && !split_events.empty());
-				if (Parameter::Instance()->genotype && !SV_support) {
-				//	cout << "STORE" << endl;
+				if (Parameter::Instance()->genotype &&  (aln_event.empty() && split_events.empty())) {
 					//write read:
 					/*str_read tmp;
-					tmp.chr_id = tmp_aln->getRefID();	//check string in binary???
-					tmp.start = tmp_aln->getPosition();
-					tmp.length = tmp_aln->getRefLength();
-					if (tmp_aln->getStrand()) {
-						tmp.strand = 1;
-					} else {
-						tmp.strand = 2;
-					}*/
+					 tmp.chr_id = tmp_aln->getRefID();	//check string in binary???
+					 tmp.start = tmp_aln->getPosition();
+					 tmp.length = tmp_aln->getRefLength();
+					 if (tmp_aln->getStrand()) {
+					 tmp.strand = 1;
+					 } else {
+					 tmp.strand = 2;
+					 }*/
 					write_read(tmp_aln, ref_allel_reads);
 					//fwrite(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
 				}

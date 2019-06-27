@@ -131,16 +131,19 @@ bool IntervallTree::overlaps(long start, long stop, TNode *p) {
 	} else {
 		long score = p->get_data()->overlap_breakpoint(start,stop);
 		if (score > 0) {
-			overlaps(start,stop, p->left);
+			return overlaps(start,stop, p->left);
 		} else if (score < 0) {
-			overlaps(start,stop, p->right);
+			return overlaps(start,stop, p->right);
 		} else {
 			return true;
 		}
 	}
+//	return false;
 }
+
+
 // Finding the Smallest
-TNode * IntervallTree::findmin(TNode * p) {
+/*TNode * IntervallTree::findmin(TNode * p) {
 	if (p == NULL) {
 		std::cout << "The tree is empty\n" << std::endl;
 		return p;
@@ -164,7 +167,9 @@ TNode * IntervallTree::findmax(TNode * p) {
 		}
 		return p;
 	}
-}
+}*/
+
+
 // Finding an get_value()
 void IntervallTree::find(Breakpoint * point, TNode * &p) {
 	if (p == NULL) {

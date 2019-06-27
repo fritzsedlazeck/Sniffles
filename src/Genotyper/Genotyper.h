@@ -15,6 +15,7 @@ struct variant_str{
 	std::string chr2;
 	int pos;
 	int pos2;
+	int len;
 };
 class Genotyper{
 private:

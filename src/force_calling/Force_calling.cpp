@@ -80,15 +80,17 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 			invalid_svs++;
 		}
 	}
-	cerr << "\tInvalid types found skipping " << invalid_svs << " entries." << endl;
+	cerr << "\t\tInvalid types found skipping " << invalid_svs << " entries." << endl;
 	//std::cout << "Print:" << std::endl;
-	//final.print(root_final);
+//	final.print(root_final);
 	entries.clear();
 	//exit(0);
 }
 
 void force_calling(std::string bam_file, IPrinter *& printer) {
-	cout << "Force calling SVs" << endl;
+	cout << "Force calling SVs resetting parameters" << endl;
+	Parameter::Instance()->min_mq=0;
+
 	//parse reads
 	//only process reads overlapping SV
 	estimate_parameters(Parameter::Instance()->bam_files[0]);
@@ -102,7 +104,7 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 		cerr << "File Format not recognized. File must be a sorted .bam file!" << endl;
 		exit(EXIT_FAILURE);
 	}
-	std::cout << "Construct Tree..." << std::endl;
+	std::cout <<"\tConstruct Tree..." << std::endl;
 
 	//construct the tree:
 	IntervallTree final;
@@ -116,7 +118,8 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 	//FILE * alt_allel_reads;
 	FILE * ref_allel_reads;
 	if (Parameter::Instance()->genotype) {
-		ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "wb");
+		ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "w");
+		//ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "wb");
 	}
 	Alignment * tmp_aln = mapped_file->parseRead(Parameter::Instance()->min_mq);
 
@@ -136,7 +139,9 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 			read_start_pos += ref_space;
 			long read_stop_pos = read_start_pos + (long) tmp_aln->getAlignment()->Length + (long) Parameter::Instance()->max_dist;	//getRefLength();//(long) tmp_aln->getPosition();
 
+		//	cout<<"Check overlap: "<<read_start_pos<<" "<<read_stop_pos<<endl;;
 			if (final.overlaps(read_start_pos, read_stop_pos, root_final)) {
+			//	cout<<" found "<<endl;
 				//SCAN read:
 				std::vector<str_event> aln_event;
 				std::vector<aln_str> split_events;
@@ -165,25 +170,29 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 
 					//Store reference supporting reads for genotype estimation:
 					str_read tmp;
-					bool SV_support = !(aln_event.empty() && split_events.empty());
-					if ((Parameter::Instance()->genotype && !SV_support) && (score == -1 || score > Parameter::Instance()->score_treshold)) {
+					if ((Parameter::Instance()->genotype && (aln_event.empty() && split_events.empty()))){//}&& (score == -1 || score > Parameter::Instance()->score_treshold)))) {
 						//write read:
 						//cout<<"REf: "<<tmp_aln->getName()<<" "<<tmp_aln->getPosition()<<" "<<tmp_aln->getRefLength()<<endl;
-						tmp.chr_id = tmp_aln->getRefID();
-						tmp.start = tmp_aln->getPosition();
-						tmp.length = tmp_aln->getRefLength();
-						fwrite(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
+						//tmp.chr_id = tmp_aln->getRefID();
+						//tmp.start = tmp_aln->getPosition();
+					//	tmp.length = tmp_aln->getRefLength();
+					//	fwrite(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
+
+						write_read(tmp_aln, ref_allel_reads);
 					}
 
 					//store the potential SVs:
 					if (!aln_event.empty()) {
+					//	cout<<"\t adding aln: "<<endl;
 						add_events(tmp_aln, aln_event, 0, ref_space, final, root_final, num_reads, true);
 					}
 					if (!split_events.empty()) {
+					//	cout<<"\t adding split: "<<endl;
 						add_splits(tmp_aln, split_events, 1, ref, final, root_final, num_reads, true);
 					}
 				}
 			}
+		//	cout<<" none "<<endl;
 		}
 		//get next read:
 		mapped_file->parseReadFast(Parameter::Instance()->min_mq, tmp_aln);

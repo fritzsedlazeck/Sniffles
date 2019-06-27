@@ -27,8 +27,6 @@
 
 //cmake -D CMAKE_C_COMPILER=/usr/local/bin/gcc-8 -D CMAKE_CXX_COMPILER=/usr/local/bin/g++-8 ..
 
-
-
 //TODO:
 //check strand headers.
 // strand bias??

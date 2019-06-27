@@ -37,7 +37,7 @@ void Breakpoint_Tree::overalps(int start, int stop, std::string chr, breakpoint_
 			} else {
 				par->ref_support.second++;
 			}
-			//		std::cout<<"start: "<<start<<" "<<stop<<std::endl;
+		//	std::cout<<"Hit start: "<<start<<" "<<stop<<std::endl;
 		}
 	} else { //stop coordinate
 		if ((par->position > start + 100 && par->position < stop - 100) && strcmp(chr.c_str(), par->chr.c_str()) == 0) { //found
@@ -46,7 +46,7 @@ void Breakpoint_Tree::overalps(int start, int stop, std::string chr, breakpoint_
 			} else {
 				par->ref_support.second++;
 			}
-			//		std::cout<<"stop: "<< start<<" "<<stop<<std::endl;
+		//	std::cout<<"Hit stop: "<< start<<" "<<stop<<std::endl;
 		}
 	}
 

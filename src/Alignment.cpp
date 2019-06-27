@@ -139,8 +139,8 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 	}
 
 	int sum_mis = 0;
-	int sum_events=0;
-	int sum_single=0;
+	int sum_events = 0;
+	int sum_single = 0;
 	for (size_t i = 0; i < al->CigarData.size(); i++) {
 		if (al->CigarData[i].Type == 'M' || (al->CigarData[i].Type == '=' || al->CigarData[i].Type == 'X')) {
 			pos += al->CigarData[i].Length;
@@ -150,9 +150,9 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 			ev.type = al->CigarData[i].Length; //deletion
 			ev.readposition = read_pos;
 			ev.resolved = true;
-			if (al->CigarData[i].Length >2) {
+			if (al->CigarData[i].Length > 2) {
 				sum_events++;
-			}else{
+			} else {
 				sum_single++;
 			}
 			events.push_back(ev);
@@ -162,9 +162,9 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 			ev.resolved = true;
 			ev.readposition = read_pos;
 			ev.type = al->CigarData[i].Length * -1; //insertion
-			if (al->CigarData[i].Length >2) {
+			if (al->CigarData[i].Length > 2) {
 				sum_events++;
-			}else{
+			} else {
 				sum_single++;
 			}
 
@@ -174,11 +174,24 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 			pos += al->CigarData[i].Length;
 			ev.resolved = true;
 			read_pos += al->CigarData[i].Length;
-		} else if ((al->CigarData[i].Type == 'S' ||  al->CigarData[i].Type == 'H' )&& al->CigarData[i].Length > Parameter::Instance()->huge_ins) { /// Used for reads ranging into an inser
+		} else if ((al->CigarData[i].Type == 'S' || al->CigarData[i].Type == 'H') && al->CigarData[i].Length > Parameter::Instance()->huge_ins) { /// Used for reads ranging into an inser
 			string sa;
 			al->GetTag("SA", sa);
 			uint32_t sv;
 			if ((al->GetTag("SV", sv) && sa.empty()) && (!(sv & Ns_CLIPPED) && !(sv & FULLY_EXPLAINED))) { // TODO remove last )
+				ev.position = pos; // - Parameter::Instance()->huge_ins;
+				if (i == 0) {
+					ev.readposition = 0;
+				} else {
+					ev.readposition = read_pos;
+				}
+				ev.resolved = false;
+				ev.type = Parameter::Instance()->huge_ins * -1; //insertion: WE have to fix the length since we cannot estimate it!]
+				events.push_back(ev);
+			} else if (!al->GetTag("SV", sv) && sa.empty()) {
+				if(flag){
+					cout<<"HIT ALN"<<endl;
+				}
 				ev.position = pos; // - Parameter::Instance()->huge_ins;
 				if (i == 0) {
 					ev.readposition = 0;
@@ -194,13 +207,13 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 
 	//exit(0);
 	if (flag) {
-		std::cout << "FIRST:" << std::endl;
+	/*	std::cout << "FIRST:" << std::endl;
 		for (size_t i = 0; i < events.size(); i++) {
 			// if (abs(events[i].type) > 200) {
 			cout << events[i].position << " " << events[i].type << endl;
 			// }
 		}
-		cout << endl;
+		cout << endl;*/
 	}
 
 //set ref length requ. later on:
@@ -434,7 +447,7 @@ string convertInt(int number) {
 	return ss.str(); //return a string with the contents of the stream
 }
 string Alignment::getTagData() {
-	vector<string> tags;
+	vector < string > tags;
 
 	uint32_t i = 0;
 	if (al->GetTag("AS", i)) {
@@ -949,7 +962,7 @@ std::string Alignment::get_md() {
 	} else {
 		std::cerr << "No MD string detected! Check bam file! Otherwise generate using e.g. samtools." << std::endl;
 		cout << "MD: TEST" << this->getName() << endl;
-		exit(EXIT_FAILURE);
+		exit (EXIT_FAILURE);
 	}
 	return md;
 }
@@ -960,7 +973,7 @@ std::string Alignment::get_cs() {
 		return cs;
 	} else {
 		std::cerr << "No CS string detected! Check bam file!" << std::endl;
-		exit(EXIT_FAILURE);
+		exit (EXIT_FAILURE);
 	}
 	return cs;
 }
@@ -1282,9 +1295,9 @@ vector<str_event> Alignment::get_events_Aln() {
 				} else {
 					tmp.length = insert_max; //TODO not sure!
 					while (start < stop && event_aln[start].readposition == -1) {
-						if (flag) {
-							cout << event_aln[start].readposition << " " << event_aln[start].type << endl;
-						}
+						//if (flag) {
+						//	cout << event_aln[start].readposition << " " << event_aln[start].type << endl;
+					//	}
 						start++;
 					}
 					if (flag) {
@@ -1292,10 +1305,10 @@ vector<str_event> Alignment::get_events_Aln() {
 					}
 					tmp.read_pos = event_aln[start].readposition;
 					if (Parameter::Instance()->print_seq) {
-						if (flag) {
-							std::cout << "Seq+:" << this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length) << std::endl;
+					//	if (flag) {
+					//		std::cout << "Seq+:" << this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length) << std::endl;
 
-						}
+					//	}
 						tmp.sequence = this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length);
 					} else {
 						tmp.sequence = "NA";

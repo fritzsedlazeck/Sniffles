@@ -7,6 +7,29 @@
 
 #include "IPrinter.h"
 
+void write_read(Alignment * tmp_aln, FILE * & ref_allel_reads) {
+	/*	tmp.chr_id = tmp_aln->getRefID();	//check string in binary???
+	 tmp.start = tmp_aln->getPosition();
+	 tmp.length = tmp_aln->getRefLength();
+	 if (tmp_aln->getStrand()) {
+	 tmp.strand = 1;
+	 } else {
+	 tmp.strand = 2;
+	 }*/
+
+	fprintf(ref_allel_reads, "%i", tmp_aln->getRefID());
+	fprintf(ref_allel_reads, "%c", '\t');
+	fprintf(ref_allel_reads, "%i", tmp_aln->getPosition());
+	fprintf(ref_allel_reads, "%c", '\t');
+	fprintf(ref_allel_reads, "%i", tmp_aln->getRefLength());
+	fprintf(ref_allel_reads, "%c", '\t');
+	if (tmp_aln->getStrand()) {
+		fprintf(ref_allel_reads, "%c", '1');
+	} else {
+		fprintf(ref_allel_reads, "%c", '2');
+	}
+	fprintf(ref_allel_reads, "%c", '\n');
+}
 
 std::string IPrinter::assess_genotype(int ref, int support) {
 	double allele = (double) support / (double) (support + ref);

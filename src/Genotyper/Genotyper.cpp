@@ -333,14 +333,6 @@ void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node, std
 	int prev_id = -1;
 	int num_reads = 0;
 
-	/*fprintf(ref_allel_reads, "%i",tmp_aln->getRefID());
-	 fprintf(ref_allel_reads, "%i",tmp_aln->getPosition());
-	 fprintf(ref_allel_reads, "%i",tmp_aln->getRefLength());
-	 if (tmp_aln->getStrand()) {
-	 fprintf(ref_allel_reads, "%c",'1');
-	 } else {
-	 fprintf(ref_allel_reads, "%c",'2');
-	 }*/
 	getline(myfile, buffer);
 	//cout<<buffer<<endl;
 	while (!myfile.eof()) {
