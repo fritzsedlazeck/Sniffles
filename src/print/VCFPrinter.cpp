@@ -77,7 +77,7 @@ void VCFPrinter::print_header() {
 
 }
 
-map<std::string, vector<int>> init_motives2() {
+map<std::string, vector<int> > init_motives2() {
 	map<std::string, vector<int>> motives;
 	motives["TGAA"].push_back(0); // = 0;
 	motives["ATCT"].push_back(0); //  = 0; //rev comp
