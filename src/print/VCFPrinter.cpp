@@ -78,7 +78,7 @@ void VCFPrinter::print_header() {
 }
 
 map<std::string, vector<int> > init_motives2() {
-	map<std::string, vector<int>> motives;
+	map<std::string, vector<int> > motives;
 	motives["TGAA"].push_back(0); // = 0;
 	motives["ATCT"].push_back(0); //  = 0; //rev comp
 
@@ -179,7 +179,7 @@ void VCFPrinter::report_STR(Breakpoint * &SV, RefVector ref) {
 	//=============
 
 	if (Parameter::Instance()->str && ((SV->get_SVtype() & INS) || (SV->get_SVtype() & DEL))) {
-		map<std::string, std::vector<int>> motives2;// = init_motives2();
+		map<std::string, std::vector<int> > motives2;// = init_motives2();
 		std::string chr;
 		int start = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr);
 		cout << "NEW REGION: " << chr << ":" << start << " " << IPrinter::get_type(SV->get_SVtype()) << endl;
