@@ -34,6 +34,7 @@ private:
 	static Parameter* m_pInstance;
 	std::vector<region_str> regions;
 public:
+
 	std::string output_vcf;
 	std::string output_bedpe;
 	std::string ref_seq;
@@ -86,6 +87,7 @@ public:
 	bool cs_string;
 	bool read_strand;
 	bool ccs_reads;
+	bool str;
 
 	void set_regions(std::string reg) {
 		size_t i = 0;

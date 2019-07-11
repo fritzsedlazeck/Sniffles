@@ -345,6 +345,7 @@ long get_median(std::vector<long> corrds) {
 	return corrds[(int) corrds.size() / 2];
 }
 
+
 void Breakpoint::predict_SV() {
 	bool aln = false;
 	bool split = false;
@@ -425,12 +426,18 @@ void Breakpoint::predict_SV() {
 	long counts = 0;
 	int maxim = 0;
 	long coord = 0;
+	long min_start = 0;
+	long max_stop = 0;
 	if (num > 0) {
+		min_start = (*starts.begin()).first;
 		//find the start coordinate:
 		for (map<long, int>::iterator i = starts.begin(); i != starts.end(); i++) {
 			if ((*i).second > maxim) {
 				coord = (*i).first;
 				maxim = (*i).second;
+			}
+			if ((*i).first < min_start) {
+				min_start = (*i).first;
 			}
 		}
 		if (maxim < 5) {
@@ -449,6 +456,9 @@ void Breakpoint::predict_SV() {
 			if ((*i).second > maxim) {
 				coord = (*i).first;
 				maxim = (*i).second;
+			}
+			if ((*i).first > max_stop) {
+				max_stop = (*i).first;
 			}
 		}
 		if (maxim < 5) {
@@ -483,6 +493,7 @@ void Breakpoint::predict_SV() {
 		}
 		starts.clear();
 		stops.clear();
+
 		//strand information:
 		for (size_t i = 0; i < strands.size(); i++) {
 			maxim = 0;
@@ -503,17 +514,17 @@ void Breakpoint::predict_SV() {
 	}
 
 	if (!scan_reads) {
-	//	std::cout<<"Test strand"<<std::endl;
+		//	std::cout<<"Test strand"<<std::endl;
 		//if forcecalling we need to define the strands:
 		std::map<std::string, read_str>::iterator it = positions.support.find("input");
 
 		//no output!??
 		/*if ((*it).second.strand.first) {
-			std::cout << "s1: true" << endl;
-		}
-		if ((*it).second.strand.second) {
-			std::cout << "s2: true" << endl;
-		}*/
+		 std::cout << "s1: true" << endl;
+		 }
+		 if ((*it).second.strand.second) {
+		 std::cout << "s2: true" << endl;
+		 }*/
 		if (it != positions.support.end()) {
 			this->strand.push_back(translate_strand((*it).second.strand));
 		}

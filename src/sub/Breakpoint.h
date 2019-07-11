@@ -53,7 +53,6 @@ struct position_str {
 	svs_breakpoint_str stop;
 	//int pos; //the chromosomes are encoded over the positions.
 	std::map<std::string,read_str> support;
-	//std::vector<read_str> support; // map?? -> no duplicated reads, easy to catch up which read is included.
 	int coverage;
 	int lowmq_cov;
 	int read_start;

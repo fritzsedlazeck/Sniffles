@@ -92,6 +92,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::SwitchArg arg_parameter("", "skip_parameter_estimation", "Enables the scan if only very few reads are present. ", cmd, false);
 	TCLAP::SwitchArg arg_cs_string("", "cs_string", "Enables the scan of CS string instead of Cigar and MD. ", cmd, false);
 	TCLAP::SwitchArg arg_read_strand("", "report_read_strands", "Enables the report of the strand categories per read. (Beta) ", cmd, false);
+	TCLAP::SwitchArg arg_str("", "report_str", "Enables the report of str. (alpha testing) ", cmd, false);
 
 	TCLAP::SwitchArg arg_ccs("", "ccs_reads", "Preset CCS Pacbio setting. (Beta) ", cmd, false);
 
@@ -145,6 +146,7 @@ void read_parameters(int argc, char *argv[]) {
 	printParameter(usage, arg_std);
 	printParameter(usage,arg_read_strand);
 	printParameter(usage,arg_ccs);
+	printParameter(usage,arg_str);
 
 	usage << "" << std::endl;
 	usage << "Parameter estimation:" << std::endl;
@@ -209,6 +211,7 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->cs_string = arg_cs_string.getValue();
 	Parameter::Instance()->read_strand=arg_read_strand.getValue();
 	Parameter::Instance()->ccs_reads=arg_ccs.getValue();
+	Parameter::Instance()->str=arg_str.getValue();
 
 	if(Parameter::Instance()->ccs_reads){
 		Parameter::Instance()->skip_parameter_estimation=true;
@@ -461,6 +464,7 @@ int main(int argc, char *argv[]) {
 			//force calling was selected:
 			force_calling(Parameter::Instance()->bam_files[0], printer);
 		}
+
 
 		printer->close_file();
 

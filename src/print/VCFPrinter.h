@@ -15,6 +15,7 @@ private:
 	void print_header();
  	void print_body(Breakpoint * &SV, RefVector ref);
  	void print_body_recall(Breakpoint * &SV, RefVector ref);
+ 	void report_STR(Breakpoint * &SV, RefVector ref);
 public:
 	VCFPrinter(){
 

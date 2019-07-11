@@ -76,7 +76,166 @@ void VCFPrinter::print_header() {
 	fprintf(file, "%c", '\n');
 
 }
+
+map<std::string, vector<int>> init_motives2() {
+	map<std::string, vector<int>> motives;
+	motives["TGAA"].push_back(0); // = 0;
+	motives["ATCT"].push_back(0); //  = 0; //rev comp
+
+	motives["TCTA"].push_back(0); //  = 0;
+	motives["GGAA"].push_back(0); //  = 0;
+	motives["GGCA"].push_back(0); //  = 0;
+	motives["TCTA"].push_back(0); //  = 0;
+	motives["AAGG"].push_back(0); //  = 0;
+	motives["AGAA"].push_back(0); //  = 0;
+	motives["AGAT"].push_back(0); //  = 0;
+	motives["CTAT"].push_back(0); //  = 0;
+	motives["TCTA"].push_back(0); //  = 0;
+	motives["TGAA"].push_back(0); //  = 0;
+	motives["GATA"].push_back(0); //  = 0;
+	motives["GACA"].push_back(0); //  = 0;
+	motives["TAGA"].push_back(0); //  = 0;
+	motives["CAGA"].push_back(0); //  = 0;
+	motives["TATC"].push_back(0); //  = 0;
+	motives["TTTTC"].push_back(0); //  = 0;
+	motives["GATA"].push_back(0); //  = 0;
+	motives["AGAA"].push_back(0); //  = 0;
+	motives["TCCT"].push_back(0); //  = 0;
+	motives["TATC"].push_back(0); //  = 0;
+	motives["AAAGA"].push_back(0); //  = 0;
+	motives["ATT"].push_back(0); //  = 0;
+
+	motives["TAGA"].push_back(0); //  = 0;
+	motives["GAAA"].push_back(0); //  = 0;
+	motives["TCTG"].push_back(0); //  = 0;
+	motives["TAT"].push_back(0); //  = 0;
+	motives["AGAT"].push_back(0); //  = 0;
+	motives["TGGA"].push_back(0); //  = 0;
+	motives["TTTTC"].push_back(0); //  = 0;
+	motives["GATA"].push_back(0); //  = 0;
+	motives["AGAGAT"].push_back(0); //  = 0;
+	motives["AGAT"].push_back(0); //  = 0;
+	motives["GAAA"].push_back(0); //  = 0;
+	motives["CTT"].push_back(0); //  = 0;
+	motives["ATCT"].push_back(0); //  = 0;
+	motives["GATA"].push_back(0); //  = 0;
+	motives["TTTC"].push_back(0); //  = 0;
+	motives["AAAG"].push_back(0); //  = 0;
+	motives["CTTTT"].push_back(0); //  = 0;
+
+	return motives;
+}
+
+map<std::string, int> init_motives() {
+	map<std::string, int> motives;
+	motives["TGAA"] = 0;
+	motives["ATCT"] = 0; //rev comp
+
+	motives["TCTA"] = 0;
+	motives["GGAA"] = 0;
+	motives["GGCA"] = 0;
+	motives["TCTA"] = 0;
+	motives["AAGG"] = 0;
+	motives["AGAA"] = 0;
+	motives["AGAT"] = 0;
+	motives["CTAT"] = 0;
+	motives["TCTA"] = 0;
+	motives["TGAA"] = 0;
+	motives["GATA"] = 0;
+	motives["GACA"] = 0;
+	motives["TAGA"] = 0;
+	motives["CAGA"] = 0;
+	motives["TATC"] = 0;
+	motives["TTTTC"] = 0;
+	motives["GATA"] = 0;
+	motives["AGAA"] = 0;
+	motives["TCCT"] = 0;
+	motives["TATC"] = 0;
+	motives["AAAGA"] = 0;
+	motives["ATT"] = 0;
+
+	motives["TAGA"]= 0;
+	motives["GAAA"]= 0;
+	motives["TCTA"]= 0;
+	motives["TCTG"]= 0;
+	motives["TAT"]= 0;
+	motives["AGAT"]= 0;
+	motives["TGGA"]= 0;
+	motives["AGAGAT"]= 0;
+	motives["AGAT"]= 0;
+	motives["GAAA"]= 0;
+	motives["CTT"]= 0;
+	motives["ATCT"]= 0;
+	motives["GATA"]= 0;
+	motives["TTTC"]= 0;
+	motives["AAAG"]= 0;
+	motives["CTTTT"]= 0;
+	return motives;
+}
+
+void VCFPrinter::report_STR(Breakpoint * &SV, RefVector ref) {
+
+	//STR code!:::::
+	//=============
+
+	if (Parameter::Instance()->str && ((SV->get_SVtype() & INS) || (SV->get_SVtype() & DEL))) {
+		map<std::string, std::vector<int>> motives2;// = init_motives2();
+		std::string chr;
+		int start = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr);
+		cout << "NEW REGION: " << chr << ":" << start << " " << IPrinter::get_type(SV->get_SVtype()) << endl;
+		std::map<std::string, read_str> support = SV->get_coordinates().support;
+		for (std::map<std::string, read_str>::iterator i = support.begin(); i != support.end(); i++) {
+			if (abs(SV->get_coordinates().start.most_support - (*i).second.coordinates.first) < 10) {
+				map<std::string, int> motives;// = init_motives();
+				int counts = 0;
+				std::string sequence = (*i).second.sequence;
+				//cout<<"check seq"<<endl;
+				for (size_t p = 0; p < sequence.size(); p++) {
+				//	if (motives.find(sequence.substr(p, 3)) != motives.end()) {
+						motives[sequence.substr(p, 3)]++;
+				//	}
+				//	if (motives.find(sequence.substr(p, 4)) != motives.end()) {
+						motives[sequence.substr(p, 4)]++;
+				//	}
+				//	if (motives.find(sequence.substr(p, 5)) != motives.end()) {
+						motives[sequence.substr(p, 5)]++;
+				//	}
+				}
+				//cout<<"Summarize"<<endl;
+				for (map<std::string, int>::iterator p = motives.begin(); p != motives.end(); p++) {
+					if ((*p).second > 0) {
+						while ((*p).second + 1 > motives2[(*p).first].size()) {
+							motives2[(*p).first].push_back(0);
+						}
+						motives2[(*p).first][(*p).second]++;
+					}
+				}
+			}
+		}
+		//cout<<"Print"<<endl;
+		std::stringstream ss2;
+		int num_entries = 0;
+		for (map<std::string, vector<int> >::iterator p = motives2.begin(); p != motives2.end(); p++) {
+			//if ((*p).second.size() ) {
+			int max = 0;
+			std::stringstream ss;
+			ss << (*p).first << ":";
+			for (size_t i = 0; i < (*p).second.size(); i++) {
+				ss << (*p).second[i] << ";";
+				if ((*p).second[i] > max) {
+					max = (*p).second[i];
+				}
+			}
+			if (max > 10) {
+				cout << ss.str() << endl;
+			}
+		}
+	}
+
+}
+
 void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
+
 	if (!this->bed_tree.is_in(SV->get_coordinates().start.most_support, this->root) && !this->bed_tree.is_in(SV->get_coordinates().stop.most_support, this->root)) {
 		//temp. store read names supporting this SVs to later group the SVs together.
 		double std_quant_start = 0;
@@ -87,6 +246,9 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 		double std_length = 0;
 		int zmws = 0;
 		bool ok_to_print = (to_print(SV, std_quant, kurtosis, std_length, zmws) || Parameter::Instance()->ignore_std);
+		if (Parameter::Instance()->str) {
+			report_STR(SV, ref);
+		}
 		//std::cout << "Print check: " << std_quant.first << " " << std_quant.second << endl;
 		if (ok_to_print && (zmws == 0 || zmws >= Parameter::Instance()->min_zmw)) {
 			if (Parameter::Instance()->phase) {

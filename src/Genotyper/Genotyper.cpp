@@ -8,20 +8,19 @@
 #include "Genotyper.h"
 
 std::string Genotyper::assess_genotype(int ref, int support) {
-	double allele = (double) support / (double) (support + ref);
+	double allele=0;
 
+	if ((support + ref) > 0) {
+		allele = (double) support / (double) (support + ref);
+	}
 	if (allele < Parameter::Instance()->min_allelel_frequency) {
 		return "";
 	}
-	if ((support + ref) == 0) {
-		allele = 0;
-	}
-
 	std::stringstream ss;
 	ss << ";AF=";
 	ss << allele;
 	ss << "\tGT:DR:DV\t";
-	if (ref == 0 && support == 0) {
+	if (ref <2 && support <2) {
 		ss << "./."; //we cannot define it.
 	} else if (allele > Parameter::Instance()->homfreq) {
 		ss << "1/1";
