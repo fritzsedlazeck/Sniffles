@@ -465,7 +465,6 @@ int main(int argc, char *argv[]) {
 			force_calling(Parameter::Instance()->bam_files[0], printer);
 		}
 
-
 		printer->close_file();
 
 		//cluster the SVs together:

@@ -363,7 +363,7 @@ void Genotyper::update_SVs2() {
 
 std::string Genotyper::assess_genotype(int ref, int support) {
 	double allele = 0;
-//ref+=support; // just for now!
+	ref+=support; // just for now!
 	if ((ref) > 0) {
 		allele = (double) support / (double) ref;	//(support + ref);
 	}
@@ -531,7 +531,7 @@ variant_str Genotyper::get_breakpoint_bedpe(string buffer) {
 }
 
 void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
-/*	std::ifstream myfile;
+	std::ifstream myfile;
 	bool is_vcf = !Parameter::Instance()->output_vcf.empty();
 
 	string file_name;
@@ -580,10 +580,13 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 				std::cerr << "Error in GT: Tree node not found. Exiting." << std::endl;
 				exit(EXIT_FAILURE);
 			}
+
+			int ref = final_ref.first + final_ref.second;
+
 			if (is_vcf) {
-				to_print = mod_breakpoint_vcf(buffer, final_ref);
+				to_print = mod_breakpoint_vcf(buffer, ref);
 			} else {
-				to_print = mod_breakpoint_bedpe(buffer, final_ref);
+				to_print = mod_breakpoint_bedpe(buffer, ref);
 			}
 			if (!to_print.empty()) {
 				fprintf(file, "%s", to_print.c_str());
@@ -603,7 +606,7 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 	move += Parameter::Instance()->tmp_file;
 	move += " ";
 	move += file_name;
-	system(move.c_str());*/
+	system(move.c_str());
 }
 
 std::vector<std::string> Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_node * &node) {
@@ -737,7 +740,6 @@ void Genotyper::update_SVs() {
 	std::vector<std::string> ref_dict = read_SVs(this->tree, this->node);
 	cout << "\tUpdate reference alleles" << endl;
 	compute_cov(this->tree, this->node, ref_dict);
-//compute_cov_v2(this->tree, this->node, ref_dict);// <- in dev. When more SV we dont find the overlapp??
 	cout << "\tWriting SV calls" << endl;
 	update_file(this->tree, this->node);
 	cout << "\tCleaning tmp files" << endl;
