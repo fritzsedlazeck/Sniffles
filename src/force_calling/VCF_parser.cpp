@@ -290,6 +290,9 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 	//myfile.getline(buffer, buffer_size);
 	getline(myfile, buffer);
 	int num = 0;
+
+	int num_dup=0;
+
 	while (!myfile.eof()) {
 		if (buffer[0] != '#') {
 			//	std::cout<<num<<"\t"<<buffer<<std::endl;
@@ -379,6 +382,9 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 
 				if (count == 4 && (tmp.type == -1 && buffer[i - 1] == '<')) {
 					tmp.type = get_type(std::string(&buffer[i]));
+					if(tmp.type==1){
+						num_dup++;
+					}
 				}
 				if (tmp.stop.pos == -1 && (count == 4 && (buffer[i - 1] == '[' || buffer[i - 1] == ']'))) {
 					tmp.stop = parse_pos(&buffer[i - 1]);
@@ -448,6 +454,6 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 		getline(myfile, buffer);
 	}
 	myfile.close();
-//std::cout << calls.size() << std::endl;
+	std::cout << calls.size()<<" DUPS: " <<num_dup << std::endl;
 	return calls;
 }

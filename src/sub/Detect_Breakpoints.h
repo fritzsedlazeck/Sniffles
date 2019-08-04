@@ -37,6 +37,7 @@ void estimate_parameters(std::string read_filename);
 bool overlaps(aln_str prev,aln_str curr);
 void detect_merged_svs(Breakpoint * point);
 
+long get_ref_lengths(int id, RefVector ref);
 std::string TRANS_type(char type);
 
 

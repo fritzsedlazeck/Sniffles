@@ -195,11 +195,11 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 
 	TNode *root = NULL;
 //FILE * alt_allel_reads;
-	FILE * ref_allel_reads;
-	if (Parameter::Instance()->genotype) {
-		ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "w");
+//	FILE * ref_allel_reads;
+//	if (Parameter::Instance()->genotype) {
+//		ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "w");
 		//	ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "wb");
-	}
+//	}
 	Alignment * tmp_aln = mapped_file->parseRead(Parameter::Instance()->min_mq);
 	long ref_space = get_ref_lengths(tmp_aln->getRefID(), ref);
 	long num_reads = 0;
@@ -250,7 +250,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 			std::vector<str_event> aln_event;
 			std::vector<aln_str> split_events;
 			if (tmp_aln->getMappingQual() > Parameter::Instance()->min_mq) {
-				double score = tmp_aln->get_scrore_ratio();
+				//double score = tmp_aln->get_scrore_ratio();
 
 				//
 
@@ -261,10 +261,10 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 #pragma omp section
 						{
 							//		clock_t begin = clock();
-							if ((score == -1 || score > Parameter::Instance()->score_treshold)) {
+							//if ((score == -1 || score > Parameter::Instance()->score_treshold)) {
 								aln_event = tmp_aln->get_events_Aln();
 
-							}
+							//}
 							//		Parameter::Instance()->meassure_time(begin, " Alignment ");
 						}
 #pragma omp section
@@ -281,20 +281,10 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 				//tmp_aln->set_supports_SV(aln_event.empty() && split_events.empty());
 
 				//Store reference supporting reads for genotype estimation:
-				if (Parameter::Instance()->genotype &&  (aln_event.empty() && split_events.empty())) {
-					//write read:
-					/*str_read tmp;
-					 tmp.chr_id = tmp_aln->getRefID();	//check string in binary???
-					 tmp.start = tmp_aln->getPosition();
-					 tmp.length = tmp_aln->getRefLength();
-					 if (tmp_aln->getStrand()) {
-					 tmp.strand = 1;
-					 } else {
-					 tmp.strand = 2;
-					 }*/
-					write_read(tmp_aln, ref_allel_reads);
-					//fwrite(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
-				}
+			//	if (Parameter::Instance()->genotype &&  (aln_event.empty() && split_events.empty())) {
+			//		//write read:
+			//		write_read(tmp_aln, ref_allel_reads);
+			//	}
 
 				//store the potential SVs:
 				if (!aln_event.empty()) {
@@ -315,7 +305,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 		}
 	}
 //filter and copy results:
-	std::cout << "Finalizing  .." << std::endl;
+	std::cout << "\tFinalizing  .." << std::endl;
 	std::vector<Breakpoint *> points;
 	bst.get_breakpoints(root, points);
 
@@ -364,10 +354,11 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 			printer->printSV(points[i]);
 		}
 	}
-	//std::cout<<"Done"<<std::endl;
-	if (Parameter::Instance()->genotype) {
-		fclose(ref_allel_reads);
-	}
+	//std::cout<<"Done"<<std::endl;/
+//	if (Parameter::Instance()->genotype) {
+//		fclose(ref_allel_reads);
+//	}
+	delete mapped_file;
 }
 
 void add_events(Alignment *& tmp, std::vector<str_event> events, short type, long ref_space, IntervallTree & bst, TNode *&root, long read_id, bool add) {

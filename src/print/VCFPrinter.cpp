@@ -78,19 +78,15 @@ void VCFPrinter::print_header() {
 }
 
 map<std::string, vector<int> > init_motives2() {
-	map<std::string, vector<int> > motives;
-	motives["TGAA"].push_back(0); // = 0;
+	map<std::string, vector<int> > motives;\
 	motives["ATCT"].push_back(0); //  = 0; //rev comp
-
+	motives["GTCT"].push_back(0);
 	motives["TCTA"].push_back(0); //  = 0;
 	motives["GGAA"].push_back(0); //  = 0;
 	motives["GGCA"].push_back(0); //  = 0;
-	motives["TCTA"].push_back(0); //  = 0;
 	motives["AAGG"].push_back(0); //  = 0;
 	motives["AGAA"].push_back(0); //  = 0;
-	motives["AGAT"].push_back(0); //  = 0;
-	motives["CTAT"].push_back(0); //  = 0;
-	motives["TCTA"].push_back(0); //  = 0;
+		motives["CTAT"].push_back(0); //  = 0;
 	motives["TGAA"].push_back(0); //  = 0;
 	motives["GATA"].push_back(0); //  = 0;
 	motives["GACA"].push_back(0); //  = 0;
@@ -99,7 +95,6 @@ map<std::string, vector<int> > init_motives2() {
 	motives["TATC"].push_back(0); //  = 0;
 	motives["TTTTC"].push_back(0); //  = 0;
 	motives["GATA"].push_back(0); //  = 0;
-	motives["AGAA"].push_back(0); //  = 0;
 	motives["TCCT"].push_back(0); //  = 0;
 	motives["TATC"].push_back(0); //  = 0;
 	motives["AAAGA"].push_back(0); //  = 0;
@@ -114,7 +109,6 @@ map<std::string, vector<int> > init_motives2() {
 	motives["TTTTC"].push_back(0); //  = 0;
 	motives["GATA"].push_back(0); //  = 0;
 	motives["AGAGAT"].push_back(0); //  = 0;
-	motives["AGAT"].push_back(0); //  = 0;
 	motives["GAAA"].push_back(0); //  = 0;
 	motives["CTT"].push_back(0); //  = 0;
 	motives["ATCT"].push_back(0); //  = 0;
@@ -130,17 +124,14 @@ map<std::string, int> init_motives() {
 	map<std::string, int> motives;
 	motives["TGAA"] = 0;
 	motives["ATCT"] = 0; //rev comp
-
-	motives["TCTA"] = 0;
+	motives["GTCT"] = 0;
 	motives["GGAA"] = 0;
 	motives["GGCA"] = 0;
-	motives["TCTA"] = 0;
 	motives["AAGG"] = 0;
 	motives["AGAA"] = 0;
 	motives["AGAT"] = 0;
 	motives["CTAT"] = 0;
 	motives["TCTA"] = 0;
-	motives["TGAA"] = 0;
 	motives["GATA"] = 0;
 	motives["GACA"] = 0;
 	motives["TAGA"] = 0;
@@ -148,7 +139,6 @@ map<std::string, int> init_motives() {
 	motives["TATC"] = 0;
 	motives["TTTTC"] = 0;
 	motives["GATA"] = 0;
-	motives["AGAA"] = 0;
 	motives["TCCT"] = 0;
 	motives["TATC"] = 0;
 	motives["AAAGA"] = 0;
@@ -156,13 +146,10 @@ map<std::string, int> init_motives() {
 
 	motives["TAGA"]= 0;
 	motives["GAAA"]= 0;
-	motives["TCTA"]= 0;
 	motives["TCTG"]= 0;
 	motives["TAT"]= 0;
-	motives["AGAT"]= 0;
 	motives["TGGA"]= 0;
 	motives["AGAGAT"]= 0;
-	motives["AGAT"]= 0;
 	motives["GAAA"]= 0;
 	motives["CTT"]= 0;
 	motives["ATCT"]= 0;
@@ -179,27 +166,27 @@ void VCFPrinter::report_STR(Breakpoint * &SV, RefVector ref) {
 	//=============
 
 	if (Parameter::Instance()->str && ((SV->get_SVtype() & INS) || (SV->get_SVtype() & DEL))) {
-		map<std::string, std::vector<int> > motives2;// = init_motives2();
+		map<std::string, std::vector<int> > motives2 = init_motives2();
 		std::string chr;
 		int start = IPrinter::calc_pos(SV->get_coordinates().start.most_support, ref, chr);
 		cout << "NEW REGION: " << chr << ":" << start << " " << IPrinter::get_type(SV->get_SVtype()) << endl;
 		std::map<std::string, read_str> support = SV->get_coordinates().support;
 		for (std::map<std::string, read_str>::iterator i = support.begin(); i != support.end(); i++) {
 			if (abs(SV->get_coordinates().start.most_support - (*i).second.coordinates.first) < 10) {
-				map<std::string, int> motives;// = init_motives();
+				map<std::string, int> motives = init_motives();
 				int counts = 0;
 				std::string sequence = (*i).second.sequence;
 				//cout<<"check seq"<<endl;
 				for (size_t p = 0; p < sequence.size(); p++) {
-				//	if (motives.find(sequence.substr(p, 3)) != motives.end()) {
+					if (motives.find(sequence.substr(p, 3)) != motives.end()) {
 						motives[sequence.substr(p, 3)]++;
-				//	}
-				//	if (motives.find(sequence.substr(p, 4)) != motives.end()) {
+					}
+					if (motives.find(sequence.substr(p, 4)) != motives.end()) {
 						motives[sequence.substr(p, 4)]++;
-				//	}
-				//	if (motives.find(sequence.substr(p, 5)) != motives.end()) {
+					}
+					if (motives.find(sequence.substr(p, 5)) != motives.end()) {
 						motives[sequence.substr(p, 5)]++;
-				//	}
+					}
 				}
 				//cout<<"Summarize"<<endl;
 				for (map<std::string, int>::iterator p = motives.begin(); p != motives.end(); p++) {
@@ -226,7 +213,7 @@ void VCFPrinter::report_STR(Breakpoint * &SV, RefVector ref) {
 					max = (*p).second[i];
 				}
 			}
-			if (max > 10) {
+			if (max > 5) {
 				cout << ss.str() << endl;
 			}
 		}

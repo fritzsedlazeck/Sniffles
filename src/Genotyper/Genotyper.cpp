@@ -7,11 +7,365 @@
 
 #include "Genotyper.h"
 
-std::string Genotyper::assess_genotype(int ref, int support) {
-	double allele=0;
+long get_ref_lengths3(int id, RefVector ref) {
+	long length = 0;
 
-	if ((support + ref) > 0) {
-		allele = (double) support / (double) (support + ref);
+	for (size_t i = 0; i < (size_t) id && i < ref.size(); i++) {
+		length += (long) ref[i].RefLength + (long) Parameter::Instance()->max_dist;
+	}
+	return length;
+}
+
+void update_entries(std::vector<str_breakpoint_slim> &entries, int start, int stop, size_t & current_pos, int wobble, std::string rname) { //TODO room for optimization!
+
+	if (entries.empty() || stop + wobble < entries[0].pos) {
+		return;
+	}
+//	cout<<"PS: "<<current_pos<<endl;
+	//cout << "cov: " << start   << " " << stop  << endl;
+	for (size_t i = current_pos; i < entries.size(); i++) {
+		if (entries[i].pos < start - wobble) {
+			current_pos = i;
+		}
+		if ((start - wobble < entries[i].pos && stop + wobble > entries[i].pos)) {	// && (abs(entries[i].pos - start) > wobble / 2 && abs(entries[i].pos - stop) > wobble / 2)) {	//TODO not sure if I cannot combine these two.
+			//	entries[i].cov++;
+			entries[i].rnames[rname] = true;
+//			cout << "\tHIT: " << entries[i].cov << endl;
+		}
+		if (entries[i].pos > stop + wobble) {
+			break;
+		}
+	}
+}
+
+void update_coverage(std::map<std::string, std::vector<str_breakpoint_slim> > & entries) {
+
+	//run across BAM file to parse intervals and compute coverage
+	//tree.overlaps <- strand 1 = true , else = false??
+	//do I need to think about filtering etc?
+
+	cout << "\tReopening Bam file for parsing coverage " << endl;
+	RefVector ref;
+	BamParser * mapped_file = 0;
+	if (Parameter::Instance()->bam_files[0].find("bam") != string::npos) {
+		mapped_file = new BamParser(Parameter::Instance()->bam_files[0]);
+		ref = mapped_file->get_refInfo();
+	} else {
+		cerr << "File Format not recognized. File must be a sorted .bam file!" << endl;
+		exit(EXIT_FAILURE);
+	}
+
+	Alignment * tmp_aln = mapped_file->parseRead(Parameter::Instance()->min_mq);
+	long num_reads = 0;
+
+	int current_RefID = tmp_aln->getRefID();
+	std::vector<str_breakpoint_slim> tmp = entries[ref[tmp_aln->getRefID()].RefName];
+
+	size_t current_pos = 0;	// index of entries vector;
+
+	while (!tmp_aln->getQueryBases().empty()) {
+
+		if (current_RefID != tmp_aln->getRefID()) {
+			current_pos = 0;
+			entries[ref[current_RefID].RefName] = tmp;
+			std::cout << "\t\tSwitch Chr " << ref[tmp_aln->getRefID()].RefName << std::endl;
+			current_RefID = tmp_aln->getRefID();
+			tmp = entries[ref[current_RefID].RefName];
+		}
+
+		int start = (int) tmp_aln->getPosition();
+		int stop = (int) start + tmp_aln->getRefLength();
+		update_entries(tmp, start, stop, current_pos, 10, tmp_aln->getName());
+
+		mapped_file->parseReadFast(Parameter::Instance()->min_mq, tmp_aln);
+	}
+
+	entries[ref[current_RefID].RefName] = tmp;
+	/*	cout << "Check:" << endl;
+	 for (std::map<std::string, std::vector<str_breakpoint_slim> >::iterator i = entries.begin(); i != entries.end(); i++) {
+	 for (size_t j = 0; j < (*i).second.size(); j++) {
+	 cout << (*i).second[j].chr << " " << (*i).second[j].pos<<" "<< (*i).second[j].cov<< endl;
+	 }
+	 }*/
+
+	std::cout << "\tFinalizing  .." << std::endl;
+}
+
+str_breakpoint_slim init_breakpoint() {
+	str_breakpoint_slim tmp;
+	tmp.chr = "";
+//	tmp.cov = 0;
+//	tmp.is_start = false;
+	tmp.pos = 0;
+	return tmp;
+}
+
+void Genotyper::get_breakpoint_vcf(string buffer, str_breakpoint_slim & start, str_breakpoint_slim & stop) {
+	size_t i = 0;
+	int count = 0;
+
+	start = init_breakpoint();
+	stop = init_breakpoint();
+
+	while (buffer[i] != '\0' && buffer[i] != '\n') {
+		if (count == 0 && buffer[i] != '\t') {
+			start.chr += buffer[i];
+		}
+		if (count == 1 && buffer[i - 1] == '\t') {
+			start.pos = atoi(&buffer[i]);
+		}
+		if (stop.pos == -1 && (count == 4 && (buffer[i - 1] == '[' || buffer[i - 1] == ']'))) { //FOR TRA
+			parse_pos(&buffer[i - 1], stop.pos, stop.chr);
+		}
+
+		if (count > 6 && strncmp(";CHR2=", &buffer[i], 6) == 0) {
+			i += 6;
+			while (buffer[i] != ';') {
+				stop.chr += buffer[i];
+				i++;
+			}
+		}
+		if (count > 6 && strncmp(";END=", &buffer[i], 5) == 0) {
+			stop.pos = atoi(&buffer[i + 5]); //stores right most breakpoint
+			break;
+		}
+
+		if (buffer[i] == '\t') {
+			count++;
+		}
+		i++;
+	}
+}
+
+variant_str Genotyper::get_breakpoint_bedpe(string buffer, str_breakpoint_slim & start, str_breakpoint_slim & stop) {
+	size_t i = 0;
+	int count = 0;
+	std::string chr;
+	variant_str tmp;
+	start = init_breakpoint();
+	stop = init_breakpoint();
+
+	while (buffer[i] != '\0' && buffer[i] != '\n') {
+		if (count == 12 && buffer[i] != '\t') {
+			start.chr += buffer[i];
+		}
+
+		if (count == 13 && buffer[i - 1] == '\t') {
+			start.pos = atoi(&buffer[i]);
+		}
+		if (count == 14 && buffer[i] != '\t') {
+			stop.chr += buffer[i];
+		}
+		if (count == 15 && buffer[i - 1] == '\t') {
+			stop.pos = atoi(&buffer[i]);
+			break;
+		}
+		if (buffer[i] == '\t') {
+			count++;
+		}
+		i++;
+	}
+	return tmp;
+}
+
+void insert_sorted_entry(std::map<std::string, std::vector<str_breakpoint_slim> > & entries, str_breakpoint_slim pos) {
+	size_t i = 0;
+	while (i < entries[pos.chr].size() && entries[pos.chr][i].pos < pos.pos) {
+		i++;
+	}
+	if (entries.size() == i) {
+		entries[pos.chr].push_back(pos);
+	} else {
+		std::vector<str_breakpoint_slim>::iterator it = entries[pos.chr].begin();
+		entries[pos.chr].insert(it + i, pos);
+	}
+}
+void Genotyper::read_SVs(std::map<std::string, std::vector<str_breakpoint_slim> > & entries) {
+
+	std::ifstream myfile;
+	bool is_vcf = !Parameter::Instance()->output_vcf.empty();
+
+	if (!Parameter::Instance()->output_vcf.empty()) {
+		myfile.open(Parameter::Instance()->output_vcf.c_str(), std::ifstream::in);
+	} else if (!Parameter::Instance()->output_bedpe.empty()) {
+		myfile.open(Parameter::Instance()->output_bedpe.c_str(), std::ifstream::in);
+	}
+
+	if (!myfile.good()) {
+		std::cout << "SVParse: could not open file: " << std::endl;
+		exit(EXIT_FAILURE);
+	}
+	string buffer;
+
+	getline(myfile, buffer);
+
+	int num_sv = 0;
+	while (!myfile.eof()) {
+		if (buffer[0] != '#') {
+
+			str_breakpoint_slim start;
+			str_breakpoint_slim stop;
+			if (is_vcf) {
+				get_breakpoint_vcf(buffer, start, stop);
+			} else {
+				//get_breakpoint_bedpe(buffer); //TODO
+			}
+
+			//we want a sorted inclusion!
+			insert_sorted_entry(entries, start);
+			insert_sorted_entry(entries, stop);
+
+			num_sv++;
+			if (num_sv % 5000 == 0) {
+				cout << "\t\tRead in SV: " << num_sv << endl;
+			}
+		}
+		getline(myfile, buffer);
+	}
+	myfile.close();
+
+	/*	cout << "Check:" << endl;
+	 for (std::map<std::string, std::vector<str_breakpoint_slim> >::iterator i = entries.begin(); i != entries.end(); i++) {
+	 for (size_t j = 0; j < (*i).second.size(); j++) {
+	 cout<<(*i).second[j].chr<< " " <<(*i).second[j].pos<<endl;
+	 }
+	 }*/
+}
+
+void Genotyper::update_svs_output(std::map<std::string, std::vector<str_breakpoint_slim> > entries) {
+	std::ifstream myfile;
+	bool is_vcf = !Parameter::Instance()->output_vcf.empty();
+
+	string file_name;
+	if (!Parameter::Instance()->output_vcf.empty()) {
+		file_name = Parameter::Instance()->output_vcf;
+		myfile.open(Parameter::Instance()->output_vcf.c_str(), std::ifstream::in);
+	} else if (!Parameter::Instance()->output_bedpe.empty()) {
+		file_name = Parameter::Instance()->output_bedpe;
+		myfile.open(Parameter::Instance()->output_bedpe.c_str(), std::ifstream::in);
+	}
+
+	FILE*file = fopen(Parameter::Instance()->tmp_file.c_str(), "w"); //
+
+	if (!myfile.good()) {
+		std::cout << "SVParse: could not open file: " << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	string buffer;
+	getline(myfile, buffer);
+//parse SVs breakpoints in file
+
+	while (!myfile.eof()) {
+		if (buffer[0] != '#') {
+
+			std::string to_print;
+			// create binary tree to hold breakpoints!
+			variant_str tmp;
+			str_breakpoint_slim start;
+			str_breakpoint_slim stop;
+			if (is_vcf) {
+				get_breakpoint_vcf(buffer, start, stop);
+			} else {
+				//get_breakpoint_bedpe(buffer); //TODO
+			}
+			map<std::string, bool> tmp_names;
+			for (size_t i = 0; i < entries[start.chr].size(); i++) {
+				if (start.pos == entries[start.chr][i].pos) {
+					//	final_ref.first = entries[start.chr][i].cov;
+					for (map<std::string, bool>::iterator t = entries[start.chr][i].rnames.begin(); t != entries[start.chr][i].rnames.end(); t++) {
+						tmp_names[(*t).first] = true;
+					}
+					break;
+				}
+			}
+
+			for (size_t i = 0; i < entries[stop.chr].size(); i++) {
+				if (stop.pos == entries[stop.chr][i].pos) {
+					//final_ref.second = entries[stop.chr][i].cov;
+					for (map<std::string, bool>::iterator t = entries[stop.chr][i].rnames.begin(); t != entries[stop.chr][i].rnames.end(); t++) {
+						tmp_names[(*t).first] = true;
+					}
+
+					break;
+				}
+			}
+
+			if (tmp_names.empty() == -1) {
+				std::cerr << "Error in GT: Tree node not found. Exiting." << std::endl;
+				exit(EXIT_FAILURE);
+			}
+			if (is_vcf) {
+				to_print = mod_breakpoint_vcf(buffer, (int) tmp_names.size());
+			} else {
+				to_print = mod_breakpoint_bedpe(buffer, (int) tmp_names.size());
+			}
+			if (!to_print.empty()) {
+				fprintf(file, "%s", to_print.c_str());
+				fprintf(file, "%c", '\n');
+			}
+		} else {
+			fprintf(file, "%s", buffer.c_str());
+			fprintf(file, "%c", '\n');
+		}
+
+		getline(myfile, buffer);
+	}
+	myfile.close();
+	fclose(file);
+
+	string move = "mv ";
+	move += Parameter::Instance()->tmp_file;
+	move += " ";
+	move += file_name;
+	system(move.c_str());
+}
+
+void Genotyper::update_SVs2() {
+//parse SVs not just breakpoints and update with the coverage info
+	//per CHR:
+	//	Reconstruct the tree: similar to the IVCF parser?
+	//	Compute the coverage per chr (<can be in parallele to 1)
+	//	Intersect result from 1 + 2 -> print out.
+	//	Done;
+	RefVector ref;
+	BamParser * mapped_file = 0;
+	if (Parameter::Instance()->bam_files[0].find("bam") != string::npos) {
+		mapped_file = new BamParser(Parameter::Instance()->bam_files[0]);
+		ref = mapped_file->get_refInfo();
+	} else {
+		cerr << "File Format not recognized. File must be a sorted .bam file!" << endl;
+		exit(EXIT_FAILURE);
+	}
+
+	std::map<std::string, std::vector<str_breakpoint_slim> > entries;
+
+	//initialize for chrs
+	std::vector<str_breakpoint_slim> tmp;
+	for (size_t i = 0; i < ref.size(); i++) {
+		entries[ref[i].RefName] = tmp;
+	}
+
+	//parse + include sorted
+	read_SVs(entries);
+
+	//obtain coverage
+	update_coverage(entries);
+
+	//Update VCF file for these entries and put it in a tmp file.
+	update_svs_output(entries);
+}
+
+//================================================================================================
+//================================================================================================
+//================================================================================================
+//================================================================================================
+
+std::string Genotyper::assess_genotype(int ref, int support) {
+	double allele = 0;
+//ref+=support; // just for now!
+	if ((ref) > 0) {
+		allele = (double) support / (double) ref;	//(support + ref);
 	}
 	if (allele < Parameter::Instance()->min_allelel_frequency) {
 		return "";
@@ -20,7 +374,7 @@ std::string Genotyper::assess_genotype(int ref, int support) {
 	ss << ";AF=";
 	ss << allele;
 	ss << "\tGT:DR:DV\t";
-	if (ref <2 && support <2) {
+	if (ref < 2) {
 		ss << "./."; //we cannot define it.
 	} else if (allele > Parameter::Instance()->homfreq) {
 		ss << "1/1";
@@ -30,34 +384,36 @@ std::string Genotyper::assess_genotype(int ref, int support) {
 		ss << "0/0";
 	}
 	ss << ":";
-	ss << ref;
+	if (ref < support) {
+		cerr << "Warning @Genotyper:refrence coverage. Please report this! " << endl;
+		ss << ref - support;
+	} else {
+		ss << ref - support;
+	}
 	ss << ":";
 	ss << support;
 	return ss.str();
 }
 
-std::string Genotyper::mod_breakpoint_vcf(string buffer, std::pair<int, int> ref_strand) {
-	int ref = ref_strand.first + ref_strand.second;
-	//find last of\t
-	//parse #reads supporting
-	//print #ref
+std::string Genotyper::mod_breakpoint_vcf(string buffer, int ref_strand) {
+//find last of\t
+//parse #reads supporting
+//print #ref
 	string entry;
 	int pos = 0;
 
 	pos = buffer.find_last_of("GT");
-	//tab
+//tab
 	entry = buffer.substr(0, pos - 2);
 	std::stringstream ss;
 	ss << ";REF_strand=";
-	ss << ref_strand.first;
-	ss << ",";
-	ss << ref_strand.second;
+	ss << ref_strand;
 	entry += ss.str();
 
 	buffer = buffer.substr(pos + 1);		// the right part is only needed:
 	pos = buffer.find_last_of(':');
 	int support = atoi(buffer.substr(pos + 1).c_str());
-	string msg = assess_genotype(ref, support);
+	string msg = assess_genotype(ref_strand, support);
 	if (msg.empty()) {
 		return "";
 	}
@@ -66,17 +422,16 @@ std::string Genotyper::mod_breakpoint_vcf(string buffer, std::pair<int, int> ref
 
 }
 
-std::string Genotyper::mod_breakpoint_bedpe(string buffer, std::pair<int, int> ref_strand) {
+std::string Genotyper::mod_breakpoint_bedpe(string buffer, int ref) {
 
-	int ref = ref_strand.first + ref_strand.second;
 	std::string tmp = buffer;
 	std::string entry = tmp;
 	entry += '\t';
-	//int ref = max(tree.get_ref(node,var.chr,var.pos),tree.get_ref(node,var.chr2,var.pos2));
+//int ref = max(tree.get_ref(node,var.chr,var.pos),tree.get_ref(node,var.chr2,var.pos2));
 
 	int pos = tmp.find_last_of('\t');		//TODO!!
 	int support = atoi(tmp.substr(pos + 1).c_str());
-	double allele = (double) support / (double) (support + ref);
+	double allele = (double) support / (double) (ref);
 
 	if (allele < Parameter::Instance()->min_allelel_frequency) {
 		return "";
@@ -110,7 +465,7 @@ void Genotyper::parse_pos(char * buffer, int & pos, std::string & chr) {
 }
 
 variant_str Genotyper::get_breakpoint_vcf(string buffer) {
-	//TODO extend for TRA!
+//TODO extend for TRA!
 	size_t i = 0;
 	int count = 0;
 
@@ -176,7 +531,7 @@ variant_str Genotyper::get_breakpoint_bedpe(string buffer) {
 }
 
 void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
-	std::ifstream myfile;
+/*	std::ifstream myfile;
 	bool is_vcf = !Parameter::Instance()->output_vcf.empty();
 
 	string file_name;
@@ -197,7 +552,7 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 
 	string buffer;
 	getline(myfile, buffer);
-	//parse SVs breakpoints in file
+//parse SVs breakpoints in file
 
 	while (!myfile.eof()) { // TODO:if first -> we need to define AF!
 		if (buffer[0] != '#') {
@@ -248,7 +603,7 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 	move += Parameter::Instance()->tmp_file;
 	move += " ";
 	move += file_name;
-	system(move.c_str());
+	system(move.c_str());*/
 }
 
 std::vector<std::string> Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_node * &node) {
@@ -266,13 +621,13 @@ std::vector<std::string> Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_
 		std::cout << "SVParse: could not open file: " << std::endl;
 		exit(EXIT_FAILURE);
 	}
-	//size_t buffer_size = 250000000;
+//size_t buffer_size = 250000000;
 	string buffer;
 
 	getline(myfile, buffer);
-	//char* buffer = new char[buffer_size];
-	//myfile.getline(buffer, buffer_size);
-	//parse SVs breakpoints in file
+//char* buffer = new char[buffer_size];
+//myfile.getline(buffer, buffer_size);
+//parse SVs breakpoints in file
 
 	int num_sv = 0;
 	int prev_pos1 = 0;
@@ -308,7 +663,7 @@ std::vector<std::string> Genotyper::read_SVs(Breakpoint_Tree & tree, breakpoint_
 	}
 	myfile.close();
 	return ref_dict;
-	//tree.inorder(node);
+//tree.inorder(node);
 }
 void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node, std::vector<std::string> ref_dict) {
 
@@ -323,7 +678,7 @@ void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node, std
 	std::ifstream myfile;
 
 	str_read tmp;
-	//cout<<"File: "<< Parameter::Instance()->tmp_genotyp.c_str()<<endl;
+//cout<<"File: "<< Parameter::Instance()->tmp_genotyp.c_str()<<endl;
 	myfile.open(Parameter::Instance()->tmp_genotyp.c_str(), std::ifstream::in);
 	if (!myfile.good()) {
 		std::cout << "Genotype Parser: could not open file: " << Parameter::Instance()->tmp_genotyp << std::endl;
@@ -333,7 +688,7 @@ void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node, std
 	int num_reads = 0;
 
 	getline(myfile, buffer);
-	//cout<<buffer<<endl;
+//cout<<buffer<<endl;
 	while (!myfile.eof()) {
 		int count = 0;
 
@@ -355,7 +710,7 @@ void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node, std
 		}
 
 		//while (nbytes != 0) {
-	//	std::cout << "Read: " << " " << tmp.chr_id << ":" << ref_dict[tmp.chr_id] << " " << tmp.start << " " << tmp.length << std::endl;
+		//	std::cout << "Read: " << " " << tmp.chr_id << ":" << ref_dict[tmp.chr_id] << " " << tmp.start << " " << tmp.length << std::endl;
 		if (prev_id != tmp.chr_id) {
 			cout << "\t\tScanning CHR " << ref_dict[tmp.chr_id] << endl;
 			prev_id = tmp.chr_id;
@@ -370,18 +725,19 @@ void Genotyper::compute_cov(Breakpoint_Tree & tree, breakpoint_node *& node, std
 		getline(myfile, buffer);
 	}
 
-	//cout << "Num: " << num_reads << endl;
+//cout << "Num: " << num_reads << endl;
 	myfile.close();
-	//fclose (ref_allel_reads);
+//fclose (ref_allel_reads);
 //	tree.inorder(node);
 }
 
 void Genotyper::update_SVs() {
-	//parse SVs not just breakpoints and update with the coverage info
+//parse SVs not just breakpoints and update with the coverage info
 	cout << "\tConstruct tree" << endl;
 	std::vector<std::string> ref_dict = read_SVs(this->tree, this->node);
 	cout << "\tUpdate reference alleles" << endl;
 	compute_cov(this->tree, this->node, ref_dict);
+//compute_cov_v2(this->tree, this->node, ref_dict);// <- in dev. When more SV we dont find the overlapp??
 	cout << "\tWriting SV calls" << endl;
 	update_file(this->tree, this->node);
 	cout << "\tCleaning tmp files" << endl;
@@ -391,7 +747,6 @@ void Genotyper::update_SVs() {
 }
 
 void Genotyper::update_SVs(std::vector<Breakpoint *> & svs, long ref_space) { //refspace for the ref reads!!
-
 	FILE * ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "r");
 	if (ref_allel_reads == NULL) {
 		std::cerr << "Genotype Parser: could not open file: " << Parameter::Instance()->tmp_genotyp << std::endl;
@@ -399,6 +754,9 @@ void Genotyper::update_SVs(std::vector<Breakpoint *> & svs, long ref_space) { //
 	str_read tmp;
 	size_t nbytes = fread(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
 	int num_reads = 0;
+
+//Do the tree per chr  to reduce the complexity?
+//
 	while (nbytes != 0) {
 		for (size_t i = 0; i < svs.size(); i++) {
 			if (svs[i]->get_valid()) {

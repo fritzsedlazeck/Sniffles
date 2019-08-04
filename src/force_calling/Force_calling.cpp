@@ -13,7 +13,7 @@ char assign_type(short type) {
 	case 0: //DEL
 		return DEL;
 	case 1: //DUP
-		return INV;
+		return DUP;
 	case 2: //INV
 		return INV;
 	case 3: //TRA
@@ -116,11 +116,11 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 	std::cout << "Start parsing: Chr " << ref[current_RefID].RefName << std::endl;
 
 	//FILE * alt_allel_reads;
-	FILE * ref_allel_reads;
-	if (Parameter::Instance()->genotype) {
-		ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "w");
-		//ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "wb");
-	}
+//	FILE * ref_allel_reads;
+//	if (Parameter::Instance()->genotype) {
+//		ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "w");
+//		//ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "wb");
+//	}
 	Alignment * tmp_aln = mapped_file->parseRead(Parameter::Instance()->min_mq);
 
 	long ref_space = ref_lens[ref[tmp_aln->getRefID()].RefName];
@@ -169,17 +169,11 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 					//tmp_aln->set_supports_SV(aln_event.empty() && split_events.empty());
 
 					//Store reference supporting reads for genotype estimation:
-					str_read tmp;
-					if ((Parameter::Instance()->genotype && (aln_event.empty() && split_events.empty()))){//}&& (score == -1 || score > Parameter::Instance()->score_treshold)))) {
+				//	str_read tmp;
+//					if ((Parameter::Instance()->genotype && (aln_event.empty() && split_events.empty()))){//}&& (score == -1 || score > Parameter::Instance()->score_treshold)))) {
 						//write read:
-						//cout<<"REf: "<<tmp_aln->getName()<<" "<<tmp_aln->getPosition()<<" "<<tmp_aln->getRefLength()<<endl;
-						//tmp.chr_id = tmp_aln->getRefID();
-						//tmp.start = tmp_aln->getPosition();
-					//	tmp.length = tmp_aln->getRefLength();
-					//	fwrite(&tmp, sizeof(struct str_read), 1, ref_allel_reads);
-
-						write_read(tmp_aln, ref_allel_reads);
-					}
+//						write_read(tmp_aln, ref_allel_reads);
+//					}
 
 					//store the potential SVs:
 					if (!aln_event.empty()) {
@@ -210,9 +204,9 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 	//filter and copy results:
 	std::cout << "Finalizing  .." << std::endl;
 
-	if (Parameter::Instance()->genotype) {
-		fclose(ref_allel_reads);
-	}
+//	if (Parameter::Instance()->genotype) {
+//		fclose(ref_allel_reads);
+//	}
 	//	sweep->finalyze();
 
 	std::vector<Breakpoint*> points;

@@ -83,7 +83,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<int> arg_parameter_maxdist("", "max_dist_aln_events", "Maximum distance between alignment (indel) events.", false, 4, "int", cmd);
 	TCLAP::ValueArg<int> arg_parameter_maxdiff("", "max_diff_per_window", "Maximum differences per 100bp.", false, 50, "int", cmd);
 
-	TCLAP::SwitchArg arg_genotype("", "genotype", "Enables Sniffles to compute the genotypes.", cmd, false);
+	TCLAP::SwitchArg arg_genotype("", "genotype", "Disables Sniffles to compute the genotypes.", cmd, true);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
 	TCLAP::SwitchArg arg_std("", "ignore_sd", "Ignores the sd based filtering. ", cmd, false);
 	TCLAP::SwitchArg arg_bnd("", "report_BND", "Dont report BND instead use Tra in vcf output. ", cmd, true);
@@ -480,6 +480,7 @@ int main(int argc, char *argv[]) {
 			std::cout << "Start genotype calling:" << std::endl;
 			Genotyper * go = new Genotyper();
 			go->update_SVs();
+			//go->update_SVs2();
 		}
 
 	} catch (TCLAP::ArgException &e)  // catch any exceptions

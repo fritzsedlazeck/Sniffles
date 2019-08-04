@@ -393,8 +393,12 @@ size_t Alignment::get_length(std::vector<CigarOp> CigarData) {
 	return len;
 }
 size_t Alignment::getRefLength() {
-	return this->ref_len;
-//	return get_length(this->al->CigarData);
+	if(this->ref_len<0){
+		return this->ref_len;
+	}
+//	return get_length(this->getCigar());
+
+	return get_length(this->al->CigarData);
 }
 size_t Alignment::getOrigLen() {
 	return orig_length;
