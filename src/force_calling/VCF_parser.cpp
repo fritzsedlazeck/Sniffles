@@ -454,6 +454,6 @@ std::vector<strvcfentry> parse_vcf(std::string filename, int min_svs) {
 		getline(myfile, buffer);
 	}
 	myfile.close();
-	std::cout << calls.size()<<" DUPS: " <<num_dup << std::endl;
+	//std::cout << calls.size()<<" DUPS: " <<num_dup << std::endl;
 	return calls;
 }

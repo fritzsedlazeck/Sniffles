@@ -22,15 +22,15 @@ void update_entries(std::vector<str_breakpoint_slim> &entries, int start, int st
 		return;
 	}
 //	cout<<"PS: "<<current_pos<<endl;
-	//cout << "cov: " << start   << " " << stop  << endl;
+//	cout << "cov: " << start << " " << stop << endl;
 	for (size_t i = current_pos; i < entries.size(); i++) {
 		if (entries[i].pos < start - wobble) {
 			current_pos = i;
 		}
-		if ((start - wobble < entries[i].pos && stop + wobble > entries[i].pos)) {	// && (abs(entries[i].pos - start) > wobble / 2 && abs(entries[i].pos - stop) > wobble / 2)) {	//TODO not sure if I cannot combine these two.
-			//	entries[i].cov++;
+		if ((start - wobble < entries[i].pos && stop + wobble > entries[i].pos) && (abs(entries[i].pos - start) > wobble  && abs(entries[i].pos - stop) > wobble )) {	//TODO not sure if I cannot combine these two.
+			//entries[i].cov++;
 			entries[i].rnames[rname] = true;
-//			cout << "\tHIT: " << entries[i].cov << endl;
+//			cout << "\tHIT: " << entries[i].rnames.size() << endl;
 		}
 		if (entries[i].pos > stop + wobble) {
 			break;
@@ -75,7 +75,8 @@ void update_coverage(std::map<std::string, std::vector<str_breakpoint_slim> > & 
 
 		int start = (int) tmp_aln->getPosition();
 		int stop = (int) start + tmp_aln->getRefLength();
-		update_entries(tmp, start, stop, current_pos, 10, tmp_aln->getName());
+	//	cout << "Ref: " << ref[current_RefID].RefName << endl;
+		update_entries(tmp, start, stop, current_pos, 5, tmp_aln->getName());
 
 		mapped_file->parseReadFast(Parameter::Instance()->min_mq, tmp_aln);
 	}
@@ -113,6 +114,7 @@ void Genotyper::get_breakpoint_vcf(string buffer, str_breakpoint_slim & start, s
 		}
 		if (count == 1 && buffer[i - 1] == '\t') {
 			start.pos = atoi(&buffer[i]);
+
 		}
 		if (stop.pos == -1 && (count == 4 && (buffer[i - 1] == '[' || buffer[i - 1] == ']'))) { //FOR TRA
 			parse_pos(&buffer[i - 1], stop.pos, stop.chr);
@@ -182,6 +184,7 @@ void insert_sorted_entry(std::map<std::string, std::vector<str_breakpoint_slim> 
 }
 void Genotyper::read_SVs(std::map<std::string, std::vector<str_breakpoint_slim> > & entries) {
 
+	//cout<<"READ SV "<<endl;
 	std::ifstream myfile;
 	bool is_vcf = !Parameter::Instance()->output_vcf.empty();
 
@@ -211,6 +214,10 @@ void Genotyper::read_SVs(std::map<std::string, std::vector<str_breakpoint_slim> 
 				//get_breakpoint_bedpe(buffer); //TODO
 			}
 
+		//	if (start.pos == 10441961) {
+		//		cout << "Found: " << start.chr << " " << start.pos << " " << stop.chr << " " << stop.pos << endl;
+		//	}
+
 			//we want a sorted inclusion!
 			insert_sorted_entry(entries, start);
 			insert_sorted_entry(entries, stop);
@@ -224,12 +231,14 @@ void Genotyper::read_SVs(std::map<std::string, std::vector<str_breakpoint_slim> 
 	}
 	myfile.close();
 
-	/*	cout << "Check:" << endl;
-	 for (std::map<std::string, std::vector<str_breakpoint_slim> >::iterator i = entries.begin(); i != entries.end(); i++) {
-	 for (size_t j = 0; j < (*i).second.size(); j++) {
-	 cout<<(*i).second[j].chr<< " " <<(*i).second[j].pos<<endl;
-	 }
-	 }*/
+	/*cout << "Check:" << endl;
+	for (std::map<std::string, std::vector<str_breakpoint_slim> >::iterator i = entries.begin(); i != entries.end(); i++) {
+		for (size_t j = 0; j < (*i).second.size(); j++) {
+			//if ((*i).second[j].pos == 10441961) {
+				cout << (*i).second[j].chr << " " << (*i).second[j].pos << endl;
+			//}
+		}
+	}*/
 }
 
 void Genotyper::update_svs_output(std::map<std::string, std::vector<str_breakpoint_slim> > entries) {
@@ -363,7 +372,9 @@ void Genotyper::update_SVs2() {
 
 std::string Genotyper::assess_genotype(int ref, int support) {
 	double allele = 0;
-	ref+=support; // just for now!
+	if (!Parameter::Instance()->testing) {
+		ref += support; // just for now!
+	}
 	if ((ref) > 0) {
 		allele = (double) support / (double) ref;	//(support + ref);
 	}
@@ -407,12 +418,14 @@ std::string Genotyper::mod_breakpoint_vcf(string buffer, int ref_strand) {
 	entry = buffer.substr(0, pos - 2);
 	std::stringstream ss;
 	ss << ";REF_strand=";
-	ss << ref_strand;
-	entry += ss.str();
-
 	buffer = buffer.substr(pos + 1);		// the right part is only needed:
 	pos = buffer.find_last_of(':');
 	int support = atoi(buffer.substr(pos + 1).c_str());
+	ref_strand=max(ref_strand,support);// TODO not nice but just to make sure.
+	ss << max(ref_strand,support);
+	entry += ss.str();
+
+
 	string msg = assess_genotype(ref_strand, support);
 	if (msg.empty()) {
 		return "";

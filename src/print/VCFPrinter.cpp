@@ -236,6 +236,10 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 		if (Parameter::Instance()->str) {
 			report_STR(SV, ref);
 		}
+		if(!Parameter::Instance()->input_vcf.empty()){//TEST
+			ok_to_print=true;
+			Parameter::Instance()->min_zmw=0;
+		}
 		//std::cout << "Print check: " << std_quant.first << " " << std_quant.second << endl;
 		if (ok_to_print && (zmws == 0 || zmws >= Parameter::Instance()->min_zmw)) {
 			if (Parameter::Instance()->phase) {

@@ -57,7 +57,9 @@ public:
 		if(Parameter::Instance()->input_vcf.empty()){
 			print_body(SV, ref);
 		}else{
-			print_body_recall(SV,ref);
+			//test
+			print_body(SV, ref);
+			//print_body_recall(SV,ref);
 		}
 	}
 	void init() {

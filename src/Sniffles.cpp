@@ -96,7 +96,6 @@ void read_parameters(int argc, char *argv[]) {
 
 	TCLAP::SwitchArg arg_ccs("", "ccs_reads", "Preset CCS Pacbio setting. (Beta) ", cmd, false);
 
-
 	TCLAP::ValueArg<float> arg_allelefreq("f", "allelefreq", "Threshold on allele frequency (0-1). ", false, 0.0, "float", cmd);
 	TCLAP::ValueArg<float> arg_hetfreq("", "min_het_af", "Threshold on allele frequency (0-1). ", false, 0.3, "float", cmd);
 	TCLAP::ValueArg<float> arg_homofreq("", "min_homo_af", "Threshold on allele frequency (0-1). ", false, 0.8, "float", cmd);
@@ -106,9 +105,9 @@ void read_parameters(int argc, char *argv[]) {
 	std::stringstream usage;
 	usage << "" << std::endl;
 	usage << "Usage: sniffles [options] -m <sorted.bam> -v <output.vcf> " << std::endl;
-	usage << "Version: "<<Parameter::Instance()->version << std::endl;
+	usage << "Version: " << Parameter::Instance()->version << std::endl;
 	usage << "Contact: fritz.sedlazeck@gmail.com" << std::endl;
-	usage  << std::endl;
+	usage << std::endl;
 	usage << "Input/Output:" << std::endl;
 
 	printParameter<std::string>(usage, arg_bamfile);
@@ -128,7 +127,7 @@ void read_parameters(int argc, char *argv[]) {
 	printParameter<int>(usage, arg_numreads);
 	printParameter<int>(usage, arg_segsize);
 	printParameter<int>(usage, arg_zmw);
-	printParameter(usage,arg_cs_string);
+	printParameter(usage, arg_cs_string);
 
 	usage << "" << std::endl;
 	usage << "Clustering/phasing and genotyping:" << std::endl;
@@ -144,9 +143,9 @@ void read_parameters(int argc, char *argv[]) {
 	printParameter(usage, arg_bnd);
 	printParameter(usage, arg_seq);
 	printParameter(usage, arg_std);
-	printParameter(usage,arg_read_strand);
-	printParameter(usage,arg_ccs);
-	printParameter(usage,arg_str);
+	printParameter(usage, arg_read_strand);
+	printParameter(usage, arg_ccs);
+	printParameter(usage, arg_str);
 
 	usage << "" << std::endl;
 	usage << "Parameter estimation:" << std::endl;
@@ -183,7 +182,7 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->change_coords = arg_coords.getValue();
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
-	Parameter::Instance()->read_name = " ";//m54238_180925_225123/56099701/ccs";//m54238_180926_231301/43516780/ccs"; //21_16296949_+";//21_40181680_-";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
+	Parameter::Instance()->read_name = " "; //m54238_180925_225123/56099701/ccs";//m54238_180926_231301/43516780/ccs"; //21_16296949_+";//21_40181680_-";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
 	Parameter::Instance()->bam_files.push_back(arg_bamfile.getValue());
 	Parameter::Instance()->min_mq = arg_mq.getValue();
 	Parameter::Instance()->output_vcf = arg_vcf.getValue();
@@ -209,24 +208,23 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->hetfreq = arg_hetfreq.getValue();
 	Parameter::Instance()->skip_parameter_estimation = arg_parameter.getValue();
 	Parameter::Instance()->cs_string = arg_cs_string.getValue();
-	Parameter::Instance()->read_strand=arg_read_strand.getValue();
-	Parameter::Instance()->ccs_reads=arg_ccs.getValue();
-	Parameter::Instance()->str=arg_str.getValue();
+	Parameter::Instance()->read_strand = arg_read_strand.getValue();
+	Parameter::Instance()->ccs_reads = arg_ccs.getValue();
+	Parameter::Instance()->str = arg_str.getValue();
 
-	if(Parameter::Instance()->ccs_reads){
-		Parameter::Instance()->skip_parameter_estimation=true;
-		Parameter::Instance()->ignore_std=false;
+	if (Parameter::Instance()->ccs_reads) {
+		Parameter::Instance()->skip_parameter_estimation = true;
+		Parameter::Instance()->ignore_std = false;
 
 	}
 	if (Parameter::Instance()->skip_parameter_estimation) {
-		cout<<"\tSkip parameter estimation."<<endl;
+		cout << "\tSkip parameter estimation." << endl;
 		Parameter::Instance()->score_treshold = 2;
 		Parameter::Instance()->window_thresh = arg_parameter_maxdiff.getValue();
 		Parameter::Instance()->max_dist_alns = arg_parameter_maxdist.getValue();
-		Parameter::Instance()->avg_del =arg_delratio.getValue();
+		Parameter::Instance()->avg_del = arg_delratio.getValue();
 		Parameter::Instance()->avg_ins = arg_insratio.getValue();
 	}
-
 
 	//Parse IDS:
 	/*std::string buffer = arg_chrs.getValue();
@@ -434,7 +432,7 @@ void test_slimming() {
 int main(int argc, char *argv[]) {
 
 	try {
-
+		Parameter::Instance()->testing = true;
 		//init parameter and reads user defined parameter from command line.
 		read_parameters(argc, argv);
 		//init openmp:
@@ -478,8 +476,12 @@ int main(int argc, char *argv[]) {
 		if (Parameter::Instance()->genotype) {
 			std::cout << "Start genotype calling:" << std::endl;
 			Genotyper * go = new Genotyper();
-			go->update_SVs();
-			//go->update_SVs2();
+		//	if (!Parameter::Instance()->testing) {
+
+				go->update_SVs2();
+			//} else {
+		//		go->update_SVs();
+		//	}
 		}
 
 	} catch (TCLAP::ArgException &e)  // catch any exceptions

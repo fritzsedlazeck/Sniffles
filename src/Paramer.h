@@ -76,6 +76,7 @@ public:
 	int min_zmw;
 
 //	bool splitthreader_output;
+	bool testing;
 	bool debug;
 	bool genotype;
 	bool phase;
