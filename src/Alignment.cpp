@@ -1313,6 +1313,10 @@ vector<str_event> Alignment::get_events_Aln() {
 					//		std::cout << "Seq+:" << this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length) << std::endl;
 
 					//	}
+						if(this->getAlignment()->QueryBases.size() < tmp.read_pos){
+							cerr<<"Read sequence is shorter than expected. Please check your bam file if the read sequence is reported!"<<endl;
+							exit(-1);
+						}
 						tmp.sequence = this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length);
 					} else {
 						tmp.sequence = "NA";

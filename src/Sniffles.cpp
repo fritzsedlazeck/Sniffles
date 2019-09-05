@@ -182,7 +182,7 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->change_coords = arg_coords.getValue();
 	Parameter::Instance()->debug = true;
 	Parameter::Instance()->score_treshold = 10;
-	Parameter::Instance()->read_name = " "; //m54238_180925_225123/56099701/ccs";//m54238_180926_231301/43516780/ccs"; //21_16296949_+";//21_40181680_-";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
+	Parameter::Instance()->read_name = "fa7154e0-6341-43ba-a1b0-e62c453efc11"; //m54238_180925_225123/56099701/ccs";//m54238_180926_231301/43516780/ccs"; //21_16296949_+";//21_40181680_-";//m151102_123142_42286_c100922632550000001823194205121665_s1_p0/80643/0_20394"; //"22_36746138"; //just for debuging reasons!
 	Parameter::Instance()->bam_files.push_back(arg_bamfile.getValue());
 	Parameter::Instance()->min_mq = arg_mq.getValue();
 	Parameter::Instance()->output_vcf = arg_vcf.getValue();
