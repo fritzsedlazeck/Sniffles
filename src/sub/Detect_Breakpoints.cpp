@@ -537,7 +537,7 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 			} else { // if first part of read is in a different direction as the second part-> INV
 
 				read.strand.first = events[i - 1].strand;
-				read.strand.second = !events[i].strand;
+				read.strand.second = !events[i].strand; //TODO think about this! potential not!
 
 				bool is_overlapping = overlaps(events[i - 1], events[i]);
 				if (is_overlapping && (events[i - 1].length > Parameter::Instance()->min_segment_size || events[i].length > Parameter::Instance()->min_segment_size)) {

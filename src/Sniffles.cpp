@@ -87,6 +87,7 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
 	TCLAP::SwitchArg arg_std("", "ignore_sd", "Ignores the sd based filtering. ", cmd, false);
 	TCLAP::SwitchArg arg_bnd("", "report_BND", "Dont report BND instead use Tra in vcf output. ", cmd, true);
+	TCLAP::SwitchArg arg_seq_old("", "report-seq", "Deprechiated (see not_report_seq).", cmd, false);
 	TCLAP::SwitchArg arg_seq("", "not_report_seq", "Dont report sequences for indels in vcf output. (Beta version!) ", cmd, false);
 	TCLAP::SwitchArg arg_coords("", "change_coords", "Adopt coordinates for force calling if finding evidence. ", cmd, false);
 	TCLAP::SwitchArg arg_parameter("", "skip_parameter_estimation", "Enables the scan if only very few reads are present. ", cmd, false);
@@ -142,6 +143,7 @@ void read_parameters(int argc, char *argv[]) {
 	usage << "Advanced:" << std::endl;
 	printParameter(usage, arg_bnd);
 	printParameter(usage, arg_seq);
+	printParameter(usage,arg_seq_old);
 	printParameter(usage, arg_std);
 	printParameter(usage, arg_read_strand);
 	printParameter(usage, arg_ccs);
