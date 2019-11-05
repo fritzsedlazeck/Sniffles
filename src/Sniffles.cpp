@@ -83,11 +83,11 @@ void read_parameters(int argc, char *argv[]) {
 	TCLAP::ValueArg<int> arg_parameter_maxdist("", "max_dist_aln_events", "Maximum distance between alignment (indel) events.", false, 4, "int", cmd);
 	TCLAP::ValueArg<int> arg_parameter_maxdiff("", "max_diff_per_window", "Maximum differences per 100bp.", false, 50, "int", cmd);
 
-	TCLAP::SwitchArg arg_genotype("", "genotype", "Disables Sniffles to compute the genotypes.", cmd, true);
+	TCLAP::SwitchArg arg_genotype("", "genotype", "Inactivated: Automatically true.", cmd, true);
 	TCLAP::SwitchArg arg_cluster("", "cluster", "Enables Sniffles to phase SVs that occur on the same reads", cmd, false);
 	TCLAP::SwitchArg arg_std("", "ignore_sd", "Ignores the sd based filtering. ", cmd, false);
 	TCLAP::SwitchArg arg_bnd("", "report_BND", "Dont report BND instead use Tra in vcf output. ", cmd, true);
-	TCLAP::SwitchArg arg_seq_old("", "report-seq", "Deprechiated (see not_report_seq).", cmd, false);
+	TCLAP::SwitchArg arg_seq_old("", "report-seq", "Inactivated (see not_report_seq).", cmd, false);
 	TCLAP::SwitchArg arg_seq("", "not_report_seq", "Dont report sequences for indels in vcf output. (Beta version!) ", cmd, false);
 	TCLAP::SwitchArg arg_coords("", "change_coords", "Adopt coordinates for force calling if finding evidence. ", cmd, false);
 	TCLAP::SwitchArg arg_parameter("", "skip_parameter_estimation", "Enables the scan if only very few reads are present. ", cmd, false);
@@ -193,7 +193,7 @@ void read_parameters(int argc, char *argv[]) {
 	Parameter::Instance()->max_splits = arg_splits.getValue();
 	Parameter::Instance()->max_dist = arg_dist.getValue();
 	Parameter::Instance()->min_length = arg_minlength.getValue();
-	Parameter::Instance()->genotype = arg_genotype.getValue();
+	Parameter::Instance()->genotype = true;//arg_genotype.getValue();
 	Parameter::Instance()->phase = arg_cluster.getValue();
 	Parameter::Instance()->num_threads = arg_threads.getValue();
 	Parameter::Instance()->output_bedpe = arg_bedpe.getValue();
