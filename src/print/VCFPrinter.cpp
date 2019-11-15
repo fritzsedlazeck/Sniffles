@@ -60,7 +60,7 @@ void VCFPrinter::print_header() {
 	fprintf(file, "%s", "##INFO=<ID=STD_quant_stop,Number=A,Type=Float,Description=\"STD of the stop breakpoints across the reads.\">\n");
 	fprintf(file, "%s", "##INFO=<ID=Kurtosis_quant_start,Number=A,Type=Float,Description=\"Kurtosis value of the start breakpoints across the reads.\">\n");
 	fprintf(file, "%s", "##INFO=<ID=Kurtosis_quant_stop,Number=A,Type=Float,Description=\"Kurtosis value of the stop breakpoints across the reads.\">\n");
-	fprintf(file, "%s", "##INFO=<ID=SUPTYPE,Number=A,Type=String,Description=\"Type by which the variant is supported.(SR,ALN,NR)\">\n");
+	fprintf(file, "%s", "##INFO=<ID=SUPTYPE,Number=.,Type=String,Description=\"Type by which the variant is supported.(SR,AL,NR)\">\n");
 	fprintf(file, "%s", "##INFO=<ID=STRANDS,Number=A,Type=String,Description=\"Strand orientation of the adjacency in BEDPE format (DEL:+-, DUP:-+, INV:++/--)\">\n");
 	fprintf(file, "%s", "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Allele Frequency.\">\n");
 	fprintf(file, "%s", "##INFO=<ID=ZMW,Number=A,Type=Integer,Description=\"Number of ZMWs (Pacbio) supporting SV.\">\n");
