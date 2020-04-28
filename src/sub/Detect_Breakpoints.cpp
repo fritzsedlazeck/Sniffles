@@ -200,7 +200,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 		ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "w");
 		//	ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "wb");
 	}
-	Alignment * tmp_aln = mapped_file->parseRead(Parameter::Instance()->min_mq);
+	Alignment * tmp_aln = mapped_file->parseRead((uint16_t)Parameter::Instance()->min_mq);
 	long ref_space = get_ref_lengths(tmp_aln->getRefID(), ref);
 	long num_reads = 0;
 
@@ -296,7 +296,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 			}
 		}
 		//get next read:
-		mapped_file->parseReadFast(Parameter::Instance()->min_mq, tmp_aln);
+		mapped_file->parseReadFast((uint16_t)Parameter::Instance()->min_mq, tmp_aln);
 
 		num_reads++;
 

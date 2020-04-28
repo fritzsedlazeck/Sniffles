@@ -28,6 +28,8 @@
 //cmake -D CMAKE_C_COMPILER=/usr/local/bin/gcc-8 -D CMAKE_CXX_COMPILER=/usr/local/bin/g++-8 ..
 
 //TODO:
+// Check the calibration again in the beginnig (Iceland study)
+
 //check strand headers.
 // strand bias??
 // I think you could make your performance on PacBio reads even better with a few modifications:

@@ -104,7 +104,7 @@ void Cluster_SVS::add_id(int curr_id, int new_id, std::vector<combine_str> & ids
 std::string Cluster_SVS::find_id(int curr_id, std::vector<combine_str> & ids) {
 	std::stringstream ss;
 	for (size_t i = 0; i < ids.size(); i++) {
-		if (ids[i].support > Parameter::Instance()->min_grouping_support) {
+		if (ids[i].support >= Parameter::Instance()->min_grouping_support) {
 			if (ids[i].curr_id == curr_id) {
 
 				ss << ids[i].alt_id;

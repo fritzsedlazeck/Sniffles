@@ -53,7 +53,7 @@ void VCFPrinter::print_header() {
 
 	if (Parameter::Instance()->read_strand) {
 		fprintf(file, "%s", "##INFO=<ID=STRANDS2,Number=4,Type=Integer,Description=\"alt reads first + ,alt reads first -,alt reads second + ,alt reads second -.\">\n");
-		fprintf(file, "%s", "##INFO=<ID=REF_strand,Number=2,Type=Integer,Description=\"plus strand ref, minus strand ref.\">\n");
+		fprintf(file, "%s", "##INFO=<ID=REF_strand,Number=.,Type=Integer,Description=\"plus strand ref, minus strand ref.\">\n");
 	}
 
 	fprintf(file, "%s", "##INFO=<ID=STD_quant_start,Number=A,Type=Float,Description=\"STD of the start breakpoints across the reads.\">\n");
@@ -172,7 +172,7 @@ void VCFPrinter::report_STR(Breakpoint * &SV, RefVector ref) {
 		cout << "NEW REGION: " << chr << ":" << start << " " << IPrinter::get_type(SV->get_SVtype()) << endl;
 		std::map<std::string, read_str> support = SV->get_coordinates().support;
 		for (std::map<std::string, read_str>::iterator i = support.begin(); i != support.end(); i++) {
-			if (abs(SV->get_coordinates().start.most_support - (*i).second.coordinates.first) < 10) {
+			if (abs(SV->get_coordinates().start.most_support - (*i).second.coordinates.first) < 2) { //10
 				map<std::string, int> motives = init_motives();
 				int counts = 0;
 				std::string sequence = (*i).second.sequence;
@@ -213,7 +213,7 @@ void VCFPrinter::report_STR(Breakpoint * &SV, RefVector ref) {
 					max = (*p).second[i];
 				}
 			}
-			if (max > 5) {
+			if (max > 1) {
 				cout << ss.str() << endl;
 			}
 		}
@@ -322,7 +322,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%s", ";SVMETHOD=Snifflesv");
 			fprintf(file, "%s", Parameter::Instance()->version.c_str());
 
-			if (!(Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA))) {
+		//	if (!(Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA))) {
 
 				fprintf(file, "%s", ";CHR2=");
 				fprintf(file, "%s", chr.c_str());
@@ -334,7 +334,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 
 					fprintf(file, "%i", end);
 				}
-			}
+			//}
 			if (zmws != 0) {
 				fprintf(file, "%s", ";ZMW=");
 				fprintf(file, "%i", zmws);
@@ -477,7 +477,7 @@ void VCFPrinter::print_body_recall(Breakpoint * &SV, RefVector ref) {
 	fprintf(file, "%s", "IMPRECISE");
 	fprintf(file, "%s", ";SVMETHOD=Snifflesv");
 	fprintf(file, "%s", Parameter::Instance()->version.c_str());
-	if (!(Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA))) {
+//	if (!(Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA))) {
 		fprintf(file, "%s", ";CHR2=");
 		fprintf(file, "%s", chr.c_str());
 		fprintf(file, "%s", ";END=");
@@ -487,7 +487,7 @@ void VCFPrinter::print_body_recall(Breakpoint * &SV, RefVector ref) {
 		} else {
 			fprintf(file, "%i", end);
 		}
-	}
+//	}
 
 	fprintf(file, "%s", ";SVTYPE=");
 	if (Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA)) {

@@ -27,7 +27,7 @@ void update_entries(std::vector<str_breakpoint_slim> &entries, int start, int st
 		if (entries[i].pos < start - wobble) {
 			current_pos = i;
 		}
-		if ((start - wobble < entries[i].pos && stop + wobble > entries[i].pos) && (abs(entries[i].pos - start) > wobble  && abs(entries[i].pos - stop) > wobble )) {	//TODO not sure if I cannot combine these two.
+		if ((start - wobble < entries[i].pos && stop + wobble > entries[i].pos) && (abs(entries[i].pos - start) > wobble && abs(entries[i].pos - stop) > wobble)) {	//TODO not sure if I cannot combine these two.
 			//entries[i].cov++;
 			entries[i].rnames[rname] = true;
 //			cout << "\tHIT: " << entries[i].rnames.size() << endl;
@@ -75,7 +75,7 @@ void update_coverage(std::map<std::string, std::vector<str_breakpoint_slim> > & 
 
 		int start = (int) tmp_aln->getPosition();
 		int stop = (int) start + tmp_aln->getRefLength();
-	//	cout << "Ref: " << ref[current_RefID].RefName << endl;
+		//	cout << "Ref: " << ref[current_RefID].RefName << endl;
 		update_entries(tmp, start, stop, current_pos, 5, tmp_aln->getName());
 
 		mapped_file->parseReadFast(Parameter::Instance()->min_mq, tmp_aln);
@@ -214,9 +214,9 @@ void Genotyper::read_SVs(std::map<std::string, std::vector<str_breakpoint_slim> 
 				//get_breakpoint_bedpe(buffer); //TODO
 			}
 
-		//	if (start.pos == 10441961) {
-		//		cout << "Found: " << start.chr << " " << start.pos << " " << stop.chr << " " << stop.pos << endl;
-		//	}
+			//	if (start.pos == 10441961) {
+			//		cout << "Found: " << start.chr << " " << start.pos << " " << stop.chr << " " << stop.pos << endl;
+			//	}
 
 			//we want a sorted inclusion!
 			insert_sorted_entry(entries, start);
@@ -232,13 +232,13 @@ void Genotyper::read_SVs(std::map<std::string, std::vector<str_breakpoint_slim> 
 	myfile.close();
 
 	/*cout << "Check:" << endl;
-	for (std::map<std::string, std::vector<str_breakpoint_slim> >::iterator i = entries.begin(); i != entries.end(); i++) {
-		for (size_t j = 0; j < (*i).second.size(); j++) {
-			//if ((*i).second[j].pos == 10441961) {
-				cout << (*i).second[j].chr << " " << (*i).second[j].pos << endl;
-			//}
-		}
-	}*/
+	 for (std::map<std::string, std::vector<str_breakpoint_slim> >::iterator i = entries.begin(); i != entries.end(); i++) {
+	 for (size_t j = 0; j < (*i).second.size(); j++) {
+	 //if ((*i).second[j].pos == 10441961) {
+	 cout << (*i).second[j].chr << " " << (*i).second[j].pos << endl;
+	 //}
+	 }
+	 }*/
 }
 
 void Genotyper::update_svs_output(std::map<std::string, std::vector<str_breakpoint_slim> > entries) {
@@ -363,6 +363,10 @@ void Genotyper::update_SVs2() {
 
 	//Update VCF file for these entries and put it in a tmp file.
 	update_svs_output(entries);
+
+	string del = "rm ";
+	del += Parameter::Instance()->tmp_genotyp;
+	system(del.c_str());
 }
 
 //================================================================================================
@@ -421,10 +425,9 @@ std::string Genotyper::mod_breakpoint_vcf(string buffer, int ref_strand) {
 	buffer = buffer.substr(pos + 1);		// the right part is only needed:
 	pos = buffer.find_last_of(':');
 	int support = atoi(buffer.substr(pos + 1).c_str());
-	ref_strand=max(ref_strand,support);// TODO not nice but just to make sure.
-	ss << max(ref_strand,support);
+	ref_strand = max(ref_strand, support);		// TODO not nice but just to make sure.
+	ss << max(ref_strand, support);
 	entry += ss.str();
-
 
 	string msg = assess_genotype(ref_strand, support);
 	if (msg.empty()) {

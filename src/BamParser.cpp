@@ -23,7 +23,7 @@ Alignment* BamParser::parseRead(uint16_t mappingQv){
 	Alignment *align = new Alignment();
 	BamAlignment* al = new BamAlignment();
 	while(reader.GetNextAlignmentCore(al[0])){
-		if( al->IsMapped() && al->MapQuality > mappingQv){
+		if( al->IsMapped() && al->MapQuality >= mappingQv){ // >??
 			al->BuildCharData();
 			align->setAlignment(al);
 			return align;
@@ -42,7 +42,7 @@ void BamParser::parseReadFast(uint16_t mappingQv,Alignment*& align){
 	align->clear_QueryBases();
 	while(reader.GetNextAlignmentCore(al[0])){
 
-		if( al->IsMapped() && al->MapQuality > mappingQv){
+		if( al->IsMapped() && al->MapQuality >= mappingQv){
 			al->BuildCharData();
 			align->setAlignment(al);
 			return;
