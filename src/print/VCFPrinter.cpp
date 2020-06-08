@@ -252,7 +252,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			if (start < 1) {
 				start = 1;
 			}
-			fprintf(file, "%i", start);
+			fprintf(file, "%i", start+1);
 			fprintf(file, "%c", '\t');
 			fprintf(file, "%i", id);
 			id++;
@@ -262,7 +262,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 				end_coord = std::max((SV->get_coordinates().stop.most_support - (long) SV->get_length()), (long) start);
 			}
 
-			int end = IPrinter::calc_pos(end_coord, ref, chr);
+			int end = IPrinter::calc_pos(end_coord, ref, chr)+1;
 			if (end < 1) {
 				end = 1;
 			}
