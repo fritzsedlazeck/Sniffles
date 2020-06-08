@@ -128,6 +128,8 @@ public:
 
 	}
 
+	void integrate(Breakpoint * p);
+
 	int get_support();
 	long overlap(Breakpoint * tmp);
 	long overlap_breakpoint(long start,long stop);
@@ -185,6 +187,7 @@ public:
 	void set_valid(bool valid){
 		this-> should_be_stored=valid;
 	}
+
 	bool get_valid(){
 		return this->should_be_stored;
 	}

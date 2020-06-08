@@ -89,7 +89,7 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 
 void force_calling(std::string bam_file, IPrinter *& printer) {
 	cout << "Force calling SVs resetting parameters" << endl;
-	Parameter::Instance()->min_mq=0;
+	Parameter::Instance()->min_mq = 0;
 
 	//parse reads
 	//only process reads overlapping SV
@@ -104,7 +104,7 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 		cerr << "File Format not recognized. File must be a sorted .bam file!" << endl;
 		exit(EXIT_FAILURE);
 	}
-	std::cout <<"\tConstruct Tree..." << std::endl;
+	std::cout << "\tConstruct Tree..." << std::endl;
 
 	//construct the tree:
 	IntervallTree final;
@@ -121,17 +121,20 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 		ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "w");
 //		//ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "wb");
 	}
-	Alignment * tmp_aln = mapped_file->parseRead(Parameter::Instance()->min_mq);
+	Alignment * tmp_aln = mapped_file->parseRead(0);
 
 	long ref_space = ref_lens[ref[tmp_aln->getRefID()].RefName];
 	long num_reads = 0;
 	while (!tmp_aln->getQueryBases().empty()) {
-		if ((tmp_aln->getAlignment()->IsPrimaryAlignment()) && (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800) && tmp_aln->get_is_save())) {
+		if ((tmp_aln->getAlignment()->IsPrimaryAlignment())) {	//&& (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800) && tmp_aln->get_is_save())) { //TODO disabled for now.
 			//change CHR:
 			if (current_RefID != tmp_aln->getRefID()) {
 				current_RefID = tmp_aln->getRefID();
 				ref_space = ref_lens[ref[tmp_aln->getRefID()].RefName];
 				std::cout << "\tSwitch Chr " << ref[tmp_aln->getRefID()].RefName << std::endl;				//" " << ref[tmp_aln->getRefID()].RefLength
+			}
+			if(strcmp(tmp_aln->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0){
+				cout<<"Found read! "<<endl;
 			}
 
 			//check if overlap with any breakpoint!!
@@ -139,57 +142,56 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 			read_start_pos += ref_space;
 			long read_stop_pos = read_start_pos + (long) tmp_aln->getAlignment()->Length + (long) Parameter::Instance()->max_dist;	//getRefLength();//(long) tmp_aln->getPosition();
 
-		//	cout<<"Check overlap: "<<read_start_pos<<" "<<read_stop_pos<<endl;;
-			if (final.overlaps(read_start_pos, read_stop_pos, root_final)) {
-			//	cout<<" found "<<endl;
+			//	cout<<"Check overlap: "<<read_start_pos<<" "<<read_stop_pos<<endl;;
+			//if (final.overlaps(read_start_pos, read_stop_pos, root_final)) {
+				//	cout<<" found "<<endl;
 				//SCAN read:
 				std::vector<str_event> aln_event;
 				std::vector<aln_str> split_events;
-				if (tmp_aln->getMappingQual() > Parameter::Instance()->min_mq) {
-					double score = tmp_aln->get_scrore_ratio();
+				double score = tmp_aln->get_scrore_ratio();
 #pragma omp parallel // starts a new team
-					{
+				{
 #pragma omp sections
+					{
 						{
-							{
-								//	clock_t begin = clock();
-								if ((score == -1 || score > Parameter::Instance()->score_treshold)) {
-									aln_event = tmp_aln->get_events_Aln();
-								}
-								//	Parameter::Instance()->meassure_time(begin, " Alignment ");
+							//	clock_t begin = clock();
+							if ((score == -1 || score > Parameter::Instance()->score_treshold)) {
+								aln_event = tmp_aln->get_events_Aln();
 							}
+							//	Parameter::Instance()->meassure_time(begin, " Alignment ");
+						}
 #pragma omp section
-							{
-								//		clock_t begin_split = clock();
-								split_events = tmp_aln->getSA(ref);
-								//		Parameter::Instance()->meassure_time(begin_split," Split reads ");
-							}
+						{
+							//		clock_t begin_split = clock();
+							split_events = tmp_aln->getSA(ref);
+							//		Parameter::Instance()->meassure_time(begin_split," Split reads ");
 						}
 					}
-					//tmp_aln->set_supports_SV(aln_event.empty() && split_events.empty());
-
-					//Store reference supporting reads for genotype estimation:
-				//	str_read tmp;
-					if ((Parameter::Instance()->genotype && (aln_event.empty() && split_events.empty()))){//}&& (score == -1 || score > Parameter::Instance()->score_treshold)))) {
-						//write read:
-						write_read(tmp_aln, ref_allel_reads);
-					}
-
-					//store the potential SVs:
-					if (!aln_event.empty()) {
-					//	cout<<"\t adding aln: "<<endl;
-						add_events(tmp_aln, aln_event, 0, ref_space, final, root_final, num_reads, true);
-					}
-					if (!split_events.empty()) {
-					//	cout<<"\t adding split: "<<endl;
-						add_splits(tmp_aln, split_events, 1, ref, final, root_final, num_reads, true);
-					}
 				}
+				//tmp_aln->set_supports_SV(aln_event.empty() && split_events.empty());
+
+				//Store reference supporting reads for genotype estimation:
+				//	str_read tmp;
+				if ((Parameter::Instance()->genotype && (aln_event.empty() && split_events.empty()))) {				//}&& (score == -1 || score > Parameter::Instance()->score_treshold)))) {
+					//write read:
+					write_read(tmp_aln, ref_allel_reads);
+				}
+
+				//store the potential SVs:
+				if (!aln_event.empty()) {
+					//	cout<<"\t adding aln: "<<endl;
+					add_events(tmp_aln, aln_event, 0, ref_space, final, root_final, num_reads, true);
+				}
+				if (!split_events.empty()) {
+					//	cout<<"\t adding split: "<<endl;
+					add_splits(tmp_aln, split_events, 1, ref, final, root_final, num_reads, true);
+				}
+
 			}
-		//	cout<<" none "<<endl;
-		}
+			//	cout<<" none "<<endl;
+	//	}
 		//get next read:
-		mapped_file->parseReadFast(Parameter::Instance()->min_mq, tmp_aln);
+		mapped_file->parseReadFast(0, tmp_aln);
 
 		num_reads++;
 

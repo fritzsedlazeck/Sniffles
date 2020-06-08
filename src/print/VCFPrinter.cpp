@@ -38,10 +38,9 @@ void VCFPrinter::print_header() {
 	fprintf(file, "%s", "##INFO=<ID=RE,Number=1,Type=Integer,Description=\"read support\">\n");
 	fprintf(file, "%s", "##INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description=\"Imprecise structural variation\">\n");
 	fprintf(file, "%s", "##INFO=<ID=PRECISE,Number=0,Type=Flag,Description=\"Precise structural variation\">\n");
-
 	//##FILTER=<ID=LowQual,Description="PE/SR support below 3 or mapping quality below 20.">
 	fprintf(file, "%s", "##INFO=<ID=SVLEN,Number=1,Type=Integer,Description=\"Length of the SV\">\n");
-	fprintf(file, "%s", "##INFO=<ID=REF_strand,Number=2,Type=Integer,Description=\"Length of the SV\">\n");
+	//fprintf(file, "%s", "##INFO=<ID=REF_strand,Number=2,Type=Integer,Description=\"Number of reads supporting per strand\">\n");
 	fprintf(file, "%s", "##INFO=<ID=SVMETHOD,Number=1,Type=String,Description=\"Type of approach used to detect SV\">\n");
 	fprintf(file, "%s", "##INFO=<ID=SVTYPE,Number=1,Type=String,Description=\"Type of structural variant\">\n");
 	if (Parameter::Instance()->report_n_reads > 0 || Parameter::Instance()->report_n_reads == -1) {
@@ -51,10 +50,11 @@ void VCFPrinter::print_header() {
 		fprintf(file, "%s", "##INFO=<ID=SEQ,Number=1,Type=String,Description=\"Extracted sequence from the best representative read.\">\n");
 	}
 
-	if (Parameter::Instance()->read_strand) {
+//	if (Parameter::Instance()->read_strand) {
 		fprintf(file, "%s", "##INFO=<ID=STRANDS2,Number=4,Type=Integer,Description=\"alt reads first + ,alt reads first -,alt reads second + ,alt reads second -.\">\n");
 		fprintf(file, "%s", "##INFO=<ID=REF_strand,Number=.,Type=Integer,Description=\"plus strand ref, minus strand ref.\">\n");
-	}
+		fprintf(file, "%s", "##INFO=<ID=Strandbias_pval,Number=A,Type=Float,Description=\"P-value for fisher exact test for strand bias.\">\n");
+//	}
 
 	fprintf(file, "%s", "##INFO=<ID=STD_quant_start,Number=A,Type=Float,Description=\"STD of the start breakpoints across the reads.\">\n");
 	fprintf(file, "%s", "##INFO=<ID=STD_quant_stop,Number=A,Type=Float,Description=\"STD of the stop breakpoints across the reads.\">\n");
@@ -307,6 +307,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 				fprintf(file, "%c", '>');
 			}
 
+			// Check p-value and set tag for strand bias if RE support > 7 !
 			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
 				fprintf(file, "%s", "\t.\tUNRESOLVED\t");
 			} else {
@@ -379,7 +380,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			//	}
 			fprintf(file, "%s", ";STRANDS=");
 			fprintf(file, "%s", strands.c_str());
-			if (Parameter::Instance()->read_strand) {
+		//	if (Parameter::Instance()->read_strand) {
 				fprintf(file, "%s", ";STRANDS2=");
 				std::map<std::string, read_str> support = SV->get_coordinates().support;
 				pair<int, int> tmp_start;
@@ -407,7 +408,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 				fprintf(file, "%i", tmp_stop.first);
 				fprintf(file, "%s", ",");
 				fprintf(file, "%i", tmp_stop.second);
-			}
+		//	}
 
 			//	if (Parameter::Instance()->print_seq && !SV->get_sequence().empty()) {
 			//		fprintf(file, "%s", ";SEQ=");

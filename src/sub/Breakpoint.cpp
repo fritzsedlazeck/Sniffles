@@ -103,7 +103,7 @@ int get_dist(Breakpoint * tmp) {
 
 long Breakpoint::overlap(Breakpoint * tmp) {
 	bool flag = false;
-//flag = ((*tmp->get_coordinates().support.begin()).second.SV & DEL);
+	//flag = ((*tmp->get_coordinates().support.begin()).second.SV & INS);
 	int max_dist = std::min(get_dist(tmp), get_dist(this)); // Parameter::Instance()->max_dist
 	if (flag) {
 		std::cout << "\t Overlap: " << max_dist << " start: " << tmp->get_coordinates().start.min_pos << " " << positions.start.min_pos << " stop :" << tmp->get_coordinates().stop.max_pos << " " << positions.stop.max_pos;
@@ -133,7 +133,7 @@ long Breakpoint::overlap(Breakpoint * tmp) {
 	//Standard merging.
 	if (is_same_strand(tmp) && (abs(tmp->get_coordinates().start.min_pos - positions.start.min_pos) < max_dist && abs(tmp->get_coordinates().stop.max_pos - positions.stop.max_pos) < max_dist)) {
 		if (flag) {
-			cout << "\tHIT" << endl;
+			cout << "\tMERGED" << endl;
 		}
 		return 0;
 	}
@@ -292,9 +292,11 @@ void Breakpoint::calc_support() {
 
 	if (get_SVtype() & TRA) { // we cannot make assumptions abut support yet.
 		set_valid((bool) (get_support() >= 1)); // this is needed as we take each chr independently and just look at the primary alignment
-	} else if (get_support() >= Parameter::Instance()->min_support) {
+	} else if (get_support() >= min(3, Parameter::Instance()->min_support)) { // to allow the merge of split SV
 		predict_SV();
-		set_valid((bool) (get_length() > Parameter::Instance()->min_length));
+		if (get_support() >= Parameter::Instance()->min_support) {
+			set_valid((bool) (get_length() > Parameter::Instance()->min_length));
+		}
 	}
 }
 
@@ -344,7 +346,6 @@ long get_median(std::vector<long> corrds) {
 	}
 	return corrds[(int) corrds.size() / 2];
 }
-
 
 void Breakpoint::predict_SV() {
 	bool aln = false;
@@ -712,5 +713,18 @@ std::string Breakpoint::to_string(RefVector ref) {
 	}
 	ss << " ";
 	return ss.str();
+}
+
+void Breakpoint::integrate(Breakpoint * p) {
+	//carry over support:
+	position_str old = p->get_coordinates();
+	for (std::map<std::string, read_str>::iterator i = old.support.begin(); i != old.support.end(); i++) {
+		this->positions.support[(*i).first] = (*i).second;
+		//	cout << "Added " << (*i).first << endl;
+	}
+
+//	cout << "Recompute: " << endl;
+	this->calc_support();
+	set_valid((bool) (get_length() > Parameter::Instance()->min_length));
 }
 

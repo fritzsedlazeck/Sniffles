@@ -46,7 +46,7 @@ public:
 	}
 
 	Breakpoint * get_data() {
-		return data;
+		return this->data;
 	}
 	int get_height() {
 		return height;

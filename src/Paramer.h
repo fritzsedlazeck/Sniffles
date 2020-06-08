@@ -77,7 +77,7 @@ public:
 
 //	bool splitthreader_output;
 	bool testing;
-	bool debug;
+//	bool debug;
 	bool genotype;
 	bool phase;
 	bool ignore_std;

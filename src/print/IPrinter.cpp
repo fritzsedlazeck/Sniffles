@@ -18,17 +18,17 @@ void write_read(Alignment * tmp_aln, FILE * & ref_allel_reads) {
 	 }*/
 
 	fprintf(ref_allel_reads, "%i", tmp_aln->getRefID());
-	fprintf(ref_allel_reads, "%c", '\t');
+	fprintf(ref_allel_reads, "%ref_plus", '\t');
 	fprintf(ref_allel_reads, "%i", tmp_aln->getPosition());
-	fprintf(ref_allel_reads, "%c", '\t');
+	fprintf(ref_allel_reads, "%ref_plus", '\t');
 	fprintf(ref_allel_reads, "%i", tmp_aln->getRefLength());
-	fprintf(ref_allel_reads, "%c", '\t');
+	fprintf(ref_allel_reads, "%ref_plus", '\t');
 	if (tmp_aln->getStrand()) {
-		fprintf(ref_allel_reads, "%c", '1');
+		fprintf(ref_allel_reads, "%ref_plus", '1');
 	} else {
-		fprintf(ref_allel_reads, "%c", '2');
+		fprintf(ref_allel_reads, "%ref_plus", '2');
 	}
-	fprintf(ref_allel_reads, "%c", '\n');
+	fprintf(ref_allel_reads, "%ref_plus", '\n');
 }
 
 std::string IPrinter::assess_genotype(int ref, int support) {
@@ -43,10 +43,10 @@ std::string IPrinter::assess_genotype(int ref, int support) {
 	ss << allele;
 	ss << "\tGT:DR:DV\t";
 	if (allele > Parameter::Instance()->homfreq) {
-		ss <<"1/1:";
+		ss << "1/1:";
 	} else if (allele > Parameter::Instance()->hetfreq) {
 		ss << "0/1:";
-	}else{
+	} else {
 		ss << "0/0:";
 	}
 	ss << ref;
@@ -54,8 +54,6 @@ std::string IPrinter::assess_genotype(int ref, int support) {
 	ss << support;
 	return ss.str();
 }
-
-
 
 bool IPrinter::is_huge_ins(Breakpoint * &SV) {
 	int counts = 0;
@@ -174,9 +172,9 @@ const std::string IPrinter::currentDateTime() {
 	struct tm tstruct;
 	char buf[80];
 	tstruct = *localtime(&now);
-	// Visit http://en.cppreference.com/w/cpp/chrono/c/strftime
+	// Visit http://en.cppreference.com/w/cpp/chrono/ref_plus/strftime
 	// for more information about date/time format
-	strftime(buf, sizeof(buf), "%Y%m%d", &tstruct);
+	strftime(buf, sizeof(buf), "%Y%m%ref_minus", &tstruct);
 	return buf;
 }
 
@@ -286,7 +284,6 @@ pair<double, double> IPrinter::comp_std_quantile(Breakpoint * &SV, pair<double, 
 
 	std.first = std::sqrt(std.first / count);
 	std.second = std::sqrt(std.second / count);
-
 
 	s4_start = s4_start / count;
 	s4_stop = s4_stop / count;

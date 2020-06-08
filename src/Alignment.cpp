@@ -189,8 +189,8 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 				ev.type = Parameter::Instance()->huge_ins * -1; //insertion: WE have to fix the length since we cannot estimate it!]
 				events.push_back(ev);
 			} else if (!al->GetTag("SV", sv) && sa.empty()) {
-				if(flag){
-					cout<<"HIT ALN"<<endl;
+				if (flag) {
+					cout << "HIT ALN" << endl;
 				}
 				ev.position = pos; // - Parameter::Instance()->huge_ins;
 				if (i == 0) {
@@ -207,13 +207,13 @@ vector<differences_str> Alignment::summarizeAlignment(std::vector<indel_str> &de
 
 	//exit(0);
 	if (flag) {
-	/*	std::cout << "FIRST:" << std::endl;
-		for (size_t i = 0; i < events.size(); i++) {
-			// if (abs(events[i].type) > 200) {
-			cout << events[i].position << " " << events[i].type << endl;
-			// }
-		}
-		cout << endl;*/
+		/*	std::cout << "FIRST:" << std::endl;
+		 for (size_t i = 0; i < events.size(); i++) {
+		 // if (abs(events[i].type) > 200) {
+		 cout << events[i].position << " " << events[i].type << endl;
+		 // }
+		 }
+		 cout << endl;*/
 	}
 
 //set ref length requ. later on:
@@ -393,7 +393,7 @@ size_t Alignment::get_length(std::vector<CigarOp> CigarData) {
 	return len;
 }
 size_t Alignment::getRefLength() {
-	if(this->ref_len<0){
+	if (this->ref_len < 0) {
 		return this->ref_len;
 	}
 //	return get_length(this->getCigar());
@@ -451,7 +451,7 @@ string convertInt(int number) {
 	return ss.str(); //return a string with the contents of the stream
 }
 string Alignment::getTagData() {
-	vector < string > tags;
+	vector<string> tags;
 
 	uint32_t i = 0;
 	if (al->GetTag("AS", i)) {
@@ -732,7 +732,7 @@ vector<aln_str> Alignment::getSA(RefVector ref) {
 		uint32_t sv;
 		al->GetTag("SV", sv);
 		tmp.cross_N = ((sv & Ns_CLIPPED));
-		bool flag = strcmp(getName().c_str(), "0bac61ef-7819-462b-ae3d-32c68fe580c0") == 0; //Parameter::Instance()->read_name.c_str()) == 0;
+		bool flag = false; // strcmp(getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0;
 
 		get_coords(tmp, tmp.read_pos_start, tmp.read_pos_stop);
 		if (flag) {
@@ -966,7 +966,7 @@ std::string Alignment::get_md() {
 	} else {
 		std::cerr << "No MD string detected! Check bam file! Otherwise generate using e.g. samtools." << std::endl;
 		cout << "MD: TEST" << this->getName() << endl;
-		exit (EXIT_FAILURE);
+		exit(EXIT_FAILURE);
 	}
 	return md;
 }
@@ -977,7 +977,7 @@ std::string Alignment::get_cs() {
 		return cs;
 	} else {
 		std::cerr << "No CS string detected! Check bam file!" << std::endl;
-		exit (EXIT_FAILURE);
+		exit(EXIT_FAILURE);
 	}
 	return cs;
 }
@@ -1161,6 +1161,9 @@ vector<str_event> Alignment::get_events_Aln() {
 //		event_aln = summarize_csstring(dels);
 //	} else {
 	event_aln = summarizeAlignment(dels);
+	if (flag) {
+		cout << "\tALN events " << event_aln.size() << endl;
+	}
 //	}
 //double time2 = Parameter::Instance()->meassure_time(comp_aln, "\tcompAln Events: ");
 
@@ -1294,14 +1297,16 @@ vector<str_event> Alignment::get_events_Aln() {
 
 			tmp.type = 0;
 			if (insert_max > Parameter::Instance()->min_length && insert > (del + del)) { //we have an insertion! //todo check || vs. &&
-				if (is_N_region && insert_max * Parameter::Instance()->avg_ins < Parameter::Instance()->min_length) {
+				if (is_N_region && insert_max - (insert_max * Parameter::Instance()->avg_ins) < Parameter::Instance()->min_length) {
 					tmp.type = 0;
 				} else {
+
+					if (flag) {
+						cout << "Is INS" << endl;
+					}
+
 					tmp.length = insert_max; //TODO not sure!
 					while (start < stop && event_aln[start].readposition == -1) {
-						//if (flag) {
-						//	cout << event_aln[start].readposition << " " << event_aln[start].type << endl;
-					//	}
 						start++;
 					}
 					if (flag) {
@@ -1309,12 +1314,12 @@ vector<str_event> Alignment::get_events_Aln() {
 					}
 					tmp.read_pos = event_aln[start].readposition;
 					if (Parameter::Instance()->print_seq) {
-					//	if (flag) {
-					//		std::cout << "Seq+:" << this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length) << std::endl;
+						//	if (flag) {
+						//		std::cout << "Seq+:" << this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length) << std::endl;
 
-					//	}
-						if(this->getAlignment()->QueryBases.size() < tmp.read_pos){
-							cerr<<"Read sequence is shorter than expected. Please check your bam file if the read sequence is reported!"<<endl;
+						//	}
+						if (this->getAlignment()->QueryBases.size() < tmp.read_pos) {
+							cerr << "Read sequence is shorter than expected. Please check your bam file if the read sequence is reported!" << endl;
 							exit(-1);
 						}
 						tmp.sequence = this->getAlignment()->QueryBases.substr(tmp.read_pos, tmp.length);
@@ -1326,7 +1331,7 @@ vector<str_event> Alignment::get_events_Aln() {
 					tmp.is_noise = false;
 				}
 			} else if (del_max > Parameter::Instance()->min_length && (insert + insert) < del) { //deletion
-				if (is_N_region && del_max * Parameter::Instance()->avg_del < Parameter::Instance()->min_length) {
+				if (is_N_region && del_max - (del_max * Parameter::Instance()->avg_del) < Parameter::Instance()->min_length) {
 					tmp.type = 0;
 				} else {
 					if (Parameter::Instance()->print_seq) {
@@ -1361,17 +1366,32 @@ vector<str_event> Alignment::get_events_Aln() {
 				cout << event_aln[start].position << " " << event_aln[stop].position << endl;
 				cout << "store: " << tmp.pos << " " << tmp.pos + abs(tmp.length) << " " << tmp.length << endl;
 				cout << tmp.sequence << endl;
+				cout << tmp.type << endl;
 				cout << endl;
 			}
 
 			if (tmp.type != 0) {
+				if (flag) {
+					cout << "ADDED" << endl;
+				}
 				events.push_back(tmp);
+			} else {
+				if (flag) {
+					cout << "NOT ADDED" << endl;
+				}
 			}
 		}
 	}
 //	Parameter::Instance()->meassure_time(comp_aln, "\tcompPosition: ");
 	if (noise_events > 4) {
+		if (flag) {
+			cout << "!dumped" << endl;
+		}
 		events.clear();
+	}
+
+	if (flag) {
+		cout << "events" << events.size() << endl;
 	}
 	return events;
 }

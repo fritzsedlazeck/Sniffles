@@ -266,10 +266,12 @@ void IntervallTree::preorder(TNode * p) {
 		preorder(p->right);
 	}
 }
+
+
 void IntervallTree::get_breakpoints(TNode *p, std::vector<Breakpoint *> & points) {
 	if (p != NULL) {
 		get_breakpoints(p->right, points);
-		//std::cout << "( " << p->get_data()->get_coordinates().start.min_pos << "-" << p->get_data()->get_coordinates().stop.max_pos << " "<< p->get_data()->get_coordinates().support.size()<<" )"<<std::endl;
+	//	std::cout << "( " << p->get_data()->get_coordinates().start.min_pos << "-" << p->get_data()->get_coordinates().stop.max_pos << " "<< p->get_data()->get_coordinates().support.size()<<" "<< TRANS_type2((*p->get_data()->get_coordinates().support.begin()).second.SV)<<" )"<<std::endl;
 		points.push_back(p->get_data());
 		get_breakpoints(p->left, points);
 	}

@@ -16,7 +16,7 @@ long get_ref_lengths3(int id, RefVector ref) {
 	return length;
 }
 
-void update_entries(std::vector<str_breakpoint_slim> &entries, int start, int stop, size_t & current_pos, int wobble, std::string rname) { //TODO room for optimization!
+void update_entries(std::vector<str_breakpoint_slim> &entries, int start, int stop, size_t & current_pos, int wobble, std::string rname, bool strand) { //TODO room for optimization!
 
 	if (entries.empty() || stop + wobble < entries[0].pos) {
 		return;
@@ -29,7 +29,7 @@ void update_entries(std::vector<str_breakpoint_slim> &entries, int start, int st
 		}
 		if ((start - wobble < entries[i].pos && stop + wobble > entries[i].pos) && (abs(entries[i].pos - start) > wobble && abs(entries[i].pos - stop) > wobble)) {	//TODO not sure if I cannot combine these two.
 			//entries[i].cov++;
-			entries[i].rnames[rname] = true;
+			entries[i].rnames[rname] = strand; //TOOD maybe just a normal vector!
 //			cout << "\tHIT: " << entries[i].rnames.size() << endl;
 		}
 		if (entries[i].pos > stop + wobble) {
@@ -76,7 +76,7 @@ void update_coverage(std::map<std::string, std::vector<str_breakpoint_slim> > & 
 		int start = (int) tmp_aln->getPosition();
 		int stop = (int) start + tmp_aln->getRefLength();
 		//	cout << "Ref: " << ref[current_RefID].RefName << endl;
-		update_entries(tmp, start, stop, current_pos, 5, tmp_aln->getName());
+		update_entries(tmp, start, stop, current_pos, 5, tmp_aln->getName(), tmp_aln->getStrand());
 
 		mapped_file->parseReadFast(Parameter::Instance()->min_mq, tmp_aln);
 	}
@@ -279,11 +279,19 @@ void Genotyper::update_svs_output(std::map<std::string, std::vector<str_breakpoi
 				//get_breakpoint_bedpe(buffer); //TODO
 			}
 			map<std::string, bool> tmp_names;
+			pair<int, int> strands;
+			strands.first = 0; //+
+			strands.second = 0; //-
 			for (size_t i = 0; i < entries[start.chr].size(); i++) {
 				if (start.pos == entries[start.chr][i].pos) {
 					//	final_ref.first = entries[start.chr][i].cov;
 					for (map<std::string, bool>::iterator t = entries[start.chr][i].rnames.begin(); t != entries[start.chr][i].rnames.end(); t++) {
-						tmp_names[(*t).first] = true;
+						if ((*t).second) {
+							strands.first++;
+						} else {
+							strands.second++;
+						}
+						tmp_names[(*t).first] = (*t).second;
 					}
 					break;
 				}
@@ -293,7 +301,12 @@ void Genotyper::update_svs_output(std::map<std::string, std::vector<str_breakpoi
 				if (stop.pos == entries[stop.chr][i].pos) {
 					//final_ref.second = entries[stop.chr][i].cov;
 					for (map<std::string, bool>::iterator t = entries[stop.chr][i].rnames.begin(); t != entries[stop.chr][i].rnames.end(); t++) {
-						tmp_names[(*t).first] = true;
+						tmp_names[(*t).first] = (*t).second;
+						if ((*t).second) {
+							strands.first++;
+						} else {
+							strands.second++;
+						}
 					}
 
 					break;
@@ -305,9 +318,9 @@ void Genotyper::update_svs_output(std::map<std::string, std::vector<str_breakpoi
 				exit(EXIT_FAILURE);
 			}
 			if (is_vcf) {
-				to_print = mod_breakpoint_vcf(buffer, (int) tmp_names.size());
+				to_print = mod_breakpoint_vcf(buffer, strands.first, strands.second); //(int) tmp_names.size());
 			} else {
-				to_print = mod_breakpoint_bedpe(buffer, (int) tmp_names.size());
+				to_print = mod_breakpoint_bedpe(buffer, strands.first, strands.second); //(int) tmp_names.size());
 			}
 			if (!to_print.empty()) {
 				fprintf(file, "%s", to_print.c_str());
@@ -410,13 +423,74 @@ std::string Genotyper::assess_genotype(int ref, int support) {
 	return ss.str();
 }
 
-std::string Genotyper::mod_breakpoint_vcf(string buffer, int ref_strand) {
+//// ============== Fisher exact test for strandness ===========
+void initLogFacs(double* logFacs, int n) {
+	logFacs[0] = 0;
+	for (int i = 1; i < n + 1; ++i) {
+		logFacs[i] = logFacs[i - 1] + log((double) i); // only n times of log() calls
+	}
+}
+
+double logHypergeometricProb(double* logFacs, int a, int b, int c, int d) {
+	return logFacs[a + b] + logFacs[c + d] + logFacs[a + c] + logFacs[b + d] - logFacs[a] - logFacs[b] - logFacs[c] - logFacs[d] - logFacs[a + b + c + d];
+}
+
+double logFac(int n) {
+	double ret;
+	for (ret = 0.; n > 0; --n) {
+		ret += log((double) n);
+	}
+	return ret;
+}
+double logHypergeometricProb(int a, int b, int c, int d) {
+	return logFac(a + b) + logFac(c + d) + logFac(a + c) + logFac(b + d) - logFac(a) - logFac(b) - logFac(c) - logFac(d) - logFac(a + b + c + d);
+}
+
+double fisher_exact(int sv_plus, int sv_minus, int ref_plus, int ref_minus) {
+	int n = sv_plus + sv_minus + ref_plus + ref_minus;
+	double* logFacs = new double[n + 1]; // *** dynamically allocate memory logFacs[0..n] ***
+	initLogFacs(logFacs, n); // *** initialize logFacs array ***
+	double logpCutoff = logHypergeometricProb(logFacs, sv_plus, sv_minus, ref_plus, ref_minus); // *** logFacs added
+	double pFraction = 0;
+	for (int x = 0; x <= n; ++x) {
+		if (sv_plus + sv_minus - x >= 0 && sv_plus + ref_plus - x >= 0 && ref_minus - sv_plus + x >= 0) {
+			double l = logHypergeometricProb(logFacs, x, sv_plus + sv_minus - x, sv_plus + ref_plus - x, ref_minus - sv_plus + x);
+			if (l <= logpCutoff)
+				pFraction += exp(l - logpCutoff);
+		}
+	}
+	double logpValue = logpCutoff + log(pFraction);
+//	std::cout << "Two-sided log10-p-value is " << logpValue / log(10.) << std::endl;
+//	std::cout << "Two-sided p-value is " << exp(logpValue) << std::endl;
+	delete[] logFacs;
+	return exp(logpValue);
+}
+
+std::string Genotyper::mod_breakpoint_vcf(string buffer, int ref_plus, int ref_minus) {
 //find last of\t
 //parse #reads supporting
 //print #ref
-	string entry;
-	int pos = 0;
 
+	string entry;
+	size_t pos = 0;
+	pair<int, int> read_strands;
+	pos = buffer.find("STRANDS2=");
+	if (pos != string::npos) {
+		read_strands.second = 0;
+		while (pos < buffer.size() &&  buffer[pos] != '\t') {
+			if (buffer[pos - 1] == '=') {
+				read_strands.first = atoi(&buffer[pos]);
+			}
+			if (buffer[pos - 1] == ',') {
+				read_strands.second = atoi(&buffer[pos]);
+				break;
+			}
+			pos++;
+		}
+	}
+	//cout<<"start2 "<<read_strands.first<<" "<< read_strands.second <<endl;
+	double pval = fisher_exact(read_strands.first, read_strands.second,ref_plus,ref_minus);
+	//cout<<"next"<<endl;
 	pos = buffer.find_last_of("GT");
 //tab
 	entry = buffer.substr(0, pos - 2);
@@ -425,20 +499,40 @@ std::string Genotyper::mod_breakpoint_vcf(string buffer, int ref_strand) {
 	buffer = buffer.substr(pos + 1);		// the right part is only needed:
 	pos = buffer.find_last_of(':');
 	int support = atoi(buffer.substr(pos + 1).c_str());
-	ref_strand = max(ref_strand, support);		// TODO not nice but just to make sure.
-	ss << max(ref_strand, support);
+	int ref_strand = max(ref_plus + ref_minus, support);		// TODO not nice but just to make sure.
+	ss << ref_plus << "," << ref_minus;
+	ss << ";Strandbias_pval=" << pval;
 	entry += ss.str();
+
+	if(read_strands.first+read_strands.second>5 && pval<0.01){
+		pos=0;
+		int count=0;
+		for(size_t i=0;i<entry.size();i++){
+			if(entry[i]=='.'){
+				pos=i+2; //for avoiding . and \t
+			}
+			if(entry[i]=='\t' && pos!=0){
+				count++;
+				if(count==2){
+					entry.erase(pos,i-pos);
+					entry.insert(pos,"STRANDBIAS");
+				}
+			}
+		}
+
+	}
 
 	string msg = assess_genotype(ref_strand, support);
 	if (msg.empty()) {
 		return "";
 	}
 	entry += msg;
+	//cout<<"done"<<endl;
 	return entry;
 
 }
 
-std::string Genotyper::mod_breakpoint_bedpe(string buffer, int ref) {
+std::string Genotyper::mod_breakpoint_bedpe(string buffer, int ref_plus, int ref_minus) {
 
 	std::string tmp = buffer;
 	std::string entry = tmp;
@@ -447,14 +541,14 @@ std::string Genotyper::mod_breakpoint_bedpe(string buffer, int ref) {
 
 	int pos = tmp.find_last_of('\t');		//TODO!!
 	int support = atoi(tmp.substr(pos + 1).c_str());
-	double allele = (double) support / (double) (ref);
+	double allele = (double) support / (double) (ref_plus + ref_minus);
 
 	if (allele < Parameter::Instance()->min_allelel_frequency) {
 		return "";
 	}
 
 	std::stringstream ss;
-	ss << ref;
+	ss << ref_plus << "," << ref_minus;
 	ss << "\t";
 	ss << support;
 	entry += ss.str();
@@ -597,12 +691,12 @@ void Genotyper::update_file(Breakpoint_Tree & tree, breakpoint_node *& node) {
 				exit(EXIT_FAILURE);
 			}
 
-			int ref = final_ref.first + final_ref.second;
+			//int ref = final_ref.first + final_ref.second;
 
 			if (is_vcf) {
-				to_print = mod_breakpoint_vcf(buffer, ref);
+				to_print = mod_breakpoint_vcf(buffer, final_ref.first, final_ref.second);
 			} else {
-				to_print = mod_breakpoint_bedpe(buffer, ref);
+				to_print = mod_breakpoint_bedpe(buffer, final_ref.first, final_ref.second);
 			}
 			if (!to_print.empty()) {
 				fprintf(file, "%s", to_print.c_str());

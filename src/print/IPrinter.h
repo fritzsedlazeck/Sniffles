@@ -17,6 +17,8 @@
 #include "../cluster/Cluster_SVs.h"
 #include "../Genotyper/Genotyper.h"
 #include <math.h>
+#include <cmath>
+#include <cstdlib>
 
 double const uniform_variance = 0.2886751; //sqrt(1/12) see variance of uniform distribution -> std
 void write_read(Alignment * tmp_aln, FILE * & ref_allel_reads);
@@ -100,6 +102,7 @@ public:
 	void comp_std_med(Breakpoint * &SV, double & std_start, double & std_stop);
 	pair<double, double> comp_std_quantile(Breakpoint * &SV, pair<double, double>& std, double & std_lenght, int & zmw_num);
 	const std::string currentDateTime();
+	double fisher_exact(int sv_plus, int sv_minus, int ref_plus, int ref_minus);
 };
 
 #endif /* PRINT_IPRINTER_H_ */
