@@ -252,7 +252,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 
 	while (!tmp_aln->getQueryBases().empty()) {
 
-		if (tmp_aln->getAlignment()->IsPrimaryAlignment() && tmp_aln->get_is_save()) {	// deleted: && (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800)
+		if ((tmp_aln->getAlignment()->IsPrimaryAlignment() && tmp_aln->get_is_save()) && !(tmp_aln->getAlignment()->AlignmentFlag & 0x800)){
 
 				//change CHR:
 			if (current_RefID != tmp_aln->getRefID()) {
@@ -270,17 +270,17 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 				 ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "wb");
 				 }*/
 
-				std::cout << "\t\tReassessing breakpoints"<<std::endl;
+				std::cout << "\t\tReassessing breakpoints" << std::endl;
 				for (int i = 0; i < points.size(); i++) {
 					points[i]->calc_support();
 				}
 				int i = 0;
 				int pos = 0;
 				while (i < points.size()) {
-					if (points[i]->get_support() >  min(3, Parameter::Instance()->min_support)) {
+					if (points[i]->get_support() > min(3, Parameter::Instance()->min_support)) {
 						int dist = min(int(points[i]->get_coordinates().stop.most_support - points[i]->get_coordinates().start.most_support), Parameter::Instance()->max_dist);
 						if (pos != i && abs(points[i]->get_coordinates().start.most_support - points[pos]->get_coordinates().start.most_support) < dist / 2 && abs(points[i]->get_coordinates().stop.most_support - points[pos]->get_coordinates().stop.most_support) < dist / 2 && points[i]->get_SVtype() == points[pos]->get_SVtype()) {
-						//	cout << "potential hit: " << TRANS_type2(points[i]->get_SVtype()) << " " << TRANS_type2(points[i]->get_SVtype()) << " " << points[i]->get_coordinates().start.most_support << " " << points[pos]->get_coordinates().start.most_support << " " << points[i]->get_coordinates().stop.most_support << " " << points[pos]->get_coordinates().stop.most_support << "supp: " << points[i]->get_support() << " " << points[pos]->get_support() << endl;
+							//	cout << "potential hit: " << TRANS_type2(points[i]->get_SVtype()) << " " << TRANS_type2(points[i]->get_SVtype()) << " " << points[i]->get_coordinates().start.most_support << " " << points[pos]->get_coordinates().start.most_support << " " << points[i]->get_coordinates().stop.most_support << " " << points[pos]->get_coordinates().stop.most_support << "supp: " << points[i]->get_support() << " " << points[pos]->get_support() << endl;
 							points[i]->integrate(points[pos]);
 							points[pos]->set_valid(false);
 						}
@@ -299,7 +299,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 						}
 					}
 				}
-				std::cout << "\t\tContinue parsing"<<std::endl;
+				std::cout << "\t\tContinue parsing" << std::endl;
 				bst.clear(root);
 				current_RefID = tmp_aln->getRefID();
 				ref_space = get_ref_lengths(tmp_aln->getRefID(), ref);
@@ -337,6 +337,9 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 						{
 							//	clock_t begin_split = clock();
 							split_events = tmp_aln->getSA(ref);
+							if (strcmp(tmp_aln->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0) {
+								cout << "Found read split events: " << split_events.size() << endl;
+							}
 							//	Parameter::Instance()->meassure_time(begin_split, " Split reads ");
 						}
 					}
@@ -357,6 +360,9 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 					add_events(tmp_aln, aln_event, 0, ref_space, bst, root, num_reads, false);
 				}
 				if (!split_events.empty()) {
+					if (strcmp(tmp_aln->getName().c_str(), Parameter::Instance()->read_name.c_str()) == 0) {
+						cout << "Found read split events: " << split_events.size() << endl;
+					}
 					add_splits(tmp_aln, split_events, 1, ref, bst, root, num_reads, false);
 				}
 			}
@@ -385,7 +391,7 @@ void detect_breakpoints(std::string read_filename, IPrinter *& printer) {
 		if (points[i]->get_support() > 3) {
 			int dist = min(int(points[i]->get_coordinates().stop.most_support - points[i]->get_coordinates().start.most_support), Parameter::Instance()->max_dist);
 			if (pos != i && abs(points[i]->get_coordinates().start.most_support - points[pos]->get_coordinates().start.most_support) < dist / 2 && abs(points[i]->get_coordinates().stop.most_support - points[pos]->get_coordinates().stop.most_support) < dist / 2 && points[i]->get_SVtype() == points[pos]->get_SVtype()) {
-			//	cout << "potential hit: " << TRANS_type2(points[i]->get_SVtype()) << " " << TRANS_type2(points[i]->get_SVtype()) << " " << points[i]->get_coordinates().start.most_support << " " << points[pos]->get_coordinates().start.most_support << " " << points[i]->get_coordinates().stop.most_support << " " << points[pos]->get_coordinates().stop.most_support << "supp: " << points[i]->get_support() << " " << points[pos]->get_support() << endl;
+				//	cout << "potential hit: " << TRANS_type2(points[i]->get_SVtype()) << " " << TRANS_type2(points[i]->get_SVtype()) << " " << points[i]->get_coordinates().start.most_support << " " << points[pos]->get_coordinates().start.most_support << " " << points[i]->get_coordinates().stop.most_support << " " << points[pos]->get_coordinates().stop.most_support << "supp: " << points[i]->get_support() << " " << points[pos]->get_support() << endl;
 				points[i]->integrate(points[pos]);
 				points[pos]->set_valid(false);
 			}
@@ -503,7 +509,7 @@ void add_events(Alignment *& tmp, std::vector<str_event> events, short type, lon
 			read.coordinates.second = svs.stop.max_pos;
 		}
 
-	//	read.id = read_id;
+		//	read.id = read_id;
 		svs.support[tmp->getName()] = read;
 		svs.support[tmp->getName()].length = events[i].length;
 		Breakpoint * point = new Breakpoint(svs, events[i].length);
@@ -580,6 +586,8 @@ void add_splits(Alignment *& tmp, std::vector<aln_str> events, short type, RefVe
 						if (Parameter::Instance()->print_seq) {
 							svs.read_stop = events[i].read_pos_start;
 							svs.read_start = events[i - 1].read_pos_stop;
+
+
 							if (svs.read_stop > tmp->getAlignment()->QueryBases.size()) {
 								cerr << "BUG: split read ins! " << svs.read_stop << " " << tmp->getAlignment()->QueryBases.size() << " " << tmp->getName() << endl;
 							}
