@@ -25,7 +25,7 @@ class Parameter {
 private:
 	Parameter() {
 		window_thresh=10;//TODO check!
-		version="1.0.11";
+		version="1.0.12";
 		huge_ins = 999;//TODO check??
 	}
 	~Parameter() {

@@ -7,9 +7,9 @@ option(STATIC "Build static binary" OFF)
  set( SNIF_VERSION_MINOR 0 )
 IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "Building in debug mode!")
-    set( SNIF_VERSION_BUILD 11-debug )
+    set( SNIF_VERSION_BUILD 12-debug )
 else()
-	set( SNIF_VERSION_BUILD 11 )
+	set( SNIF_VERSION_BUILD 12 )
 ENDIF()
 
 
