@@ -266,6 +266,9 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			if (end < 1) {
 				end = 1;
 			}
+			if(!(SV->get_SVtype() & TRA) && end<=start){
+				end=start+1;
+			}
 			std::string strands = SV->get_strand(1);
 
 			if (Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA)) {
