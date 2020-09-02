@@ -80,13 +80,12 @@ bool IntervallTree_bed::is_in(long position, Leaf * &p) {
 	} else {
 		long score = p->overlap(position);
 		if (score > 0) {
-			is_in(position, p->left);
+			return is_in(position, p->left);
 		} else if (score < 0) {
-			is_in(position, p->right);
+			return is_in(position, p->right);
 		} else {
 			return true;
 		}
-
 	}
 }
 // Copy a tree
