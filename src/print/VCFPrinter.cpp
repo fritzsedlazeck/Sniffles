@@ -369,16 +369,16 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 
 			if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && SV->get_types().is_ALN) {
 				if (SV->get_sequence().size() != 0) { //!
-					fprintf(file, "%i", SV->get_sequence().size());
+					fprintf(file, "%li", SV->get_sequence().size());
 				} else {
 					fprintf(file, "%i", 1);
 				}
 			} else if (SV->get_SVtype() & TRA) {
 				fprintf(file, "%i", 1);
 			} else if (SV->get_SVtype() & DEL) {
-				fprintf(file, "%i", SV->get_length() * -1);
+				fprintf(file, "%li", SV->get_length() * -1);
 			} else {
-				fprintf(file, "%i", SV->get_length());
+				fprintf(file, "%li", SV->get_length());
 			}
 			//	}
 			fprintf(file, "%s", ";STRANDS=");
@@ -510,7 +510,7 @@ void VCFPrinter::print_body_recall(Breakpoint * &SV, RefVector ref) {
 	if (((SV->get_SVtype() & INS) && SV->get_length() == Parameter::Instance()->huge_ins) && !SV->get_types().is_SR) {
 		fprintf(file, "%s", "NA");
 	} else {
-		fprintf(file, "%i", SV->get_length());
+		fprintf(file, "%li", SV->get_length());
 	}
 	//	}
 	fprintf(file, "%s", ";STRANDS=");
