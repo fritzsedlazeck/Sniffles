@@ -27,7 +27,7 @@ SWCPUCor::SWCPUCor(int gpu_id) {
 	long maxLen = (long) 100000 * (long) 20000;
 	alignMatrix = new MatrixElement[maxLen];
 
-	fprintf(stderr, "Allocationg: %llu\n", maxLen * sizeof(MatrixElement));
+	fprintf(stderr, "Allocationg: %lu\n", maxLen * sizeof(MatrixElement));
 
 	binaryCigar = new int[200000];
 
