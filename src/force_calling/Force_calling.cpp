@@ -125,7 +125,7 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 	long ref_space = ref_lens[ref[tmp_aln->getRefID()].RefName];
 	long num_reads = 0;
 	while (!tmp_aln->getQueryBases().empty()) {
-		if ((tmp_aln->getAlignment()->IsPrimaryAlignment()) (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800) && tmp_aln->get_is_save())) { //TODO disabled for now.
+		if ((tmp_aln->getAlignment()->IsPrimaryAlignment()) && (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800) && tmp_aln->get_is_save())) { //TODO disabled for now.
 			//change CHR:
 			if (current_RefID != tmp_aln->getRefID()) {
 				current_RefID = tmp_aln->getRefID();
