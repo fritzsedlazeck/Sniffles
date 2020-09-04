@@ -89,7 +89,6 @@ void fill_tree(IntervallTree & final, TNode *& root_final, RefVector ref, std::m
 
 void force_calling(std::string bam_file, IPrinter *& printer) {
 	cout << "Force calling SVs resetting parameters" << endl;
-	Parameter::Instance()->min_mq = 0;
 
 	//parse reads
 	//only process reads overlapping SV
@@ -121,12 +120,12 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 		ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "w");
 //		//ref_allel_reads = fopen(Parameter::Instance()->tmp_genotyp.c_str(), "wb");
 	}
-	Alignment * tmp_aln = mapped_file->parseRead(0);
+	Alignment * tmp_aln = mapped_file->parseRead((uint16_t)Parameter::Instance()->min_mq);
 
 	long ref_space = ref_lens[ref[tmp_aln->getRefID()].RefName];
 	long num_reads = 0;
 	while (!tmp_aln->getQueryBases().empty()) {
-		if ((tmp_aln->getAlignment()->IsPrimaryAlignment())) {	//&& (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800) && tmp_aln->get_is_save())) { //TODO disabled for now.
+		if ((tmp_aln->getAlignment()->IsPrimaryAlignment()) (!(tmp_aln->getAlignment()->AlignmentFlag & 0x800) && tmp_aln->get_is_save())) { //TODO disabled for now.
 			//change CHR:
 			if (current_RefID != tmp_aln->getRefID()) {
 				current_RefID = tmp_aln->getRefID();
@@ -191,7 +190,7 @@ void force_calling(std::string bam_file, IPrinter *& printer) {
 			//	cout<<" none "<<endl;
 	//	}
 		//get next read:
-		mapped_file->parseReadFast(0, tmp_aln);
+		mapped_file->parseReadFast((uint16_t)Parameter::Instance()->min_mq, tmp_aln);
 
 		num_reads++;
 

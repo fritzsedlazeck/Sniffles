@@ -766,7 +766,7 @@ void estimate_parameters(std::string read_filename) {
 		exit(EXIT_FAILURE);
 	}
 
-	Alignment * tmp_aln = mapped_file->parseRead(Parameter::Instance()->min_mq);
+	Alignment * tmp_aln = mapped_file->parseRead((uint16_t)Parameter::Instance()->min_mq);
 	double num = 0;
 	double avg_score = 0;
 	double avg_mis = 0;
@@ -813,7 +813,7 @@ void estimate_parameters(std::string read_filename) {
 			num++;
 		}
 
-		mapped_file->parseReadFast(Parameter::Instance()->min_mq, tmp_aln);
+		mapped_file->parseReadFast((uint16_t)Parameter::Instance()->min_mq, tmp_aln);
 	}
 	if (num == 0) {
 		std::cerr << "Too few reads detected in " << Parameter::Instance()->bam_files[0] << std::endl;
