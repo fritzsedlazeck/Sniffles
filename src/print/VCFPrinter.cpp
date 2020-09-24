@@ -51,6 +51,7 @@ void VCFPrinter::print_header() {
 	}
 
 //	if (Parameter::Instance()->read_strand) {
+
 		fprintf(file, "%s", "##INFO=<ID=STRANDS2,Number=4,Type=Integer,Description=\"alt reads first + ,alt reads first -,alt reads second + ,alt reads second -.\">\n");
 		fprintf(file, "%s", "##INFO=<ID=REF_strand,Number=.,Type=Integer,Description=\"plus strand ref, minus strand ref.\">\n");
 		fprintf(file, "%s", "##INFO=<ID=Strandbias_pval,Number=A,Type=Float,Description=\"P-value for fisher exact test for strand bias.\">\n");
@@ -67,6 +68,7 @@ void VCFPrinter::print_header() {
 	fprintf(file, "%s", "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n");
 	fprintf(file, "%s", "##FORMAT=<ID=DR,Number=1,Type=Integer,Description=\"# high-quality reference reads\">\n");
 	fprintf(file, "%s", "##FORMAT=<ID=DV,Number=1,Type=Integer,Description=\"# high-quality variant reads\">\n");
+	fprintf(file, "%s", "##FILTER=<ID=STRANDBIAS,Description=\"Strand is biased if Strandbias_pval< 0.01.\">\n");
 
 	fprintf(file, "%s", "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT");
 	for (size_t i = 0; i < Parameter::Instance()->bam_files.size(); i++) {
