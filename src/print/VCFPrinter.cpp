@@ -328,7 +328,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 			fprintf(file, "%s", ";SVMETHOD=Snifflesv");
 			fprintf(file, "%s", Parameter::Instance()->version.c_str());
 
-		//	if (!(Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA))) {
+			if (!(Parameter::Instance()->reportBND && (SV->get_SVtype() & TRA))) { //only print if not BND
 
 				fprintf(file, "%s", ";CHR2=");
 				fprintf(file, "%s", chr.c_str());
@@ -340,7 +340,7 @@ void VCFPrinter::print_body(Breakpoint * &SV, RefVector ref) {
 
 					fprintf(file, "%i", end);
 				}
-			//}
+			}
 			if (zmws != 0) {
 				fprintf(file, "%s", ";ZMW=");
 				fprintf(file, "%i", zmws);
