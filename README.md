@@ -6,6 +6,17 @@ Please see our github wiki for more information (https://github.com/fritzsedlaze
 
 
 # How to build Sniffles
+
+## Installing Dependencies
+Sniffles requres `zlib` in order to compile the source code. `zlib` can be installed using the following commands on Ubuntu:
+
+```
+sudo apt-get install libz-dev
+```
+**Note:Use respective package managers for other linux platforms**
+
+On Ubuntu/Linux the you can follow the commands below to download and build `sniffles` using CMake:
+
 <pre>wget https://github.com/fritzsedlazeck/Sniffles/archive/master.tar.gz -O Sniffles.tar.gz
 tar xzvf Sniffles.tar.gz
 cd Sniffles-master/
@@ -17,7 +28,8 @@ make
 cd ../bin/sniffles*
 ./sniffles</pre>
 
-Note Mac users often have to provide parameters to the cmake command:
+
+Note Mac users often have to provide parameters to the cmake command (Mac only):
 <pre>cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 .. 
 </pre>
 
