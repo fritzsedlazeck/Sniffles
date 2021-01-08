@@ -21,6 +21,10 @@ Note Mac users often have to provide parameters to the cmake command:
 <pre>cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 .. 
 </pre>
 
+# Readily installable packages of Sniffles
+[Debian](https://tracker.debian.org/pkg/sniffles) and [Ubuntu](https://launchpad.net/ubuntu/+source/sniffles) provide packages of Sniffles. These can be installed directly on your computer just like any other package or be added to a Docker/Singularity image across all major platforms.
+
+Sniffles can also be installed with [Conda](https://anaconda.org/bioconda/sniffles).
 
 **************************************
 ## NGMLR
