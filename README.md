@@ -36,7 +36,7 @@ A new preprint for the new methods and improvements introduced with Sniffles2 wi
 
 ### A. General (all Modes)
 * To output deletion (DEL SV) sequences, the reference genome (.fasta) must be specified using e.g. `--reference reference.fasta`.
-* Sniffles2 supports optionally specifying tandem repeat region annotations (.bed), which can improve calling in these regions `--tandem-repeats annotations.bed`. Sniffles2 tandem repeat annotations are compatible with those from pbsv, which for human references can be downloaded at their [GitHub repository](https://github.com/PacificBiosciences/pbsv/blob/master/annotations/).
+* Sniffles2 supports optionally specifying tandem repeat region annotations (.bed), which can improve calling in these regions `--tandem-repeats annotations.bed`. Sniffles2 compatible tandem repeat annotations for human references can be found in the [annotations/ folder](https://github.com/fritzsedlazeck/Sniffles/tree/master/src/annotations).
 * Sniffles2 is fully parallelized and uses 4 threads by default. This value can be adapted using e.g. `--threads 4` as option. Memory requirements will increase with the number of threads used.
 * To output read names in SNF and VCF files, the `--output-rnames` option is required.
 
@@ -49,7 +49,7 @@ Multi-sample SV calling using Sniffles2 population mode works in two steps:
 Alternatively, for step 2. you can supply a .tsv file, containing a list of .snf files, and custom sample ids in an optional second column (one sample per line), .e.g.:
 2. Combined calling using a .tsv as sample list: `sniffles2 --input snf_files_list.tsv --vcf multisample.vcf`
 
-### C. Non-Germline SV Calling (Somatic) 
+### C. Non-Germline SV Calling (Somatic)
 To call non-germline SVs (i.e. somatic/mosaic) SVs, the *--non-germline* option should be added, i.e.:
 
 `sniffles --input mapped_input.bam --vcf output.vcf --non-germline`
@@ -64,5 +64,4 @@ Example command, to determine the genotype of each SV in *input_known_svs.vcf* f
 ### Input / Output
 * .bam or .cram files containing long read alignments (i.e. from minimap2 or ngmlr) are supported as input
 * .vcf.gz (bgzipped+tabix indexed) output is supported
-* Simultaneous output of both .vcf and .snf file (for multi-sample calling) is supported 
-
+* Simultaneous output of both .vcf and .snf file (for multi-sample calling) is supported
