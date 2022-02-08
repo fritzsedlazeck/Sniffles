@@ -38,7 +38,7 @@ A new preprint for the new methods and improvements introduced with Sniffles2 wi
 * To output deletion (DEL SV) sequences, the reference genome (.fasta) must be specified using e.g. `--reference reference.fasta`.
 * Sniffles2 supports optionally specifying tandem repeat region annotations (.bed), which can improve calling in these regions `--tandem-repeats annotations.bed`. Sniffles2 tandem repeat annotations are compatible with those from pbsv, which for human references can be downloaded at their [GitHub repository](https://github.com/PacificBiosciences/pbsv/blob/master/annotations/).
 * Sniffles2 is fully parallelized and uses 4 threads by default. This value can be adapted using e.g. `--threads 4` as option. Memory requirements will increase with the number of threads used.
-* To output read names in SNF and VCF files, the `--output-rnmaes` option is required.
+* To output read names in SNF and VCF files, the `--output-rnames` option is required.
 
 ### B. Multi-Sample SV Calling (Trios, Populations)
 Multi-sample SV calling using Sniffles2 population mode works in two steps:
