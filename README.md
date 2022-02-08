@@ -1,63 +1,61 @@
-# Sniffles
-Sniffles is a structural variation caller using third generation sequencing (PacBio or Oxford Nanopore). It detects all types of SVs (10bp+) using evidence from split-read alignments, high-mismatch regions, and coverage analysis. Please note the current version of Sniffles requires sorted output from BWA-MEM (use -M and -x parameter), Minimap2 (sam file with Cigar & MD string) or NGMLR. If you experience problems or have suggestions please contact: fritz.sedlazeck@gmail.com
+# Sniffles2
+A fast structural variant caller for long-read sequencing, Sniffles2 accurately detect SVs on germline, somatic and population-level for PacBio and Oxford Nanopore read data.
 
+## Quick Start: Germline SV calling using Sniffles2
+To call SVs from long read alignments (PacBio / ONT), you can use:
 
-Please see our github wiki for more information (https://github.com/fritzsedlazeck/Sniffles/wiki)
+`sniffles -i mapped_input.bam -v output.vcf`
 
+(see sniffles --help or below for full usage information)
 
-# How to build Sniffles
-<pre>wget https://github.com/fritzsedlazeck/Sniffles/archive/master.tar.gz -O Sniffles.tar.gz
-tar xzvf Sniffles.tar.gz
-cd Sniffles-master/
-mkdir -p build/
-cd build/
-cmake ..
-make
+## Installation
+You can install Sniffles2 using pip or conda using:
 
-cd ../bin/sniffles*
-./sniffles</pre>
+`pip install sniffles`
 
-Note Mac users often have to provide parameters to the cmake command:
-<pre>cmake -D CMAKE_C_COMPILER=/opt/local/bin/gcc-mp-4.7 -D CMAKE_CXX_COMPILER=/opt/local/bin/g++-mp-4.7 .. 
-</pre>
+or
 
+`conda install sniffles`
 
-**************************************
-## NGMLR
-Sniffles performs best with the mappings of NGMLR our novel long read mapping method. 
-Please see:
-https://github.com/philres/ngmlr
+## Requirements
+* Python >= 3.7
+* pysam
 
-****************************************
-## Citation:
-Please see and cite our paper:
-https://www.nature.com/articles/s41592-018-0001-7
-  
-**************************************
-## Poster & Talks:
+#### Tested on:
+* python==3.9.5
+* pysam==0.16.0.1
 
-[Accurate and fast detection of complex and nested structural variations using long read technologies](http://schatzlab.cshl.edu/presentations/2016/2016.10.28.BIODATA.PacBioSV.pdf)
-Biological Data Science, Cold Spring Harbor Laboratory, Cold Spring Harbor, NY, 26 - 29.10.2016
+## Use-Cases / Modes
 
-[NGMLR: Highly accurate read mapping of third generation sequencing reads for improved structural variation analysis](http://www.cibiv.at/~philipp_/files/gi2016_poster_phr.pdf) 
-Genome Informatics 2016, Wellcome Genome Campus Conference Centre, Hinxton, Cambridge, UK, 19.09.-2.09.2016
+### A. General (all Modes)
+* To output deletion (DEL SV) sequences, the reference genome (.fasta) must be specified using e.g. `--reference reference.fasta`.
+* Sniffles2 supports optionally specifying tandem repeat region annotations (.bed), which can improve calling in these regions `--tandem-repeats annotations.bed`. Sniffles2 tandem repeat annotations are compatible with those from pbsv, which for human references can be downloaded at their [GitHub repository](https://github.com/PacificBiosciences/pbsv/blob/master/annotations/).
+* Sniffles2 is fully parallelized and uses 4 threads by default. This value can be adapted using e.g. `--threads 4` as option. Memory requirements will increase with the number of threads used.
+* To output read names in SNF and VCF files, the `--output-rnmaes` option is required.
 
-**************************************
-## Datasets used in the mansucript:
-We provide the NGMLR aligned reads and the Sniffles calls for the data sets used:  
+### B. Multi-Sample SV Calling (Trios, Populations)
+Multi-sample SV calling using Sniffles2 population mode works in two steps:
 
-Arabidopsis trio: 
-+ [http://labshare.cshl.edu/shares/schatzlab/www-data/fsedlaze/Sniffles/Arabidopsis_trio](http://labshare.cshl.edu/shares/schatzlab/www-data/fsedlaze/Sniffles/Arabidopsis_trio) . 
+1. Call SV candidates and create an associated .snf file for each sample: `sniffles2 --input sample1.bam --snf sample1.snf`
+2. Combined calling using multiple .snf files into a single .vcf: `sniffles2 --input sample1.snf sample2.snf ... sampleN.snf --vcf multisample.vcf`
 
-Genome in the Bottle trio: 
-+ Mappings: [ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/AshkenazimTrio/HG002_NA24385_son/PacBio_MtSinai_NIST/Baylor_NGMLR_bam_GRCh37/](ftp://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/AshkenazimTrio/HG002_NA24385_son/PacBio_MtSinai_NIST/Baylor_NGMLR_bam_GRCh37/) . 
+Alternatively, for step 2. you can supply a .tsv file, containing a list of .snf files, and custom sample ids in an optional second column (one sample per line), .e.g.:
+2. Combined calling using a .tsv as sample list: `sniffles2 --input snf_files_list.tsv --vcf multisample.vcf`
 
-+ SV calls: [http://labshare.cshl.edu/shares/schatzlab/www-data/fsedlaze/Sniffles/GiaB/](http://labshare.cshl.edu/shares/schatzlab/www-data/fsedlaze/Sniffles/GiaB/)
+### C. Non-Germline SV Calling (Somatic) 
+To call non-germline SVs (i.e. somatic/mosaic) SVs, the *--non-germline* option should be added, i.e.:
 
-NA12878: 
-+ [http://labshare.cshl.edu/shares/schatzlab/www-data/fsedlaze/Sniffles/NA12878/](http://labshare.cshl.edu/shares/schatzlab/www-data/fsedlaze/Sniffles/NA12878/) .  
+`sniffles --input mapped_input.bam --vcf output.vcf --non-germline`
 
-SKBR3: 
-+ [http://labshare.cshl.edu/shares/schatzlab/www-data/fsedlaze/Sniffles/Skbr3/](http://labshare.cshl.edu/shares/schatzlab/www-data/fsedlaze/Sniffles/Skbr3/) . 
+### D. Genotyping a known set of SVs (Force Calling)
+Example command, to determine the genotype of each SV in *input_known_svs.vcf* for *sample.bam* and write the re-genotyped SVs to *output_genotypes.vcf*:
 
+`sniffles --input sample.bam --genotype-vcf input_known_svs.vcf --vcf output_genotypes.vcf`
+
+## Quick Tips
+
+### Input / Output
+* .bam or .cram files containing long read alignments (i.e. from minimap2 or ngmlr) are supported as input
+* .vcf.gz (bgzipped+tabix indexed) output is supported
+* Simultaneous output of both .vcf and .snf file (for multi-sample calling) is supported 
 
