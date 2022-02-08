@@ -25,6 +25,13 @@ or
 * python==3.9.5
 * pysam==0.16.0.1
 
+## Citation
+Please cite our paper at:
+
+https://www.nature.com/articles/s41592-018-0001-7
+
+A new preprint for the new methods and improvements introduced with Sniffles2 will be following soon.
+
 ## Use-Cases / Modes
 
 ### A. General (all Modes)
