@@ -6,7 +6,9 @@ To call SVs from long read alignments (PacBio / ONT), you can use:
 
 `sniffles -i mapped_input.bam -v output.vcf`
 
-(see sniffles --help or below for full usage information)
+For improved calling in repetitive regions, Sniffles2 accepts a tandem repeat annotations file using the option `--tandem-repeats annotations.bed`. Sniffles2 compatible tandem repeat annotations for human references can be downloaded from the [annotations/ folder](https://github.com/fritzsedlazeck/Sniffles/tree/master/annotations).
+
+(see sniffles --help or below for full usage information).
 
 ## Installation
 You can install Sniffles2 using pip or conda using:
@@ -16,6 +18,10 @@ You can install Sniffles2 using pip or conda using:
 or
 
 `conda install sniffles`
+
+If you previously installed Sniffles1 using conda and want to upgrade to Sniffles2, you can use:
+
+`conda update sniffles`
 
 ## Requirements
 * Python >= 3.7
