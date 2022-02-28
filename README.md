@@ -49,11 +49,11 @@ A new preprint for the new methods and improvements introduced with Sniffles2 wi
 ### B. Multi-Sample SV Calling (Trios, Populations)
 Multi-sample SV calling using Sniffles2 population mode works in two steps:
 
-1. Call SV candidates and create an associated .snf file for each sample: `sniffles2 --input sample1.bam --snf sample1.snf`
-2. Combined calling using multiple .snf files into a single .vcf: `sniffles2 --input sample1.snf sample2.snf ... sampleN.snf --vcf multisample.vcf`
+1. Call SV candidates and create an associated .snf file for each sample: `sniffles --input sample1.bam --snf sample1.snf`
+2. Combined calling using multiple .snf files into a single .vcf: `sniffles --input sample1.snf sample2.snf ... sampleN.snf --vcf multisample.vcf`
 
 Alternatively, for step 2. you can supply a .tsv file, containing a list of .snf files, and custom sample ids in an optional second column (one sample per line), .e.g.:
-2. Combined calling using a .tsv as sample list: `sniffles2 --input snf_files_list.tsv --vcf multisample.vcf`
+2. Combined calling using a .tsv as sample list: `sniffles --input snf_files_list.tsv --vcf multisample.vcf`
 
 ### C. Non-Germline SV Calling (Somatic)
 To call non-germline SVs (i.e. somatic/mosaic) SVs, the *--non-germline* option should be added, i.e.:
