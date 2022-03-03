@@ -294,17 +294,29 @@ def call_group(svgroup,config,task):
         if cons_a!=1 and cons_b!=1:
             return None
 
+    svcall_pos=int(util.median(cand.pos for cand in svgroup.candidates))
+    svcall_svlen=int(util.median(cand.svlen for cand in svgroup.candidates))
+    svcall_end=svcall_pos+abs(svcall_svlen)
+    svcall_alt=first_cand.alt
+    svcall_alt_mindist=abs(len(svcall_alt)-svcall_svlen)
+    if first_cand.svtype=="INS":
+        for cand in svgroup.candidates:
+            dist=abs(len(cand.alt)-svcall_svlen)
+            if dist < svcall_alt_mindist:
+                svcall_alt_mindist=dist
+                svcall_alt=cand.alt
+
     svcall=SVCall(contig=first_cand.contig,
-                  pos=util.center(cand.pos for cand in svgroup.candidates),
+                  pos=svcall_pos,
                   id=f"{first_cand.svtype}.{task.sv_id:X}M{task.id:X}",
                   ref="N",
-                  alt=first_cand.alt,
+                  alt=svcall_alt,
                   qual=round(util.mean(int(cand.qual) for cand in svgroup.candidates)),
                   filter="PASS",
                   info=dict(),
                   svtype=first_cand.svtype,
-                  svlen=util.center(cand.svlen for cand in svgroup.candidates),
-                  end=util.center(cand.end for cand in svgroup.candidates),
+                  svlen=svcall_svlen,
+                  end=svcall_end,
                   genotypes=genotypes,
                   precise=sum(int(cand.precise) for cand in svgroup.candidates)/float(len(svgroup.candidates)) > 0.5,
                   support=round(util.mean(cand.support for cand in svgroup.candidates)),
@@ -315,8 +327,13 @@ def call_group(svgroup,config,task):
                   fwd=sum(cand.fwd for cand in svgroup.candidates),
                   rev=sum(cand.rev for cand in svgroup.candidates),
                   coverage_upstream=util.mean_or_none_round(cand.coverage_upstream for cand in svgroup.candidates if cand.coverage_upstream!=None),
+                  coverage_start=util.mean_or_none_round(cand.coverage_start for cand in svgroup.candidates if cand.coverage_start!=None),
                   coverage_center=util.mean_or_none_round(cand.coverage_center for cand in svgroup.candidates if cand.coverage_center!=None),
+                  coverage_end=util.mean_or_none_round(cand.coverage_end for cand in svgroup.candidates if cand.coverage_end!=None),
                   coverage_downstream=util.mean_or_none_round(cand.coverage_downstream for cand in svgroup.candidates if cand.coverage_downstream!=None) )
+
+    svcall.set_info("STDEV_POS",util.stdev(cand.pos for cand in svgroup.candidates))
+    svcall.set_info("STDEV_LEN",util.stdev(cand.svlen for cand in svgroup.candidates))
 
     if abs(svcall.svlen) < config.minsvlen:
         return None
