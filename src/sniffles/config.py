@@ -130,7 +130,7 @@ def from_cmdline():
     postprocess_args.add_argument("--no-sort", help="Do not sort output VCF by genomic coordinates (may slightly improve performance)", default=False, action="store_true")
     postprocess_args.add_argument("--no-progress", help="Disable progress display", default=False, action="store_true")
     postprocess_args.add_argument("--quiet", help="Disable all logging, except errors", default=False, action="store_true")
-    postprocess_args.add_argument("--max-del-seq-len", metavar="N", type=str, help="Maximum deletion sequence length to be output. Deletion SVs longer than this value will be written to the output as symbolic SVs.", default=50000)
+    postprocess_args.add_argument("--max-del-seq-len", metavar="N", type=int, help="Maximum deletion sequence length to be output. Deletion SVs longer than this value will be written to the output as symbolic SVs.", default=50000)
     postprocess_args.add_argument("--symbolic", help="Output all SVs as symbolic, including insertions and deletions, instead of reporting nucleotide sequences.", default=False, action="store_true")
 
     developer_args = parser.add_argument_group("Developer parameters")
