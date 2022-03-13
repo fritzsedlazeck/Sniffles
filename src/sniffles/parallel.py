@@ -293,7 +293,7 @@ def Main_Internal(proc_id,config,pipe):
                     for genotype_sv in genotype_svs_svtypes_bins[cand.svtype][bin]:
                         dist=abs(genotype_sv.pos - cand.pos) + abs(abs(genotype_sv.svlen) - abs(cand.svlen))
                         minlen=float(min(abs(genotype_sv.svlen),abs(cand.svlen)))
-                        if minlen>0 and dist < genotype_sv.genotype_match_dist and dist <= config.combine_match * math.sqrt(minlen) and dists <= config.combine_match_max:
+                        if minlen>0 and dist < genotype_sv.genotype_match_dist and dist <= config.combine_match * math.sqrt(minlen) and dist <= config.combine_match_max:
                             genotype_sv.genotype_match_sv=cand
                             genotype_sv.genotype_match_dist=dist
 
