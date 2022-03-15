@@ -16,7 +16,7 @@ import argparse
 from sniffles import util
 
 VERSION="Sniffles2"
-BUILD="2.0.3"
+BUILD="2.0.4rc1"
 SNF_VERSION="S2_rc3"
 
 class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -152,6 +152,10 @@ def from_cmdline():
     developer_args.add_argument("--repeat", default=False, action="store_true", help=argparse.SUPPRESS)
     developer_args.add_argument("--qc-nm", default=False, action="store_true", help=argparse.SUPPRESS)
     developer_args.add_argument("--qc-nm-max", metavar="F", type=float, default=0.2, help=argparse.SUPPRESS)
+    developer_args.add_argument("--coverage-updown-bins", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
+    developer_args.add_argument("--coverage-shift-bins", metavar="N", type=int, default=3, help=argparse.SUPPRESS)
+    developer_args.add_argument("--coverage-shift-bins-min-aln-length", metavar="N", type=int, default=1000, help=argparse.SUPPRESS)
+    developer_args.add_argument("--cluster-binsize-combine-mult", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
     #developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 
     config=parser.parse_args()
@@ -200,10 +204,8 @@ def from_cmdline():
         config.qc_nm=True
 
     config.coverage_binsize=config.cluster_binsize
-    config.coverage_binsize_combine=config.cluster_binsize*5
+    config.coverage_binsize_combine=config.cluster_binsize*config.cluster_binsize_combine_mult
 
-    config.coverage_updown_bins=5
-    config.coverage_shift_bins=3
 
     #INS Consensus parameters
     #config.consensus_max_reads=20

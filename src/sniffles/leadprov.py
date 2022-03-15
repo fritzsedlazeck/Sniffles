@@ -212,50 +212,6 @@ def read_iterindels(read_id,read,contig,config,use_clips,read_nm):
         pos_read+=add_read*oplength
         pos_ref+=add_ref*oplength
 
-def read_iterindels_unoptimized(read_id,read,contig,config,use_clips):
-    minsvlen=config.minsvlen_screen
-    seq_cache_maxlen=config.dev_seq_cache_maxlen
-    qname=read.query_name
-    mapq=read.mapping_quality
-    strand="-" if read.is_reverse else "+"
-
-    #TODO: Parse CG tag (ultra long alignments), if present
-    pos_read=0
-    pos_ref=read.reference_start
-    for op,oplength in read.cigartuples:
-        if op==pysam.CMATCH or op==pysam.CEQUAL or op==pysam.CDIFF:
-            pos_read+=oplength
-            pos_ref+=oplength
-        elif op==pysam.CINS:
-            if oplength>=minsvlen:
-                #print(pos_read,pos_read+oplength)
-                #print(pos_read,pos_read+oplength,read.query_sequence[pos_read:pos_read+oplength])
-                if oplength <= seq_cache_maxlen:
-                    seq=read.query_sequence[pos_read:pos_read+oplength]
-                else:
-                    seq=None
-                yield Lead(read_id,qname,contig,pos_ref,pos_ref+0,pos_read,pos_read+oplength,strand,mapq,-1,"INLINE","INS",oplength,seq=seq)
-            pos_read+=oplength
-        elif op==pysam.CDEL:
-            pos_ref+=oplength
-            if oplength>=minsvlen:
-                yield Lead(read_id,qname,contig,pos_ref,pos_ref+oplength,pos_read,pos_read+0,strand,mapq,-1,"INLINE","DEL",-oplength)
-        elif op==pysam.CREF_SKIP:
-            pos_ref+=oplength
-        elif op==pysam.CSOFT_CLIP:
-            if use_clips and oplength >= config.long_ins_length:
-                yield Lead(read_id,qname,contig,pos_ref,pos_ref+0,pos_read,pos_read+oplength,strand,mapq,-1,"INLINE","INS",None)
-            pos_read+=oplength
-        elif op==pysam.CHARD_CLIP:
-            #pos_ref+=oplength
-            if use_clips and oplength >= config.long_ins_length:
-                yield Lead(read_id,qname,contig,pos_ref,pos_ref+0,pos_read,pos_read+oplength,strand,mapq,-1,"INLINE","INS",None)
-        elif op==pysam.CPAD:
-            pass
-        else:
-            print(f"Unknown OPType {op}")
-            return
-
 def read_itersplits_bnd(read_id,read,contig,config,read_nm):
     assert(read.is_supplementary)
     #SA:refname,pos,strand,CIGAR,MAPQ,NM
@@ -549,6 +505,7 @@ class LeadProvider:
         binsize=self.config.cluster_binsize
         coverage_binsize=self.config.coverage_binsize
         coverage_shift_bins=self.config.coverage_shift_bins
+        coverage_shift_min_aln_len=self.config.coverage_shift_bins_min_aln_length
         long_ins_threshold=self.config.long_ins_length*0.5
         qc_nm=self.config.qc_nm
         phase=self.config.phase
@@ -565,7 +522,8 @@ class LeadProvider:
             self.read_id+=1
             self.read_count+=1
 
-            if read.mapping_quality < mapq_min or read.is_secondary or read.query_alignment_length < alen_min:
+            alen=read.query_alignment_length
+            if read.mapping_quality < mapq_min or read.is_secondary or alen < alen_min:
                 continue
 
             has_sa=read.has_tag("SA")
@@ -602,9 +560,8 @@ class LeadProvider:
                 target_tab=self.covrtab_rev
             else:
                 target_tab=self.covrtab_fwd
-            covr_start_bin=(int(read.reference_start/coverage_binsize)+coverage_shift_bins)*coverage_binsize
-            covr_end_bin=(int(read_end/coverage_binsize)-coverage_shift_bins)*coverage_binsize
-
+            covr_start_bin=(int(read.reference_start/coverage_binsize)+coverage_shift_bins*(alen>=coverage_shift_min_aln_len))*coverage_binsize
+            covr_end_bin=(int(read_end/coverage_binsize)-coverage_shift_bins*(alen>=coverage_shift_min_aln_len))*coverage_binsize
 
             if covr_end_bin > covr_start_bin:
                 self.covrtab_min_bin=min(self.covrtab_min_bin,covr_start_bin)
@@ -621,40 +578,3 @@ class LeadProvider:
         else:
             cache_dir=self.config.dev_cache_dir
         return f"{cache_dir}/{os.path.basename(self.config.input)}_{contig}_{start}_{end}.pickle"
-
-    def dev_store_leadtab(self,contig,start,end,externals):
-        data={"externals":externals, "self": self}
-        filename=self.dev_leadtab_filename(contig,start,end)
-        with open(filename,"wb") as h:
-            pickle.dump(data,h)
-        print(f"(DEV/Cache) Dumped leadtab to {filename}")
-
-    def dev_load_leadtab(self,contig,start,end):
-        filename=self.dev_leadtab_filename(contig,start,end)
-
-        if not os.path.exists(filename):
-            return False
-
-        with open(filename,"rb") as h:
-            data=pickle.load(h)
-        for item in data["self"].__dict__:
-            self.__dict__[item]=data["self"].__dict__[item]
-        print(f"(DEV/Cache) Loaded leadtab from {filename}")
-        return data["externals"]
-
-    def dev_debug_graph(self,title):
-        import matplotlib.pyplot as plt
-        import seaborn as sns
-        print(title)
-        sns.set()
-        data=[]
-        for k,v in self.leadtab.items():
-            data.append(len(v))
-            if len(data)>50000:
-                break
-
-        plt.hist(data,bins=[i for i in range(0,20)])
-        #plt.savefig(filename)
-        plt.title(title)
-        plt.savefig(f"debug/{title}.png")
-        plt.close()

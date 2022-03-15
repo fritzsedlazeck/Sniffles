@@ -145,7 +145,11 @@ def qc_support_auto(svcall,coverage_global,config):
     #    coverage_list=[svcall.coverage_center]
     #else:
     coverage_list=[svcall.coverage_upstream,svcall.coverage_downstream]
-    coverage_list=[c for c in coverage_list if c!=None]
+    coverage_list=[c for c in coverage_list if c!=None and c!=0]
+    if len(coverage_list)==0:
+        coverage_list=[svcall.coverage_start,svcall.coverage_center,svcall.coverage_end]
+        coverage_list=[c for c in coverage_list if c!=None and c!=0]
+
     if len(coverage_list)==0:
         coverage_regional=coverage_global
     else:
@@ -246,7 +250,7 @@ def genotype_sv(svcall,config):
         else:
             coverage_list=[svcall.coverage_start,svcall.coverage_center,svcall.coverage_end]
 
-    coverage_list=[c for c in coverage_list if c!=None]
+    coverage_list=[c for c in coverage_list if c!=None and c!=0]
     if len(coverage_list)==0:
         return
     coverage+=round(sum(coverage_list)/len(coverage_list))
