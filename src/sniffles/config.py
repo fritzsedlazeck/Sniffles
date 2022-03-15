@@ -16,7 +16,7 @@ import argparse
 from sniffles import util
 
 VERSION="Sniffles2"
-BUILD="2.0.4"
+BUILD="2.0.5rc1"
 SNF_VERSION="S2_rc3"
 
 class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):

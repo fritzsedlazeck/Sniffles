@@ -193,6 +193,8 @@ class VCF:
             call.ref="N"
             call.alt=f"<{call.svtype}>"
 
+        call.qual=max(0,min(60,call.qual))
+
         self.write_raw("\t".join(str(v) for v in [call.contig,pos,self.config.id_prefix+call.id,call.ref,call.alt,call.qual,call.filter,info_str,self.genotype_format]+sample_genotypes))
         self.call_count+=1
 
