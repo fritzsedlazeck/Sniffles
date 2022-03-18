@@ -253,19 +253,19 @@ def call_group(svgroup,config,task):
         if config.output_rnames and cand.rnames!=None:
             rnames.extend(cand.rnames)
         if not 0 in cand.genotypes:
-            cand.genotypes[0]=(".",".",0,0,cand.support)
+            cand.genotypes[0]=(".",".",0,0,cand.support,None)
         if cand.sample_internal_id in genotypes:
             #Intra-sample merging
-            a,b,gt_qual,dr,dv=cand.genotypes[0]
-            curr_a,curr_b,curr_gt_qual,curr_dr,curr_dv,curr_id=genotypes[cand.sample_internal_id]
+            a,b,gt_qual,dr,dv,ps=cand.genotypes[0]
+            curr_a,curr_b,curr_gt_qual,curr_dr,curr_dv,curr_ps,curr_id=genotypes[cand.sample_internal_id]
             new_id=curr_id+","+config.id_prefix+cand.id
             if (curr_a==".") or (a != "." and (a,b) >= (curr_a,curr_b)):
-                genotypes[cand.sample_internal_id]=(a,b,gt_qual,dr,dv,new_id)
+                genotypes[cand.sample_internal_id]=(a,b,gt_qual,dr,dv,ps,new_id)
             else:
-                genotypes[cand.sample_internal_id]=(curr_a,curr_b,curr_gt_qual,curr_dr,curr_dv,new_id)
+                genotypes[cand.sample_internal_id]=(curr_a,curr_b,curr_gt_qual,curr_dr,curr_dv,curr_ps,new_id)
         else:
-            a,b,gt_qual,dr,dv=cand.genotypes[0]
-            genotypes[cand.sample_internal_id]=(a,b,gt_qual,dr,dv,config.id_prefix+cand.id)
+            a,b,gt_qual,dr,dv,ps=cand.genotypes[0]
+            genotypes[cand.sample_internal_id]=(a,b,gt_qual,dr,dv,ps,config.id_prefix+cand.id)
         genotyped_count+=1
 
     for sample_internal_id in sample_internal_ids:

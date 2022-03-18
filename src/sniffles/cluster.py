@@ -311,7 +311,7 @@ def resolve_block_groups(svtype,svcands,groups_initial,config):
                 #TODO: Favor bigger groups in placement
                 dist=abs(group.pos_mean - svcand.pos) + abs(abs(group.len_mean) - abs(svcand.svlen))
                 minlen=float(min(abs(group.len_mean),abs(svcand.svlen)))
-                if minlen>0 and dist < best_dist and dist <= config.combine_match * math.sqrt(minlen):
+                if minlen>0 and dist < best_dist and dist <= config.combine_match * math.sqrt(minlen) and dist <= config.combine_match_max:
                     if not config.combine_separate_intra or not svcand.sample_internal_id in group.included_samples:
                         best_group=group
                         best_dist=dist

@@ -23,12 +23,24 @@ def format_info(k,v):
         return f"{k}={v}"
 
 def format_genotype(gt):
-    if len(gt)==5:
-        a,b,qual,dr,dv=gt
-        return f"{a}/{b}:{qual}:{dr}:{dv}"
+    if len(gt)==6:
+        a,b,qual,dr,dv,ps=gt
+        if ps!=None and (a,b)==(0,1):
+            gt_sep="|"
+            if ps==1:
+                a,b=b,a
+        else:
+            gt_sep="/"
+        return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}"
     else:
-        a,b,qual,dr,dv,id=gt
-        return f"{a}/{b}:{qual}:{dr}:{dv}:{id}"
+        a,b,qual,dr,dv,ps,id=gt
+        if ps!=None and (a,b)==(0,1):
+            gt_sep="|"
+            if ps==1:
+                a,b=b,a
+        else:
+            gt_sep="/"
+        return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{id}"
 
 class VCF:
     def __init__(self,config,handle):

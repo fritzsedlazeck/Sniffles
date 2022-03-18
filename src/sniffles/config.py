@@ -16,8 +16,8 @@ import argparse
 from sniffles import util
 
 VERSION="Sniffles2"
-BUILD="2.0.5rc1"
-SNF_VERSION="S2_rc3"
+BUILD="2.0.5rc4"
+SNF_VERSION="S2_rc4"
 
 class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
     pass
@@ -226,8 +226,8 @@ def from_cmdline():
 
     #Genotyping
     config.genotype_format="GT:GQ:DR:DV"
-    config.genotype_none=(".",".",0,0,0)
-    config.genotype_null=(0,0,0,0,0)
+    config.genotype_none=(".",".",0,0,0,None)
+    config.genotype_null=(0,0,0,0,0,None)
     config.genotype_min_z_score=5
     if config.genotype_ploidy!=2:
         util.fatal_error("Currently only --genotype-ploidy 2 is supported")
@@ -247,6 +247,7 @@ def from_cmdline():
     config.resplit_binsize=20
     config.tandem_repeat_region_pad=500
     config.id_prefix="Sniffles2."
+    config.phase_identifiers=["1","2"]
 
     config.dev_profile=False
 

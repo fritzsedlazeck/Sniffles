@@ -19,10 +19,12 @@ from sniffles import consensus
 import math
 
 def annotate_sv(svcall,config):
-    genotype_sv(svcall,config)
-
     if config.phase:
-        phase_sv(svcall,config)
+        phase=phase_sv(svcall,config)
+    else:
+        phase=None
+
+    genotype_sv(svcall,config,phase)
 
     if svcall.svtype=="INS" and not config.symbolic:
         merged_leads=[l for l in svcall.postprocess.cluster.leads if l.seq!=None]
@@ -221,7 +223,7 @@ def likelihood_ratio(q1,q2):
     else:
         return 0
 
-def genotype_sv(svcall,config):
+def genotype_sv(svcall,config,phase):
     normalization_target=250
     hom_ref_p=config.genotype_error
     het_p=(1.0/config.genotype_ploidy) # - config.genotype_error
@@ -296,7 +298,7 @@ def genotype_sv(svcall,config):
         a,b=".","."
     else:
         a,b=gt1
-    svcall.genotypes[0]=(a,b,genotype_quality,coverage-support,support) #f"{a}/{b}:{genotype_quality}:{coverage-support}:{support}"
+    svcall.genotypes[0]=(a,b,genotype_quality,coverage-support,support,phase)
     svcall.set_info("AF",af)
 
 def phase_sv(svcall,config):
@@ -319,7 +321,8 @@ def phase_sv(svcall,config):
         hp_filter="PASS"
 
     ps_filter="FAIL"
-    if hp != "NULL" and ps_support > 0 and float(other_ps_support)/(ps_support+other_ps_support) < config.phase_conflict_threshold:
+    if ps != "NULL" and ps_support > 0 and float(other_ps_support)/(ps_support+other_ps_support) < config.phase_conflict_threshold:
         ps_filter="PASS"
 
     svcall.set_info("PHASE",f"{hp},{ps},{hp_support},{ps_support},{hp_filter},{ps_filter}")
+    return (config.phase_identifiers.index(hp) if hp in config.phase_identifiers else None if hp_filter=="PASS" else None)
