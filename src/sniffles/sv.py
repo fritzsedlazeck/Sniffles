@@ -99,7 +99,7 @@ def call_from(cluster,config,keep_qc_fails,task):
 
     svlen=util.center(v.svlen for v in leads)
 
-    if abs(svlen) < config.minsvlen:
+    if abs(svlen) < config.minsvlen_screen:
         return
 
     #Count inline events only once per read, but split events as individual alignments, as in coverage calculation
@@ -125,12 +125,15 @@ def call_from(cluster,config,keep_qc_fails,task):
     support_fwd=sum(lead.strand == "+" for lead in leads)
     support_rev=len(leads) - support_fwd
 
+    filter="PASS"
     if config.qc_strand and (support_fwd==0 or support_rev==0):
+        filter="STRAND"
         qc=False
 
     if config.qc_nm:
         nm_mean=util.mean(v.nm for v in leads)
         if nm_mean > config.qc_nm_max:
+            filter="NM"
             qc=False
     else:
         nm_mean=-1
@@ -151,7 +154,7 @@ def call_from(cluster,config,keep_qc_fails,task):
                   ref="N",
                   alt=f"<{svtype}>",
                   qual=qual,
-                  filter="PASS",
+                  filter=filter,
                   info=dict(),
                   svtype=svtype,
                   svlen=svlen,
@@ -175,6 +178,8 @@ def call_from(cluster,config,keep_qc_fails,task):
         svcall.set_info("STDEV_POS",stdev_pos)
     if stdev_len!=None:
         svcall.set_info("STDEV_LEN",stdev_len)
+
+    #svcall.set_info("CLUSTER_ID",cluster.id)
 
     task.sv_id+=1
 
@@ -273,9 +278,9 @@ def call_group(svgroup,config,task):
             continue
         coverage=svgroup.coverages_nonincluded[sample_internal_id]
         if coverage >= config.combine_null_min_coverage:
-            genotypes[sample_internal_id]=(0,0,0,coverage,0,"NULL")
+            genotypes[sample_internal_id]=(0,0,0,coverage,0,None,"NULL")
         else:
-            genotypes[sample_internal_id]=(".",".",0,coverage,0,"NULL")
+            genotypes[sample_internal_id]=(".",".",0,coverage,0,None,"NULL")
 
     if config.combine_consensus:
         genotypes_consensus={}
@@ -296,15 +301,17 @@ def call_group(svgroup,config,task):
 
     svcall_pos=int(util.median(cand.pos for cand in svgroup.candidates))
     svcall_svlen=int(util.median(cand.svlen for cand in svgroup.candidates))
-    svcall_end=svcall_pos+abs(svcall_svlen)
     svcall_alt=first_cand.alt
     svcall_alt_mindist=abs(len(svcall_alt)-svcall_svlen)
     if first_cand.svtype=="INS":
+        svcall_end=svcall_pos
         for cand in svgroup.candidates:
             dist=abs(len(cand.alt)-svcall_svlen)
             if dist < svcall_alt_mindist:
                 svcall_alt_mindist=dist
                 svcall_alt=cand.alt
+    else:
+        svcall_end=svcall_pos+abs(svcall_svlen)
 
     svcall=SVCall(contig=first_cand.contig,
                   pos=svcall_pos,
@@ -335,7 +342,7 @@ def call_group(svgroup,config,task):
     svcall.set_info("STDEV_POS",util.stdev(cand.pos for cand in svgroup.candidates))
     svcall.set_info("STDEV_LEN",util.stdev(cand.svlen for cand in svgroup.candidates))
 
-    if abs(svcall.svlen) < config.minsvlen:
+    if abs(svcall.svlen) < config.minsvlen_screen:
         return None
 
     task.sv_id+=1

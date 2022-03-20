@@ -79,13 +79,8 @@ def coverage_build_requests(calls,lead_provider,config):
             end=start+1
         else:
             end=svcall.pos+abs(svcall.svlen)
-        #if start > end:
-        #    assert(svcall.svtype=="DEL")
-        #    start,end=end,start
-        #add_request(svcall,"coverage_start",start+config.coverage_binsize,requests_for_coverage,config)
         add_request(svcall,"coverage_start",start-config.coverage_binsize,requests_for_coverage,config)
         add_request(svcall,"coverage_center",int((start+end)/2),requests_for_coverage,config)
-        #add_request(svcall,"coverage_end",end-config.coverage_binsize,requests_for_coverage,config)
         add_request(svcall,"coverage_end",end+config.coverage_binsize,requests_for_coverage,config)
         add_request(svcall,"coverage_upstream",start-config.coverage_binsize*config.coverage_updown_bins,requests_for_coverage,config)
         add_request(svcall,"coverage_downstream",end+config.coverage_binsize*config.coverage_updown_bins,requests_for_coverage,config)
@@ -127,9 +122,11 @@ def coverage_fulfill(requests_for_coverage,calls,lead_provider,config):
 def qc_sv_support(svcall,coverage_global,config):
     if config.minsupport == "auto":
         if not qc_support_auto(svcall,coverage_global,config):
+            svcall.filter="SUPPORT_MIN"
             return False
     else:
         if not qc_support_const(svcall,config):
+            svcall.filter="SUPPORT_MIN"
             return False
     return True
 
@@ -171,34 +168,47 @@ def qc_sv(svcall,config):
     if config.qc_stdev:
         stdev_pos=svcall.get_info("STDEV_POS")
         if stdev_pos > config.qc_stdev_abs_max:
+            svcall.filter="STDEV_POS"
             return False
         if svcall.svtype!="BND" and stdev_pos / abs(svcall.svlen) > 2.0:
+            svcall.filter="STDEV_POS"
             return False
 
         stdev_len = svcall.get_info("STDEV_LEN")
         if stdev_len != None:
             if svcall.svtype != "BND" and stdev_len / abs(svcall.svlen) > 1.0:
+                svcall.filter="STDEV_LEN"
                 return False
-            if stdev_len > stdev_len > config.qc_stdev_abs_max:
+            if stdev_len > config.qc_stdev_abs_max:
+                svcall.filter="STDEV_LEN"
                 return False
+
+    if abs(svcall.svlen) < config.minsvlen:
+        svcall.filter="SVLEN_MIN"
+        return False
 
     #if (svcall.coverage_upstream != None and svcall.coverage_upstream < config.qc_coverage) or (svcall.coverage_downstream != None and svcall.coverage_downstream < config.qc_coverage):
     if svcall.svtype != "DEL" and svcall.svtype != "INS" and (svcall.coverage_center != None and svcall.coverage_center < config.qc_coverage):
+        svcall.filter="COV_MIN"
         return False
 
-    if svcall.svtype == "DEL" and abs(svcall.svlen) >= config.long_del_length and not config.non_germline:
+    if svcall.svtype == "DEL" and config.long_del_length != -1 and abs(svcall.svlen) >= config.long_del_length and not config.non_germline:
         if svcall.coverage_center != None and svcall.coverage_upstream != None and svcall.coverage_downstream != None and svcall.coverage_center > (svcall.coverage_upstream+svcall.coverage_downstream)/2.0 * config.long_del_coverage:
+            svcall.filter="COV_CHANGE"
             return False
     elif svcall.svtype=="INS" and ( (svcall.coverage_upstream != None and svcall.coverage_upstream < config.qc_coverage) or (svcall.coverage_downstream != None and svcall.coverage_downstream < config.qc_coverage)):
+        svcall.filter="COV_CHANGE"
         return False
-    elif svcall.svtype == "DUP" and abs(svcall.svlen) >= config.long_dup_length and not config.non_germline:
+    elif svcall.svtype == "DUP" and config.long_dup_length != -1 and abs(svcall.svlen) >= config.long_dup_length and not config.non_germline:
         if svcall.coverage_center != None and svcall.coverage_upstream != None and svcall.coverage_downstream != None and svcall.coverage_center < (svcall.coverage_upstream+svcall.coverage_downstream)/2.0 * config.long_dup_coverage:
+            svcall.filter="COV_CHANGE"
             return False
 
     return True
 
 def qc_sv_post_annotate(svcall,config):
     if (len(svcall.genotypes)==0 or (svcall.genotypes[0][0]!="." and svcall.genotypes[0][0]+svcall.genotypes[0][1]<2)) and (svcall.coverage_center != None and svcall.coverage_center < config.qc_coverage):
+        svcall.filter="COV_MIN"
         return False
 
     return True
@@ -292,7 +302,8 @@ def genotype_sv(svcall,config,phase):
 
     is_long_ins=(svcall.svtype=="INS" and svcall.svlen >= config.long_ins_length)
     if genotype_z_score < config.genotype_min_z_score and not config.non_germline and not is_long_ins:
-        svcall.filter="GT"
+        if svcall.filter=="PASS":
+            svcall.filter="GT"
 
     if is_long_ins and gt1==(0,0):
         a,b=".","."

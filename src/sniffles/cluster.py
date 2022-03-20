@@ -193,8 +193,6 @@ def resolve(svtype,leadtab_provider,config,tr):
                 tr_start,tr_end=tr[tr_index]
             if seed > tr_start and seed < tr_end:
                 within_tr=True
-            #print(within_tr,seed,tr_index,len(tr))
-        #within_tr=True
 
         if svtype=="INS":
             leads=[lead for lead in leadtab[seed] if lead.svlen!=None]
@@ -278,10 +276,10 @@ def resolve(svtype,leadtab_provider,config,tr):
 
                 merge_inner(cluster,merge_inner_threshold)
 
-            if not cluster.repeat and not config.dev_no_resplit:
+            if not config.dev_no_resplit_repeat and not config.dev_no_resplit:
                 for new_cluster in resplit(cluster,
                                            prop=lambda lead: lead.svlen,
-                                           binsize=config.resplit_binsize,
+                                           binsize=config.cluster_resplit_binsize,
                                            merge_threshold_min=config.minsvlen,
                                            merge_threshold_frac=config.cluster_merge_len):
                     yield new_cluster

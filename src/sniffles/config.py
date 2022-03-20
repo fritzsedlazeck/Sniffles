@@ -16,7 +16,7 @@ import argparse
 from sniffles import util
 
 VERSION="Sniffles2"
-BUILD="2.0.5rc4"
+BUILD="2.0.5"
 SNF_VERSION="S2_rc4"
 
 class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -77,9 +77,9 @@ def from_cmdline():
     filter_args.add_argument("--minsupport", metavar="auto", type=str, help="Minimum number of supporting reads for a SV to be reported (default: automatically choose based on coverage)", default="auto")
     filter_args.add_argument("--minsupport-auto-mult", metavar="0.1/0.025", type=float, help="Coverage based minimum support multiplier for germline/non-germline modes (only for auto minsupport) ", default=None)
     filter_args.add_argument("--minsvlen", metavar="N", type=int, help="Minimum SV length (in bp)", default=35)
-    filter_args.add_argument("--minsvlen-screen-ratio", metavar="N", type=float, help="Minimum length for SV candidates (as fraction of --minsvlen)", default=0.95)
+    filter_args.add_argument("--minsvlen-screen-ratio", metavar="N", type=float, help="Minimum length for SV candidates (as fraction of --minsvlen)", default=0.9)
     filter_args.add_argument("--mapq", metavar="N", type=int, help="Alignments with mapping quality lower than this value will be ignored", default=25)
-    filter_args.add_argument("--no-qc", help="Output all SV candidates, disregarding quality control steps.", default=False, action="store_true")
+    filter_args.add_argument("--no-qc", "--qc-output-all", help="Output all SV candidates, disregarding quality control steps.", default=False, action="store_true")
     filter_args.add_argument("--qc-stdev", help="Apply filtering based on SV start position and length standard deviation", metavar="True", type=tobool, default=True)
     filter_args.add_argument("--qc-stdev-abs-max", help="Maximum standard deviation for SV length and size (in bp)", metavar="N", type=int, default=500)
     filter_args.add_argument("--qc-strand", help="Apply filtering based on strand support of SV calls", metavar="False", type=tobool, default=False)
@@ -114,11 +114,10 @@ def from_cmdline():
     multi_args = parser.add_argument_group("Multi-Sample Calling / Combine parameters")
     multi_args.add_argument("--combine-high-confidence", metavar="F", type=float, help="Minimum fraction of samples in which a SV needs to have individually passed QC for it to be reported in combined output (a value of zero will report all SVs that pass QC in at least one of the input samples)", default=0.0)
     multi_args.add_argument("--combine-low-confidence", metavar="F", type=float, help="Minimum fraction of samples in which a SV needs to be present (failed QC) for it to be reported in combined output", default=0.2)
-    multi_args.add_argument("--combine-low-confidence-abs", metavar="N", type=int, help="Minimum absolute number of samples in which a SV needs to be present (failed QC) for it to be reported in combined output", default=3)
+    multi_args.add_argument("--combine-low-confidence-abs", metavar="N", type=int, help="Minimum absolute number of samples in which a SV needs to be present (failed QC) for it to be reported in combined output", default=2)
     multi_args.add_argument("--combine-null-min-coverage", metavar="N", type=int, help="Minimum coverage for a sample genotype to be reported as 0/0 (sample genotypes with coverage below this threshold at the SV location will be output as ./.)", default=5)
     multi_args.add_argument("--combine-match", metavar="N", type=int, help="Multiplier for maximum deviation of multiple SV's start/end position for them to be combined across samples. Given by max_dev=M*sqrt(min(SV_length_a,SV_length_b)), where M is this parameter.", default=250)
     multi_args.add_argument("--combine-match-max", metavar="N", type=int, help="Upper limit for the maximum deviation computed for --combine-match, in bp.", default=1000)
-    multi_args.add_argument("--combine-consensus", help="Output the consensus genotype of all samples", default=False, action="store_true")
     multi_args.add_argument("--combine-separate-intra", help="Disable combination of SVs within the same sample", default=False, action="store_true")
     multi_args.add_argument("--combine-output-filtered", help="Include low-confidence / putative non-germline SVs in multi-calling", default=False, action="store_true")
     #multi_args.add_argument("--combine-exhaustive", help="(DEV) Disable performance optimization in multi-calling", default=False, action="store_true")
@@ -145,8 +144,10 @@ def from_cmdline():
     developer_args.add_argument("--dev-seq-cache-maxlen", metavar="N", type=int, default=50000, help=argparse.SUPPRESS)
     developer_args.add_argument("--consensus-max-reads", metavar="N", type=int, default=20, help=argparse.SUPPRESS)
     developer_args.add_argument("--consensus-max-reads-bin", metavar="N", type=int, default=10, help=argparse.SUPPRESS)
+    developer_args.add_argument("--combine-consensus", help="Output the consensus genotype of all samples", default=False, action="store_true")
     developer_args.add_argument("--dev-dump-coverage", default=False, action="store_true", help=argparse.SUPPRESS)
     developer_args.add_argument("--dev-no-resplit", default=False, action="store_true", help=argparse.SUPPRESS)
+    developer_args.add_argument("--dev-no-resplit-repeat", default=False, action="store_true", help=argparse.SUPPRESS)
     developer_args.add_argument("--dev-skip-snf-validation", default=False, action="store_true", help=argparse.SUPPRESS)
     developer_args.add_argument("--low-memory", default=False, action="store_true", help=argparse.SUPPRESS)
     developer_args.add_argument("--repeat", default=False, action="store_true", help=argparse.SUPPRESS)
@@ -156,6 +157,7 @@ def from_cmdline():
     developer_args.add_argument("--coverage-shift-bins", metavar="N", type=int, default=3, help=argparse.SUPPRESS)
     developer_args.add_argument("--coverage-shift-bins-min-aln-length", metavar="N", type=int, default=1000, help=argparse.SUPPRESS)
     developer_args.add_argument("--cluster-binsize-combine-mult", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
+    developer_args.add_argument("--cluster-resplit-binsize", metavar="N", type=int, default=20, help=argparse.SUPPRESS)
     #developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 
     config=parser.parse_args()
@@ -244,7 +246,6 @@ def from_cmdline():
 
     #Misc
     config.precise=25 #Max. sum of pos and length stdev for SVs to be labelled PRECISE
-    config.resplit_binsize=20
     config.tandem_repeat_region_pad=500
     config.id_prefix="Sniffles2."
     config.phase_identifiers=["1","2"]

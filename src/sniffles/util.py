@@ -27,7 +27,6 @@ def median_or_mode(nums):
     nums=list(nums)
     top=most_common(nums)
     if len(top)>1 and (top[0][0]-top[1][0]<2):
-    #if len(nums)>3:
         return median_noavg(nums)
     else:
         return median_modes(nums)
