@@ -16,7 +16,7 @@ import argparse
 from sniffles import util
 
 VERSION="Sniffles2"
-BUILD="2.0.5"
+BUILD="2.0.6"
 SNF_VERSION="S2_rc4"
 
 class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -132,6 +132,7 @@ def from_cmdline():
     postprocess_args.add_argument("--quiet", help="Disable all logging, except errors", default=False, action="store_true")
     postprocess_args.add_argument("--max-del-seq-len", metavar="N", type=int, help="Maximum deletion sequence length to be output. Deletion SVs longer than this value will be written to the output as symbolic SVs.", default=50000)
     postprocess_args.add_argument("--symbolic", help="Output all SVs as symbolic, including insertions and deletions, instead of reporting nucleotide sequences.", default=False, action="store_true")
+    postprocess_args.add_argument("--allow-overwrite", help="Allow overwriting output files if already existing", default=False, action="store_true")
 
     developer_args = parser.add_argument_group("Developer parameters")
     developer_args.add_argument("--dev-cache", default=False, action="store_true", help=argparse.SUPPRESS)

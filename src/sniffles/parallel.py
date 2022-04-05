@@ -308,7 +308,7 @@ def Main_Internal(proc_id,config,pipe):
                 coverage=round(sum(coverage_list)/len(coverage_list))
                 svcall.genotypes={}
                 if coverage>0:
-                    svcall.genotypes[0]=(0,0,0,coverage,0)
+                    svcall.genotypes[0]=(0,0,0,coverage,0,None)
                 else:
                     svcall.genotypes[0]=config.genotype_none
 

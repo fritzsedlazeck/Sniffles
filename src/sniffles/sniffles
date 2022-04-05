@@ -181,15 +181,17 @@ def Sniffles2_Main(config,processes):
         else:
             vcf_output_info_str=f"({', '.join(vcf_output_info)})"
 
-
-        if config.vcf_output_bgz:
-            if not config.sort:
-                util.fatal_error_main(".gz (bgzip) output is only supported with sorting enabled")
-            vcf_handle=pysam.BGZFile(config.vcf,"w")
+        if os.path.exists(config.vcf) and not config.allow_overwrite:
+            util.fatal_error_main(f"Output file '{config.vcf}' already exists! Use --allow-overwrite to ignore this check and overwrite.")
         else:
-            vcf_handle=open(config.vcf,"w")
+            if config.vcf_output_bgz:
+                if not config.sort:
+                    util.fatal_error_main(".gz (bgzip) output is only supported with sorting enabled")
+                vcf_handle=pysam.BGZFile(config.vcf,"w")
+            else:
+                vcf_handle=open(config.vcf,"w")
 
-        vcf_out=vcf.VCF(config,vcf_handle)
+            vcf_out=vcf.VCF(config,vcf_handle)
 
         if config.mode=="call_sample" or config.mode=="combine":
             if config.reference!=None:
@@ -200,8 +202,12 @@ def Sniffles2_Main(config,processes):
 
     if config.snf != None:
         print(f"Opening for writing: {config.snf}")
-        snf_out=snf.SNFile(config,open(config.snf,"wb"))
-        snf_parts=[]
+
+        if os.path.exists(config.snf) and not config.allow_overwrite:
+            util.fatal_error_main(f"Output file '{config.snf}' already exists! Use --allow-overwrite to ignore this check and overwrite.")
+        else:
+            snf_out=snf.SNFile(config,open(config.snf,"wb"))
+            snf_parts=[]
 
     #
     # Plan multiprocessing tasks
