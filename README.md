@@ -36,7 +36,7 @@ Please cite our paper at:
 
 https://www.nature.com/articles/s41592-018-0001-7
 
-A new preprint for the new methods and improvements introduced with Sniffles2 will be following soon.
+A new preprint for the new methods and improvements introduced with Sniffles2 is here: https://www.biorxiv.org/content/10.1101/2022.04.04.487055v1 
 
 ## Use-Cases / Modes
 
