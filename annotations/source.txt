@@ -1,0 +1,2 @@
+Source for human_hs37d5.trf.bed: https://github.com/PacificBiosciences/pbsv/tree/master/annotations
+Source for human_GRCh38_no_alt_analysis_set.trf.bed: https://github.com/PacificBiosciences/pbsv/tree/master/annotations
