@@ -120,6 +120,8 @@ def from_cmdline():
     multi_args.add_argument("--combine-match-max", metavar="N", type=int, help="Upper limit for the maximum deviation computed for --combine-match, in bp.", default=1000)
     multi_args.add_argument("--combine-separate-intra", help="Disable combination of SVs within the same sample", default=False, action="store_true")
     multi_args.add_argument("--combine-output-filtered", help="Include low-confidence / putative non-germline SVs in multi-calling", default=False, action="store_true")
+    multi_args.add_argument("--combine-pair-relabel", help="Override low-quality genotypes when combining 2 samples (may be used for e.g. tumor-normal comparisons)", default=False, action="store_true")
+    multi_args.add_argument("--combine-pair-relabel-threshold", help="Genotype quality below which a genotype call will be relabeled", default=20, type=int)
     #multi_args.add_argument("--combine-exhaustive", help="(DEV) Disable performance optimization in multi-calling", default=False, action="store_true")
     #multi_args.add_argument("--combine-relabel-rare", help="(DEV)", default=False, action="store_true")
     #multi_args.add_argument("--combine-with-missing", help="(DEV)", default=False, action="store_true")

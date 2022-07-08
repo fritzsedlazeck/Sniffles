@@ -299,6 +299,20 @@ def call_group(svgroup,config,task):
         if cons_a!=1 and cons_b!=1:
             return None
 
+    if config.combine_pair_relabel:
+        max_gt=(0,0)
+        for sample_id in genotypes:
+            a,b,qual,dr,dv,ps,new_id=genotypes[sample_id]
+            if qual > config.combine_pair_relabel_threshold and a!=".":
+                max_gt=max(max_gt,(a,b))
+
+        if max_gt!=(0,0):
+            for sample_id in genotypes:
+                a,b,qual,dr,dv,ps,new_id=genotypes[sample_id]
+                if qual < config.combine_pair_relabel_threshold and a!=".":
+                    max_a,max_b=max_gt
+                    genotypes[sample_id]=(max_a,max_b,qual,dr,dv,ps,new_id)
+
     svcall_pos=int(util.median(cand.pos for cand in svgroup.candidates))
     svcall_svlen=int(util.median(cand.svlen for cand in svgroup.candidates))
     svcall_alt=first_cand.alt
