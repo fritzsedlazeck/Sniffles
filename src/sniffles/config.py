@@ -16,7 +16,7 @@ import argparse
 from sniffles import util
 
 VERSION="Sniffles2"
-BUILD="2.2.0-b2t"
+BUILD="2.2.0-b3t"
 SNF_VERSION="S2_rc4"
 
 class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -103,7 +103,7 @@ def from_cmdline():
     cluster_args.add_argument("--cluster-repeat-h-max", metavar="N", type=float, help="Max. merging distance based on SV length criterion for tandem repeat cluster merging", default=1000)
     cluster_args.add_argument("--cluster-merge-pos", metavar="N", type=int, help="Max. merging distance for insertions and deletions on the same read and cluster in non-repeat regions", default=150)
     cluster_args.add_argument("--cluster-merge-len", metavar="F", type=float, help="Max. size difference for merging SVs as fraction of SV length", default=0.33)
-    cluster_args.add_argument("--cluster-merge-bnd", metavar="N", type=int, help="Max. merging distance for breakend SV candidates.", default=1500)
+    cluster_args.add_argument("--cluster-merge-bnd", metavar="N", type=int, help="Max. merging distance for breakend SV candidates.", default=1000)
 
     genotype_args = parser.add_argument_group("SV Genotyping parameters")
     genotype_args.add_argument("--genotype-ploidy", metavar="N", type=int, help="Sample ploidy (currently fixed at value 2)", default=2)
@@ -227,7 +227,6 @@ def from_cmdline():
 
     #BND
     config.bnd_cluster_length=1000
-    config.bnd_cluster_resplit=0
 
     #Genotyping
     config.genotype_format="GT:GQ:DR:DV"

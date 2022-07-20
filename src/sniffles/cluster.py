@@ -265,7 +265,7 @@ def resolve(svtype,leadtab_provider,config,tr):
             if config.dev_no_resplit:
                 yield cluster
             else:
-                for new_cluster in resplit_bnd(cluster,merge_threshold=config.bnd_cluster_resplit):
+                for new_cluster in resplit_bnd(cluster,merge_threshold=config.cluster_merge_bnd):
                     yield new_cluster
         else:
             if svtype=="INS" or svtype=="DEL":
