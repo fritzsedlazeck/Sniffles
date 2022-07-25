@@ -134,6 +134,20 @@ class VCF:
     def write_header_line(self,text):
         self.write_raw("##"+text)
 
+    def process_coverages(self, call):
+        return ",".join(
+            [
+                "-1" if cov is None else str(cov)
+                for cov in [
+                    call.coverage_upstream,
+                    call.coverage_start,
+                    call.coverage_center,
+                    call.coverage_end,
+                    call.coverage_downstream,
+                ]
+            ]
+        )
+
     def write_call(self,call):
         #pysam coordinates are 0-based, VCF 1-based - therefore +1 is added to call.pos
         end=call.end + 1
@@ -169,7 +183,7 @@ class VCF:
                "END": end,
                "SUPPORT": call.support,
                "RNAMES": call.rnames if self.config.output_rnames else None,
-               "COVERAGE": f"{call.coverage_upstream},{call.coverage_start},{call.coverage_center},{call.coverage_end},{call.coverage_downstream}",
+               "COVERAGE": self.process_coverages(call),
                "STRAND": ("+" if call.fwd>0 else "") + ("-" if call.rev>0 else ""),
                "NM": call.nm}
 
