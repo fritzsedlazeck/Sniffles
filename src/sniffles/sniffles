@@ -20,6 +20,7 @@ import collections
 import math
 import time
 import os
+from pathlib import Path
 import json
 
 import pysam
@@ -184,6 +185,8 @@ def Sniffles2_Main(config,processes):
         if os.path.exists(config.vcf) and not config.allow_overwrite:
             util.fatal_error_main(f"Output file '{config.vcf}' already exists! Use --allow-overwrite to ignore this check and overwrite.")
         else:
+            if not Path(config.vcf).parent.exists():
+                Path(config.vcf).parent.mkdir(parents=True)
             if config.vcf_output_bgz:
                 if not config.sort:
                     util.fatal_error_main(".gz (bgzip) output is only supported with sorting enabled")
