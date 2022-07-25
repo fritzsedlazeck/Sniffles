@@ -96,7 +96,7 @@ def fatal_error(msg):
 
 def fatal_error_main(msg):
     error(msg+" (Fatal error, exiting.)")
-    sys.exit(1)
+    raise Sniffles2Exit
 
 def load_tandem_repeats(filename,padding):
     contigs_tr={}
