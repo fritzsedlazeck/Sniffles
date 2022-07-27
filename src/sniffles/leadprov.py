@@ -162,6 +162,7 @@ def read_iterindels(read_id,read,contig,config,use_clips,read_nm):
 
     pos_read=0
     pos_ref=read.reference_start
+
     for op,oplength in read.cigartuples:
         add_read,add_ref,event=OPLIST[op]
         if event and oplength >= minsvlen:
@@ -211,6 +212,34 @@ def read_iterindels(read_id,read,contig,config,use_clips,read_nm):
                            seq=None)
         pos_read+=add_read*oplength
         pos_ref+=add_ref*oplength
+
+def get_cigar_indels(read_id,read,contig,config,use_clips,read_nm):
+    minsvlen=config.minsvlen_screen
+    longinslen=config.long_ins_length/2.0
+    seq_cache_maxlen=config.dev_seq_cache_maxlen
+    qname=read.query_name
+    mapq=read.mapping_quality
+    strand="-" if read.is_reverse else "+"
+    CINS=pysam.CINS
+    CDEL=pysam.CDEL
+    CSOFT_CLIP=pysam.CSOFT_CLIP
+
+    INS_SUM=0
+    DEL_SUM=0
+
+    pos_read=0
+    pos_ref=read.reference_start
+    for op,oplength in read.cigartuples:
+        add_read,add_ref,event=OPLIST[op]
+        if event:
+            if op==CINS:
+                INS_SUM+=oplength
+            elif op==CDEL:
+                DEL_SUM+=oplength
+        pos_read+=add_read*oplength
+        pos_ref+=add_ref*oplength
+
+    return INS_SUM,DEL_SUM
 
 def read_itersplits_bnd(read_id,read,contig,config,read_nm):
     assert(read.is_supplementary)
@@ -276,7 +305,7 @@ def read_itersplits_bnd(read_id,read,contig,config,read_nm):
                               split_qry_start+readspan,
                               strand,
                               mapq,
-                              nm/float(readspan+1),
+                              read_nm,
                               "SPLIT_SUP",
                               "?"))
 
@@ -376,7 +405,7 @@ def read_itersplits(read_id,read,contig,config,read_nm):
                               split_qry_start+readspan,
                               strand,
                               mapq,
-                              nm/float(readspan+1),
+                              read_nm,
                               "SPLIT_SUP",
                               "?"))
 
@@ -512,6 +541,8 @@ class LeadProvider:
         advanced_tags=qc_nm or phase
         mapq_min=self.config.mapq
         alen_min=self.config.min_alignment_length
+        nm_sum=0
+        nm_count=0
 
         for read in bam.fetch(contig,start,end,until_eof=False):
             #if self.read_count % 1000000 == 0:
@@ -534,7 +565,14 @@ class LeadProvider:
             if advanced_tags:
                 if qc_nm:
                     if read.has_tag("NM"):
-                        nm=read.get_tag("NM")/float(read.query_alignment_length+1)
+                        nm_raw=read.get_tag("NM")
+                        nm_ratio=read.get_tag("NM")/float(read.query_alignment_length+1)
+                        ins_sum,del_sum=get_cigar_indels(curr_read_id,read,contig,self.config,use_clips,read_nm=nm)
+                        nm_adj=(nm_raw-(ins_sum+del_sum))
+                        nm_adj_ratio=nm_adj/float(read.query_alignment_length+1)
+                        nm=nm_adj_ratio
+                        nm_sum+=nm
+                        nm_count+=1
 
                 if phase:
                     curr_read_id=(self.read_id,str(read.get_tag("HP")) if read.has_tag("HP") else "NULL",str(read.get_tag("PS")) if read.has_tag("PS") else "NULL")
@@ -569,6 +607,10 @@ class LeadProvider:
 
                 if read_end <= self.end:
                     target_tab[covr_end_bin]=target_tab[covr_end_bin]-1 if covr_end_bin in target_tab else -1
+
+        self.config.average_regional_nm=nm_sum/float(max(1,nm_count))
+        self.config.qc_nm_threshold=self.config.average_regional_nm*self.config.qc_nm_mult
+        #print(f"Contig {contig} avg. regional NM={self.config.average_regional_nm}, threshold={self.config.qc_nm_threshold}")
 
 
     def dev_leadtab_filename(self,contig,start,end):

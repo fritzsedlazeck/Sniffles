@@ -16,7 +16,7 @@ import argparse
 from sniffles import util
 
 VERSION="Sniffles2"
-BUILD="2.2.0-b3t"
+BUILD="2.2.0-b4t"
 SNF_VERSION="S2_rc4"
 
 class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -155,7 +155,7 @@ def from_cmdline():
     developer_args.add_argument("--low-memory", default=False, action="store_true", help=argparse.SUPPRESS)
     developer_args.add_argument("--repeat", default=False, action="store_true", help=argparse.SUPPRESS)
     developer_args.add_argument("--qc-nm", default=False, action="store_true", help=argparse.SUPPRESS)
-    developer_args.add_argument("--qc-nm-max", metavar="F", type=float, default=0.2, help=argparse.SUPPRESS)
+    developer_args.add_argument("--qc-nm-mult", metavar="F", type=float, default=1.66, help=argparse.SUPPRESS)
     developer_args.add_argument("--coverage-updown-bins", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
     developer_args.add_argument("--coverage-shift-bins", metavar="N", type=int, default=3, help=argparse.SUPPRESS)
     developer_args.add_argument("--coverage-shift-bins-min-aln-length", metavar="N", type=int, default=1000, help=argparse.SUPPRESS)

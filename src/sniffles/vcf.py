@@ -98,7 +98,8 @@ class VCF:
         self.write_header_line('FILTER=<ID=COV_CHANGE,Description="Coverage change filter">')
         self.write_header_line('FILTER=<ID=STRAND,Description="Strand support filter">')
         self.write_header_line('FILTER=<ID=SVLEN_MIN,Description="SV length filter">')
-        self.write_header_line('FILTER=<ID=NM,Description="Alignment noise level filter">')
+        if self.config.non_germline:
+            self.write_header_line('FILTER=<ID=NM,Description="Length adjusted mismatch filter">')
         self.write_header_line('INFO=<ID=PRECISE,Number=0,Type=Flag,Description="Structural variation with precise breakpoints">')
         self.write_header_line('INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description="Structural variation with imprecise breakpoints">')
         self.write_header_line('INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of structural variation">')

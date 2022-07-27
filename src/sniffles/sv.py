@@ -132,9 +132,6 @@ def call_from(cluster,config,keep_qc_fails,task):
 
     if config.qc_nm:
         nm_mean=util.mean(v.nm for v in leads)
-        if nm_mean > config.qc_nm_max:
-            filter="NM"
-            qc=False
     else:
         nm_mean=-1
 

@@ -211,6 +211,9 @@ def qc_sv_post_annotate(svcall,config):
         svcall.filter="COV_MIN"
         return False
 
+    if config.qc_nm and svcall.nm > config.qc_nm_threshold and (len(svcall.genotypes)==0 or svcall.genotypes[0][1]==0):
+        svcall.filter="NM"
+    
     return True
 
 def binomial_coef(n,k):
