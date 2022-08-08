@@ -187,6 +187,11 @@ def qc_sv(svcall,config):
         svcall.filter="SVLEN_MIN"
         return False
 
+    if svcall.svtype=="BND" and config.qc_bnd_filter_strand:
+        if len(set(l.strand for l in svcall.postprocess.cluster.leads))<2:
+            svcall.filter="STRAND"
+            return False
+
     #if (svcall.coverage_upstream != None and svcall.coverage_upstream < config.qc_coverage) or (svcall.coverage_downstream != None and svcall.coverage_downstream < config.qc_coverage):
     if svcall.svtype != "DEL" and svcall.svtype != "INS" and (svcall.coverage_center != None and svcall.coverage_center < config.qc_coverage):
         svcall.filter="COV_MIN"
@@ -213,7 +218,7 @@ def qc_sv_post_annotate(svcall,config):
 
     if config.qc_nm and svcall.nm > config.qc_nm_threshold and (len(svcall.genotypes)==0 or svcall.genotypes[0][1]==0):
         svcall.filter="NM"
-    
+
     return True
 
 def binomial_coef(n,k):

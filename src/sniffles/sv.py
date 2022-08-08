@@ -363,6 +363,7 @@ def call_group(svgroup,config,task):
 def classify_splits(read,leads,config,main_contig):
     minsvlen_screen=config.minsvlen_screen
     maxsvlen_other=minsvlen_screen*5
+    min_split_len_bnd=config.bnd_min_split_length
 
     leads.sort(key=lambda ld: ld.qry_start)
     last=leads[0]
@@ -480,7 +481,7 @@ def classify_splits(read,leads,config,main_contig):
             else:
                 a,b=last,curr
 
-            if a.contig == main_contig:
+            if a.contig == main_contig and abs(last.qry_end-last.qry_start) >= min_split_len_bnd and abs(curr.qry_end-curr.qry_start) >= min_split_len_bnd:
                 is_first=a.qry_start < b.qry_start
                 if is_first:
                     if a.strand=="+":

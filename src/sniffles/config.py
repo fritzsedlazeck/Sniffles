@@ -16,7 +16,7 @@ import argparse
 from sniffles import util
 
 VERSION="Sniffles2"
-BUILD="2.2.0-b4t"
+BUILD="2.2.0-b5t"
 SNF_VERSION="S2_rc4"
 
 class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -88,6 +88,8 @@ def from_cmdline():
     filter_args.add_argument("--long-del-length", help="Deletion SVs longer than this value are subjected to central coverage drop-based filtering (Not applicable for --non-germline)", metavar="50000", type=int, default=50000)
     filter_args.add_argument("--long-del-coverage", help="Long deletions with central coverage (in relation to upstream/downstream coverage) higher than this value will be filtered (Not applicable for --non-germline)", metavar="0.66", type=float, default=0.66)
     filter_args.add_argument("--long-dup-length", help="Duplication SVs longer than this value are subjected to central coverage increase-based filtering (Not applicable for --non-germline)", metavar="50000", type=int, default=50000)
+    filter_args.add_argument("--qc-bnd-filter-strand", help="Filter breakends that do not have support for both strands", type=tobool, default=True)
+    filter_args.add_argument("--bnd-min-split-length", help="Minimum length of read splits to be considered for breakends", type=int, default=1000)
     filter_args.add_argument("--long-dup-coverage", help="Long duplications with central coverage (in relation to upstream/downstream coverage) lower than this value will be filtered (Not applicable for --non-germline)", metavar="1.33", type=float, default=1.33)
     filter_args.add_argument("--max-splits-kb", metavar="N", type=float, help="Additional number of splits per kilobase read sequence allowed before reads are ignored", default=0.1)
     filter_args.add_argument("--max-splits-base", metavar="N", type=int, help="Base number of splits allowed before reads are ignored (in addition to --max-splits-kb)", default=3)
