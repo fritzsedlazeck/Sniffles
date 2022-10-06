@@ -354,8 +354,9 @@ def novel_from_reads(best_lead,other_leads,klen,skip,skip_repetitive,debug=False
                     conseq_new.append("-"*len(buffer))
         conseq="".join(conseq_new)
 
-        if span/float(len(best_lead.seq)) > minspan:
-            alignments.append(conseq)
+        if float(len(best_lead.seq))>0 :
+            if span/float(len(best_lead.seq)) > minspan:
+                alignments.append(conseq)
 
     maxal=1
     for i in range(len(best_lead.seq)):
