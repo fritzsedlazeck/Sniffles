@@ -170,15 +170,17 @@ def qc_sv(svcall,config):
         if stdev_pos > config.qc_stdev_abs_max:
             svcall.filter="STDEV_POS"
             return False
-        if svcall.svtype!="BND" and stdev_pos / abs(svcall.svlen) > 2.0:
-            svcall.filter="STDEV_POS"
-            return False
+        if abs(svcall.svlen)>0:
+            if svcall.svtype!="BND" and stdev_pos / abs(svcall.svlen) > 2.0:
+                svcall.filter="STDEV_POS"
+                return False
 
         stdev_len = svcall.get_info("STDEV_LEN")
         if stdev_len != None:
-            if svcall.svtype != "BND" and stdev_len / abs(svcall.svlen) > 1.0:
-                svcall.filter="STDEV_LEN"
-                return False
+            if abs(svcall.svlen)>0:
+                if svcall.svtype != "BND" and stdev_len / abs(svcall.svlen) > 1.0:
+                    svcall.filter="STDEV_LEN"
+                    return False
             if stdev_len > config.qc_stdev_abs_max:
                 svcall.filter="STDEV_LEN"
                 return False
