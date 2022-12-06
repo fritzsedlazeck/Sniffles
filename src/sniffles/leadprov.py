@@ -536,7 +536,7 @@ class LeadProvider:
         coverage_shift_bins=self.config.coverage_shift_bins
         coverage_shift_min_aln_len=self.config.coverage_shift_bins_min_aln_length
         long_ins_threshold=self.config.long_ins_length*0.5
-        qc_nm=self.config.qc_nm
+        qc_nm=self.config.qc_nm_measure
         phase=self.config.phase
         advanced_tags=qc_nm or phase
         mapq_min=self.config.mapq
@@ -609,7 +609,7 @@ class LeadProvider:
                     target_tab[covr_end_bin]=target_tab[covr_end_bin]-1 if covr_end_bin in target_tab else -1
 
         self.config.average_regional_nm=nm_sum/float(max(1,nm_count))
-        self.config.qc_nm_threshold=self.config.average_regional_nm*self.config.qc_nm_mult
+        self.config.qc_nm_threshold=self.config.average_regional_nm
         #print(f"Contig {contig} avg. regional NM={self.config.average_regional_nm}, threshold={self.config.qc_nm_threshold}")
 
 

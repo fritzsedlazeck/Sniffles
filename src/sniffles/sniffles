@@ -627,3 +627,4 @@ if __name__ == "__main__":
                 proc.process.join()
             except:
                 pass
+        exit(1)

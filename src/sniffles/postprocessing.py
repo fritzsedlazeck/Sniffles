@@ -167,6 +167,10 @@ def qc_support_const(svcall,config):
     return svcall.support >= config.minsupport
 
 def qc_sv(svcall,config):
+    af=svcall.get_info("AF")
+    af=af if af!=None else 0
+    sv_is_mosaic = af <= config.mosaic_af_max
+
     if config.qc_stdev:
         stdev_pos=svcall.get_info("STDEV_POS")
         if stdev_pos > config.qc_stdev_abs_max:
@@ -194,7 +198,7 @@ def qc_sv(svcall,config):
             svcall.filter="STRAND"
             return False
 
-    if config.mosaic:
+    if config.mosaic and sv_is_mosaic:
         if svcall.svtype=="INV" or svcall.svtype=="DUP" and svcall.svlen < config.mosaic_qc_invdup_min_length:
             svcall.filter="SVLEN_MIN"
             return False
@@ -216,7 +220,10 @@ def qc_sv(svcall,config):
             svcall.filter="COV_CHANGE"
             return False
 
-    if config.qc_coverage_max_change_frac != -1.0:
+    qc_coverage_max_change_frac=config.qc_coverage_max_change_frac
+    if config.mosaic and sv_is_mosaic:
+        qc_coverage_max_change_frac=config.mosaic_qc_coverage_max_change_frac
+    if qc_coverage_max_change_frac != -1.0:
         if svcall.coverage_upstream!=None and svcall.coverage_upstream!=0:
             u=float(svcall.coverage_upstream)
         else:
@@ -242,37 +249,47 @@ def qc_sv(svcall,config):
         else:
             d=1.0
 
-        if abs(u-s)/max(u,s) > config.qc_coverage_max_change_frac:
+        if abs(u-s)/max(u,s) > qc_coverage_max_change_frac:
             svcall.filter="COV_CHANGE_FRAC"
             return False
 
-        if abs(s-c)/max(s,c) > config.qc_coverage_max_change_frac:
+        if abs(s-c)/max(s,c) > qc_coverage_max_change_frac:
             svcall.filter="COV_CHANGE_FRAC"
             return False
 
-        if abs(c-e)/max(c,e) > config.qc_coverage_max_change_frac:
+        if abs(c-e)/max(c,e) > qc_coverage_max_change_frac:
             svcall.filter="COV_CHANGE_FRAC"
             return False
 
-        if abs(e-d)/max(e,d) > config.qc_coverage_max_change_frac:
+        if abs(e-d)/max(e,d) > qc_coverage_max_change_frac:
             svcall.filter="COV_CHANGE_FRAC"
             return False
 
     return True
 
 def qc_sv_post_annotate(svcall,config):
+    af=svcall.get_info("AF")
+    af=af if af!=None else 0
+    sv_is_mosaic = af <= config.mosaic_af_max
+
     if (len(svcall.genotypes)==0 or (svcall.genotypes[0][0]!="." and svcall.genotypes[0][0]+svcall.genotypes[0][1]<2)) and (svcall.coverage_center != None and svcall.coverage_center < config.qc_coverage):
         svcall.filter="COV_MIN"
         return False
 
-    if config.qc_nm and svcall.nm > config.qc_nm_threshold and (len(svcall.genotypes)==0 or svcall.genotypes[0][1]==0):
+    qc_nm=config.qc_nm
+    qc_nm_threshold=config.qc_nm_threshold*config.qc_nm_mult
+    if config.mosaic and sv_is_mosaic:
+        qc_nm=config.mosaic_qc_nm
+        qc_nm_threshold=config.qc_nm_threshold*config.qc_nm_mult
+    if qc_nm and svcall.nm > qc_nm_threshold and (len(svcall.genotypes)==0 or svcall.genotypes[0][1]==0):
         svcall.filter="ALN_NM"
         return False
 
     if config.mosaic:
-        af=svcall.get_info("AF")
-        af=af if af!=None else 0
-        if af < config.mosaic_af_min or af > config.mosaic_af_max:
+        if sv_is_mosaic and ( af < config.mosaic_af_min or af > config.mosaic_af_max ):
+            svcall.filter="MOSAIC_AF"
+            return False
+        elif not sv_is_mosaic and not config.mosaic_include_germline:
             svcall.filter="MOSAIC_AF"
             return False
 

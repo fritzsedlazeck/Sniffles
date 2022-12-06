@@ -16,7 +16,7 @@ import argparse
 from sniffles import util
 
 VERSION="Sniffles2"
-BUILD="2.2.0-b5t-s2"
+BUILD="2.2.0-b5t-s3"
 SNF_VERSION="S2_rc4"
 
 class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -142,10 +142,11 @@ def from_cmdline():
     mosaic_args.add_argument("--mosaic-af-max", help="Maximum allele frequency for which SVs are considered mosaic", metavar="F", default=0.3, type=float)
     mosaic_args.add_argument("--mosaic-af-min", help="Minimum allele frequency for mosaic SVs to be output", metavar="F", default=0.05, type=float)
     mosaic_args.add_argument("--mosaic-qc-invdup-min-length", help="Minimum SV length for mosaic inversion and duplication SVs", metavar="N", default=500, type=int)
-    mosaic_args.add_argument("--mosaic-qc-nm", default=False, action="store_true", help=argparse.SUPPRESS)
+    mosaic_args.add_argument("--mosaic-qc-nm", default=True, action="store_true", help=argparse.SUPPRESS)
     mosaic_args.add_argument("--mosaic-qc-nm-mult", metavar="F", type=float, default=1.66, help=argparse.SUPPRESS)
     mosaic_args.add_argument("--mosaic-qc-coverage-max-change-frac", help="Maximum relative coverage change across SV breakpoints", metavar="F", type=float, default=0.1)
     mosaic_args.add_argument("--mosaic-qc-strand", help="Apply filtering based on strand support of SV calls", metavar="True", type=tobool, default=True)
+    mosaic_args.add_argument("--mosaic-include-germline", help="Report germline SVs as well in mosaic mode", default=False, action="store_true")
 
 
     developer_args = parser.add_argument_group("Developer parameters")
@@ -265,10 +266,11 @@ def from_cmdline():
     config.workdir=os.getcwd()
 
     #Mosaic
+    config.qc_nm_measure=config.qc_nm
     if config.mosaic:
-        config.qc_coverage_max_change_frac=config.mosaic_qc_coverage_max_change_frac
-        config.qc_nm=config.mosaic_qc_nm
-        config.qc_nm_mult=config.mosaic_qc_nm_mult
+        #config.qc_coverage_max_change_frac=config.mosaic_qc_coverage_max_change_frac
+        config.qc_nm_measure=config.qc_nm_measure or config.mosaic_qc_nm
+        #config.qc_nm_mult=config.mosaic_qc_nm_mult
         config.qc_strand=config.mosaic_qc_strand
 
     return config

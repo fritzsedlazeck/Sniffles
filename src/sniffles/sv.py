@@ -130,7 +130,7 @@ def call_from(cluster,config,keep_qc_fails,task):
         filter="STRAND"
         qc=False
 
-    if config.qc_nm:
+    if config.qc_nm_measure:
         nm_mean=util.mean(v.nm for v in leads)
     else:
         nm_mean=-1
