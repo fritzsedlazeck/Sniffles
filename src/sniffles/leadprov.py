@@ -419,6 +419,19 @@ def read_itersplits(read_id,read,contig,config,read_nm):
 
     sv.classify_splits(read,all_leads,config,contig)
 
+    """
+    if config.dev_trace_read != False:
+        print(read.query_name)
+        if read.query_name == config.dev_trace_read:
+            for lead_i, lead in enumerate(all_leads):
+                for svtype, svstart, arg in lead.svtypes_starts_lens:
+                    min_mapq=min(lead.mapq,all_leads[max(0,lead_i-1)].mapq)
+                    keep=True
+                    if not config.dev_keep_lowqual_splits and min_mapq < config.mapq:
+                        keep=False
+                    print(f"[DEV_TRACE_READ] [REPORT_LEAD_SPLIT] Splits identified from read {read.read_id}")
+    """
+
     for lead_i, lead in enumerate(all_leads):
         for svtype, svstart, arg in lead.svtypes_starts_lens:
             min_mapq=min(lead.mapq,all_leads[max(0,lead_i-1)].mapq)
@@ -517,7 +530,6 @@ class LeadProvider:
         for ld in self.iter_region(bam,contig,start,end):
             ld_contig,ld_ref_start=ld.contig,ld.ref_start
 
-            #TODO: Handle leads overlapping region ends (start/end)
             if contig==ld_contig and ld_ref_start >= start and ld_ref_start < end:
                 pos_leadtab=int(ld_ref_start/ld_binsize)*ld_binsize
                 self.record_lead(ld,pos_leadtab)
@@ -543,6 +555,7 @@ class LeadProvider:
         alen_min=self.config.min_alignment_length
         nm_sum=0
         nm_count=0
+        trace_read=self.config.dev_trace_read
 
         for read in bam.fetch(contig,start,end,until_eof=False):
             #if self.read_count % 1000000 == 0:
@@ -579,15 +592,24 @@ class LeadProvider:
 
             #Extract small indels
             for lead in read_iterindels(curr_read_id,read,contig,self.config,use_clips,read_nm=nm):
+                if trace_read!=False:
+                    if trace_read==read.query_name:
+                        print(f"[DEV_TRACE_READ] [1/4] [LeadProvider.read_iterindels] Identified lead: {lead}")
                 yield lead
 
             #Extract read splits
             if has_sa:
                 if read.is_supplementary:
                     for lead in read_itersplits_bnd(curr_read_id,read,contig,self.config,read_nm=nm):
+                        if trace_read!=False:
+                            if trace_read==read.query_name:
+                                print(f"[DEV_TRACE_READ] [1/4] [LeadProvider.read_itersplits_bnd] Identified lead: {lead}")
                         yield lead
                 else:
                     for lead in read_itersplits(curr_read_id,read,contig,self.config,read_nm=nm):
+                        if trace_read!=False:
+                            if trace_read==read.query_name:
+                                print(f"[DEV_TRACE_READ] [1/4] [LeadProvider.read_itersplits] Identified lead: {lead}")
                         yield lead
 
             #Record in coverage table

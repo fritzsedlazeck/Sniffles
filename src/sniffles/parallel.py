@@ -47,6 +47,16 @@ class Task:
         for svtype in sv.TYPES:
             for svcluster in cluster.resolve(svtype,self.lead_provider,config,self.tandem_repeats):
                 for svcall in sv.call_from(svcluster,config,keep_qc_fails,self):
+                    if config.dev_trace_read!=False:
+                        cluster_has_read=False
+                        for ld in svcluster.leads:
+                            if ld.read_qname==config.dev_trace_read:
+                                cluster_has_read=True
+                        if cluster_has_read:
+                            import copy
+                            svcall_copy=copy.deepcopy(svcall)
+                            svcall_copy.postprocess=None
+                            print(f"[DEV_TRACE_READ] [3/4] [Task.call_candidates] Read {config.dev_trace_read} -> Cluster {svcluster.id} -> preliminary SVCall {svcall_copy}")
                     candidates.append(svcall)
 
         self.coverage_average_fwd,self.coverage_average_rev=postprocessing.coverage(candidates,self.lead_provider,config)
@@ -66,6 +76,18 @@ class Task:
             postprocessing.annotate_sv(svcall,config)
 
             svcall.qc=svcall.qc and postprocessing.qc_sv_post_annotate(svcall,config)
+
+            if config.dev_trace_read!=False:
+                cluster_has_read=False
+                for ld in svcall.postprocess.cluster.leads:
+                    if ld.read_qname==config.dev_trace_read:
+                        cluster_has_read=True
+                if cluster_has_read:
+                    import copy
+                    svcall_copy=copy.deepcopy(svcall)
+                    svcall_copy.postprocess=None
+                    print(f"[DEV_TRACE_READ] [4/4] [Task.finalize_candidates] Read {config.dev_trace_read} -> Cluster {svcall.postprocess.cluster.id} -> finalized SVCall, QC={svcall_copy.qc}: {svcall_copy}")
+
             if not keep_qc_fails and not svcall.qc:
                 continue
 

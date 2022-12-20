@@ -247,6 +247,12 @@ def resolve(svtype,leadtab_provider,config,tr):
             i=max(0,i-2)
         i+=1
 
+    if config.dev_trace_read:
+        for c in clusters:
+            for ld in c.leads:
+                if ld.read_qname==config.dev_trace_read:
+                    print(f"[DEV_TRACE_READ [2/4] [cluster.resolve] Read lead {ld} is in cluster {c.id}, containing a total of {len(c.leads)} leads")
+
     if config.dev_dump_clusters:
         filename=f"{config.input}.clusters.{svtype}.{leadtab_provider.contig}.{leadtab_provider.start}.{leadtab_provider.end}.bed"
         print(f"Dumping clusters to {filename}")
