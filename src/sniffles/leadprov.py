@@ -336,9 +336,13 @@ def read_itersplits(read_id,read,contig,config,read_nm):
     #SA:refname,pos,strand,CIGAR,MAPQ,NM
     all_leads=[]
     supps=[part.split(",") for part in read.get_tag("SA").split(";") if len(part)>0]
+    trace_read=config.dev_trace_read!=False and config.dev_trace_read==read.query_name
 
     if len(supps) > config.max_splits_base + config.max_splits_kb*(read.query_length/1000.0):
         return
+
+    if trace_read:
+        print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] passed max_splits check")
 
     #QC on: 18Aug21, HG002.ont.chr22; O.K.
     #cigarl=CIGAR_tolist(read.cigarstring)
@@ -418,6 +422,10 @@ def read_itersplits(read_id,read,contig,config,read_nm):
         #End QC
 
     sv.classify_splits(read,all_leads,config,contig)
+
+    if trace_read:
+        print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] classify_splits result: {all_leads}")
+
 
     """
     if config.dev_trace_read != False:
