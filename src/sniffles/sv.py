@@ -362,7 +362,7 @@ def call_group(svgroup,config,task):
 
 def classify_splits(read,leads,config,main_contig):
     minsvlen_screen=config.minsvlen_screen
-    maxsvlen_other=minsvlen_screen*5
+    maxsvlen_other=minsvlen_screen*10
     min_split_len_bnd=config.bnd_min_split_length
 
     leads.sort(key=lambda ld: ld.qry_start)
