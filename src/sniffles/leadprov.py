@@ -421,10 +421,13 @@ def read_itersplits(read_id,read,contig,config,read_nm):
         #assert(CIGAR_listreadstart_rev(cigarl)==readstart_rev)
         #End QC
 
+    if trace_read:
+        print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] all_leads: {all_leads}")
+
     sv.classify_splits(read,all_leads,config,contig)
 
     if trace_read:
-        print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] classify_splits result: {all_leads}")
+        print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] classify_splits(all_leads): {all_leads}")
 
 
     """
