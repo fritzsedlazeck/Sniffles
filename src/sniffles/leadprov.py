@@ -558,6 +558,10 @@ class LeadProvider:
         trace_read=self.config.dev_trace_read
 
         for read in bam.fetch(contig,start,end,until_eof=False):
+            if trace_read!=False:
+                if trace_read==read.query_name:
+                    print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{read.query_name}] has been fetched and is entering pre-filtering")
+
             #if self.read_count % 1000000 == 0:
             #    gc.collect()
             if read.reference_start < start or read.reference_start >= end:
@@ -590,11 +594,15 @@ class LeadProvider:
                 if phase:
                     curr_read_id=(self.read_id,str(read.get_tag("HP")) if read.has_tag("HP") else "NULL",str(read.get_tag("PS")) if read.has_tag("PS") else "NULL")
 
+            if trace_read!=False:
+                if trace_read==read.query_name:
+                    print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{read.query_name}] passed pre-filtering (whole-read), begin to extract leads")
+
             #Extract small indels
             for lead in read_iterindels(curr_read_id,read,contig,self.config,use_clips,read_nm=nm):
                 if trace_read!=False:
                     if trace_read==read.query_name:
-                        print(f"[DEV_TRACE_READ] [1/4] [LeadProvider.read_iterindels] Identified lead: {lead}")
+                        print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_iterindels] [{read.query_name}] new lead: {lead}")
                 yield lead
 
             #Extract read splits
@@ -603,13 +611,13 @@ class LeadProvider:
                     for lead in read_itersplits_bnd(curr_read_id,read,contig,self.config,read_nm=nm):
                         if trace_read!=False:
                             if trace_read==read.query_name:
-                                print(f"[DEV_TRACE_READ] [1/4] [LeadProvider.read_itersplits_bnd] Identified lead: {lead}")
+                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits_bnd] [{read.query_name}] new lead: {lead}")
                         yield lead
                 else:
                     for lead in read_itersplits(curr_read_id,read,contig,self.config,read_nm=nm):
                         if trace_read!=False:
                             if trace_read==read.query_name:
-                                print(f"[DEV_TRACE_READ] [1/4] [LeadProvider.read_itersplits] Identified lead: {lead}")
+                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{read.query_name}] new lead: {lead}")
                         yield lead
 
             #Record in coverage table
