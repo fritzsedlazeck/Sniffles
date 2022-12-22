@@ -560,7 +560,7 @@ class LeadProvider:
         for read in bam.fetch(contig,start,end,until_eof=False):
             if trace_read!=False:
                 if trace_read==read.query_name:
-                    print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{read.query_name}] has been fetched and is entering pre-filtering")
+                    print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{contig}:{start}-{end}] [{read.query_name}] has been fetched and is entering pre-filtering")
 
             #if self.read_count % 1000000 == 0:
             #    gc.collect()
@@ -596,28 +596,34 @@ class LeadProvider:
 
             if trace_read!=False:
                 if trace_read==read.query_name:
-                    print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{read.query_name}] passed pre-filtering (whole-read), begin to extract leads")
+                    print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{contig}:{start}-{end}] [{read.query_name}] passed pre-filtering (whole-read), begin to extract leads")
 
             #Extract small indels
             for lead in read_iterindels(curr_read_id,read,contig,self.config,use_clips,read_nm=nm):
                 if trace_read!=False:
                     if trace_read==read.query_name:
-                        print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_iterindels] [{read.query_name}] new lead: {lead}")
+                        print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_iterindels] [{contig}:{start}-{end}] [{read.query_name}] new lead: {lead}")
                 yield lead
 
             #Extract read splits
             if has_sa:
                 if read.is_supplementary:
+                    if trace_read!=False:
+                        if trace_read==read.query_name:
+                            print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits_bnd] [{contig}:{start}-{end}] [{read.query_name}] is entering read_itersplits_bnd")
                     for lead in read_itersplits_bnd(curr_read_id,read,contig,self.config,read_nm=nm):
                         if trace_read!=False:
                             if trace_read==read.query_name:
-                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits_bnd] [{read.query_name}] new lead: {lead}")
+                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits_bnd] [{contig}:{start}-{end}] [{read.query_name}] new lead: {lead}")
                         yield lead
                 else:
+                    if trace_read!=False:
+                        if trace_read==read.query_name:
+                            print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{contig}:{start}-{end}] [{read.query_name}] is entering read_itersplits")
                     for lead in read_itersplits(curr_read_id,read,contig,self.config,read_nm=nm):
                         if trace_read!=False:
                             if trace_read==read.query_name:
-                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{read.query_name}] new lead: {lead}")
+                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{contig}:{start}-{end}] [{read.query_name}] new lead: {lead}")
                         yield lead
 
             #Record in coverage table
