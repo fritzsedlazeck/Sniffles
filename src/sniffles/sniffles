@@ -82,7 +82,7 @@ def Sniffles2_Main(config,processes):
         util.fatal_error_main(f"Failed to determine run mode from input. Please specify either: A single .bam file - OR - one or more .snf files - OR - a single .tsv file containing a list of .snf files and optional sample ids as input. (supplied were: {list(set(input_ext))})")
 
     if config.mode != "call_sample" and config.snf != None:
-        util.fatal_error_main(f"--snf cannot be used with run mode {mode}")
+        util.fatal_error_main(f"--snf cannot be used with run mode {config.mode}")
 
     if config.vcf == None and config.snf == None:
         util.fatal_error_main("Please specify at least one of: --vcf or --snf for output (both may be used at the same time)")
