@@ -306,6 +306,7 @@ class VCF:
 
     def rewrite_header_genotype(self,orig_header):
         header_lines=orig_header.split("\n")
+        header_lines[-2] = '\t'.join(header_lines[-2].split()[:9]+[self.config.sample_id])
         header_lines.insert(1,'##genotypeFileDate="'+self.config.start_date+'"')
         header_lines.insert(1,'##genotypeCommand="'+self.config.command+'"')
         header_lines.insert(1,f"##genotypeSource={self.config.version}_{self.config.build}")
