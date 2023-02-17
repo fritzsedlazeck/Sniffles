@@ -87,7 +87,7 @@ def Sniffles2_Main(config,processes):
     if config.vcf == None and config.snf == None:
         util.fatal_error_main("Please specify at least one of: --vcf or --snf for output (both may be used at the same time)")
 
-    if config.mode=="call_sample":
+    if config.mode=="call_sample" or config.mode=="genotype-vcf":
         if config.sample_id==None:
             #config.sample_id,_=os.path.splitext(os.path.basename(config.input))
             config.sample_ids_vcf=[(0,"SAMPLE")]
