@@ -16,7 +16,7 @@ import argparse
 from sniffles import util
 
 VERSION="Sniffles2"
-BUILD="2.2.0-b5t-s3"
+BUILD="2.2.0-b5t-s4"
 SNF_VERSION="S2_rc4"
 
 class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -269,6 +269,9 @@ def from_cmdline():
     config.workdir=os.getcwd()
 
     #Mosaic
+    if config.mosaic_include_germline:
+        config.mosaic=True
+
     config.qc_nm_measure=config.qc_nm
     if config.mosaic:
         #config.qc_coverage_max_change_frac=config.mosaic_qc_coverage_max_change_frac
