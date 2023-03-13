@@ -25,9 +25,9 @@ class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescripti
 def tobool(v):
     if v==True or v==False:
         return v
-    elif v.lower()=="true" or v=="1":
+    elif v.strip().lower()=="true" or v.strip()=="1":
         return True
-    elif v.lower()=="false" or v=="0":
+    elif v.strip().lower()=="false" or v.strip()=="0":
         return False
     else:
         raise argparse.ArgumentTypeError("Boolean value (True | False) required for argument")
@@ -277,6 +277,6 @@ def from_cmdline():
         #config.qc_coverage_max_change_frac=config.mosaic_qc_coverage_max_change_frac
         config.qc_nm_measure=config.qc_nm_measure or config.mosaic_qc_nm
         #config.qc_nm_mult=config.mosaic_qc_nm_mult
-        config.qc_strand=config.mosaic_qc_strand
+        #config.qc_strand=config.mosaic_qc_strand
 
     return config

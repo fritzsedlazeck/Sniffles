@@ -193,8 +193,13 @@ def qc_sv(svcall,config):
         svcall.filter="SVLEN_MIN"
         return False
 
-    if svcall.svtype=="BND" and config.qc_bnd_filter_strand:
-        if len(set(l.strand for l in svcall.postprocess.cluster.leads))<2:
+    if svcall.svtype=="BND":
+        if config.qc_bnd_filter_strand and len(set(l.strand for l in svcall.postprocess.cluster.leads))<2:
+            svcall.filter="STRAND"
+            return False
+    elif ((config.mosaic and sv_is_mosaic) and config.mosaic_qc_strand) or (not (config.mosaic and sv_is_mosaic) and config.qc_strand):
+        is_long_ins=(svcall.svtype=="INS" and svcall.svlen >= config.long_ins_length)
+        if not is_long_ins and len(set(l.strand for l in svcall.postprocess.cluster.leads))<2:
             svcall.filter="STRAND"
             return False
 
@@ -382,7 +387,7 @@ def genotype_sv(svcall,config,phase):
     genotype_z_score = min(60,int((-10) * likelihood_ratio(qz,q1)))
     genotype_quality = min(60,int((-10) * likelihood_ratio(q2,q1)))
 
-    is_long_ins=(svcall.svtype=="INS" and svcall.svlen >= config.long_ins_length)
+    is_long_ins=(svcall.svtype=="INS" and svcall.svlen >= config.long_ins_length and config.detect_large_ins)
     if genotype_z_score < config.genotype_min_z_score and not config.mosaic and not is_long_ins:
         if svcall.filter=="PASS":
             svcall.filter="GT"

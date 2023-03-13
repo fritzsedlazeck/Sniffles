@@ -126,9 +126,6 @@ def call_from(cluster,config,keep_qc_fails,task):
     support_rev=len(leads) - support_fwd
 
     filter="PASS"
-    if config.qc_strand and (support_fwd==0 or support_rev==0):
-        filter="STRAND"
-        qc=False
 
     if config.qc_nm_measure:
         nm_mean=util.mean(v.nm for v in leads)
