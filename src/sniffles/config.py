@@ -16,7 +16,7 @@ import argparse
 from sniffles import util
 
 VERSION="Sniffles2"
-BUILD="2.2.0-b5t-s5"
+BUILD="2.2.0-b5t-s6"
 SNF_VERSION="S2_rc4"
 
 class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -123,6 +123,7 @@ def from_cmdline():
     multi_args.add_argument("--combine-output-filtered", help="Include low-confidence / mosaic SVs in multi-calling", default=False, action="store_true")
     multi_args.add_argument("--combine-pair-relabel", help="Override low-quality genotypes when combining 2 samples (may be used for e.g. tumor-normal comparisons)", default=False, action="store_true")
     multi_args.add_argument("--combine-pair-relabel-threshold", help="Genotype quality below which a genotype call will be relabeled", default=20, type=int)
+    multi_args.add_argument("--combine-close-handles", help="Close .SNF file handles after each use. May lower performance, but may be required when maximum number of file handles supported by OS is reached when merging many samples.", default=False, action="store_true")
     #multi_args.add_argument("--combine-exhaustive", help="(DEV) Disable performance optimization in multi-calling", default=False, action="store_true")
     #multi_args.add_argument("--combine-relabel-rare", help="(DEV)", default=False, action="store_true")
     #multi_args.add_argument("--combine-with-missing", help="(DEV)", default=False, action="store_true")
@@ -250,7 +251,6 @@ def from_cmdline():
 
     #SNF
     config.snf_block_size=10**5
-    config.snf_combine_keep_open=True #Keep file handles open during .snf combining (might be an issue if the number of .snf files to merge is very large)
 
     #Combine
     config.combine_exhaustive=False

@@ -330,7 +330,7 @@ def Sniffles2_Main(config,processes):
                     sample_id,_=os.path.splitext(os.path.basename(input_filename))
             config.snf_input_info.append({"internal_id":snf_internal_id, "sample_id": sample_id, "filename": input_filename})
             snf_internal_id+=1
-            snf_in.handle.close()
+            snf_in.close()
 
         if not config.combine_consensus:
             for info in config.snf_input_info:

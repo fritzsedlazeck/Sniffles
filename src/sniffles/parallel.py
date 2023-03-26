@@ -102,7 +102,7 @@ class Task:
             snf_in.read_header()
             samples_headers_snf[snf_info["internal_id"]]=(snf_info["filename"],snf_in.header,snf_in)
 
-            if not config.snf_combine_keep_open:
+            if config.combine_close_handles:
                 snf_in.close()
 
         svcalls=[]
