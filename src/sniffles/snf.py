@@ -38,7 +38,7 @@ class SNFile:
 
     def store(self, svcand):
         block_index = int(svcand.pos / self.config.snf_block_size) * self.config.snf_block_size
-        if not block_index in self.blocks:
+        if block_index not in self.blocks:
             self.blocks[block_index] = {svtype: [] for svtype in sv.TYPES}
             self.blocks[block_index]["_COVERAGE"] = {}
         if not self.config.output_rnames:

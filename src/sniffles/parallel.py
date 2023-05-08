@@ -115,31 +115,33 @@ class Task:
         bin_max_candidates = max(25, int(len(config.snf_input_info) * 0.5))
         overlap_abs = config.combine_overlap_abs
 
-        sample_internal_ids = set()
-        for sample_internal_id, (sample_filename, sample_header, sample_snf) in samples_headers_snf.items():
-            sample_internal_ids.add(sample_internal_id)
+        sample_internal_ids = set(samples_headers_snf.keys())
+        # for sample_internal_id, (sample_filename, sample_header, sample_snf) in samples_headers_snf.items():
+        #     sample_internal_ids.add(sample_internal_id)
 
         #
         # Load candidate SVs from all samples for each block separately and cluster them based on start position
         #
-        had=False
-        candidates_processed=0
-        svtypes_candidates_bins={svtype: {} for svtype in sv.TYPES}
-        groups_keep={svtype:list() for svtype in sv.TYPES}
-        for block_index in range(self.start,self.end+config.snf_block_size,config.snf_block_size):
-            samples_blocks={}
-            for sample_internal_id,(sample_filename,sample_header,sample_snf) in samples_headers_snf.items():
-                blocks=sample_snf.read_blocks(self.contig,block_index)
-                samples_blocks[sample_internal_id]=blocks
+        had = False
+        candidates_processed = 0
+        svtypes_candidates_bins = {svtype: {} for svtype in sv.TYPES}
+        groups_keep = {svtype: list() for svtype in sv.TYPES}
+        for block_index in range(self.start, self.end + config.snf_block_size, config.snf_block_size):  # iterate over all blocks
+            samples_blocks = {}
+            for sample_internal_id, (sample_filename, sample_header, sample_snf) in samples_headers_snf.items():
+                blocks = sample_snf.read_blocks(self.contig, block_index)
+                samples_blocks[sample_internal_id] = blocks
+                # sample_internal_id is the number of the processed file
+                # blocks is a list[dict[str, list[SVCall]]] {'INS': [...], 'DEL': [...], ...}
 
             for svtype in sv.TYPES:
                 bins = {}
                 # svcandidates=[]
-                for sample_internal_id, (sample_filename, sample_header, sample_snf) in samples_headers_snf.items():
+                for sample_internal_id, (sample_filename, sample_header, sample_snf) in samples_headers_snf.items():  # fetch current block for each file
                     blocks = samples_blocks[sample_internal_id]
-                    if blocks == None:
+                    if blocks is None:
                         continue
-                    for block in blocks:
+                    for block in blocks:  # usually only 1 block
                         for cand in block[svtype]:
                             # if config.combine_pass_only and (cand.qc==False or cand.filter!="PASS"):
                             #    continue
@@ -147,7 +149,7 @@ class Task:
                             cand.sample_internal_id = sample_internal_id
 
                             bin = int(cand.pos / bin_min_size) * bin_min_size
-                            if not bin in bins:
+                            if bin not in bins:
                                 bins[bin] = [cand]
                             else:
                                 bins[bin].append(cand)
