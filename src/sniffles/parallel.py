@@ -165,7 +165,7 @@ class Task:
                 sorted_bins = sorted(bins)
                 last_bin = sorted_bins[-1]
                 for curr_bin in sorted_bins:
-                    svcands.extend(bins[curr_bin])
+                    svcands.extend(bins[curr_bin])  # here SVCalls from bins are collected...
                     size += bin_min_size
 
                     if (not config.combine_exhaustive and len(svcands) >= bin_max_candidates) or curr_bin == last_bin:

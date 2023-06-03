@@ -77,7 +77,7 @@ class SVCall:
 
 @dataclass
 class SVGroup:
-    candidates: list
+    candidates: list[SVCall]
     pos_mean: float
     len_mean: float
     included_samples: set

@@ -15,26 +15,29 @@ import argparse
 
 from sniffles import util
 
-VERSION="Sniffles2"
-BUILD="2.2.0-b5t-s6"
-SNF_VERSION="S2_rc4"
+VERSION = "Sniffles2"
+BUILD = "2.2.0-b5t-s6"
+SNF_VERSION = "S2_rc4"
+
 
 class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
     pass
 
+
 def tobool(v):
-    if v==True or v==False:
+    if v is True or v is False:
         return v
-    elif v.strip().lower()=="true" or v.strip()=="1":
+    elif v.strip().lower() == "true" or v.strip() == "1":
         return True
-    elif v.strip().lower()=="false" or v.strip()=="0":
+    elif v.strip().lower() == "false" or v.strip() == "0":
         return False
     else:
         raise argparse.ArgumentTypeError("Boolean value (True | False) required for argument")
 
+
 def from_cmdline():
-    header=f"Sniffles2: A fast structural variant (SV) caller for long-read sequencing data\n Version {BUILD}\n Contact: moritz.g.smolka@gmail.com"
-    example=""" Usage example A - Call SVs for a single sample:
+    header = f"Sniffles2: A fast structural variant (SV) caller for long-read sequencing data\n Version {BUILD}\n Contact: moritz.g.smolka@gmail.com"
+    example = """ Usage example A - Call SVs for a single sample:
     sniffles --input sorted_indexed_alignments.bam --vcf output.vcf
 
     ... OR, with CRAM input and bgzipped+tabix indexed VCF output:
@@ -59,18 +62,18 @@ def from_cmdline():
  Usage example C - Determine genotypes for a set of known SVs (force calling):
     sniffles --input sample.bam --genotype-vcf input_known_svs.vcf --vcf output_genotypes.vcf
     """
-    usage="sniffles --input SORTED_INPUT.bam [--vcf OUTPUT.vcf] [--snf MERGEABLE_OUTPUT.snf] [--threads 4] [--mosaic]\n\n" + header + "\n\n" + example + "\n\n Use --help for full parameter/usage information\n \n"
-    parser = argparse.ArgumentParser(description="", epilog=example, formatter_class=lambda prog: ArgFormatter(prog,max_help_position=100,width=150), usage=usage)
+    usage = "sniffles --input SORTED_INPUT.bam [--vcf OUTPUT.vcf] [--snf MERGEABLE_OUTPUT.snf] [--threads 4] [--mosaic]\n\n" + header + "\n\n" + example + "\n\n Use --help for full parameter/usage information\n \n"
+    parser = argparse.ArgumentParser(description="", epilog=example, formatter_class=lambda prog: ArgFormatter(prog, max_help_position=100, width=150), usage=usage)
     parser.add_argument("--version", action="version", version=f"Sniffles2, Version {BUILD}")
 
     main_args = parser.add_argument_group("Common parameters")
-    main_args.add_argument("-i","--input", metavar="IN", type=str, help="For single-sample calling: A coordinate-sorted and indexed .bam/.cram (BAM/CRAM format) file containing aligned reads. - OR - For multi-sample calling: Multiple .snf files (generated before by running Sniffles2 for individual samples with --snf)", required=True, nargs="+")
-    main_args.add_argument("-v","--vcf", metavar="OUT.vcf", type=str, help="VCF output filename to write the called and refined SVs to. If the given filename ends with .gz, the VCF file will be automatically bgzipped and a .tbi index built for it.", required=False)
+    main_args.add_argument("-i", "--input", metavar="IN", type=str, help="For single-sample calling: A coordinate-sorted and indexed .bam/.cram (BAM/CRAM format) file containing aligned reads. - OR - For multi-sample calling: Multiple .snf files (generated before by running Sniffles2 for individual samples with --snf)", required=True, nargs="+")
+    main_args.add_argument("-v", "--vcf", metavar="OUT.vcf", type=str, help="VCF output filename to write the called and refined SVs to. If the given filename ends with .gz, the VCF file will be automatically bgzipped and a .tbi index built for it.", required=False)
     main_args.add_argument("--snf", metavar="OUT.snf", type=str, help="Sniffles2 file (.snf) output filename to store candidates for later multi-sample calling", required=False)
     main_args.add_argument("--reference", metavar="reference.fasta", type=str, help="(Optional) Reference sequence the reads were aligned against. To enable output of deletion SV sequences, this parameter must be set.", default=None)
     main_args.add_argument("--tandem-repeats", metavar="IN.bed", type=str, help="(Optional) Input .bed file containing tandem repeat annotations for the reference genome.", default=None)
     main_args.add_argument("--phase", help="Determine phase for SV calls (requires the input alignments to be phased)", default=False, action="store_true")
-    main_args.add_argument("-t","--threads", metavar="N", type=int, help="Number of parallel threads to use (speed-up for multi-core CPUs)", default=4)
+    main_args.add_argument("-t", "--threads", metavar="N", type=int, help="Number of parallel threads to use (speed-up for multi-core CPUs)", default=4)
 
     filter_args = parser.add_argument_group("SV Filtering parameters")
     filter_args.add_argument("--minsupport", metavar="auto", type=str, help="Minimum number of supporting reads for a SV to be reported (default: automatically choose based on coverage)", default="auto")
@@ -95,7 +98,7 @@ def from_cmdline():
     filter_args.add_argument("--min-alignment-length", metavar="N", type=int, help="Reads with alignments shorter than this length (in bp) will be ignored", default=1000)
     filter_args.add_argument("--phase-conflict-threshold", metavar="F", type=float, help="Maximum fraction of conflicting reads permitted for SV phase information to be labelled as PASS (only for --phase)", default=0.1)
     filter_args.add_argument("--detect-large-ins", help="Infer insertions that are longer than most reads and therefore are spanned by few alignments only.", metavar="True", type=tobool, default=True)
-    #filter_args.add_argument("--large-ins-threshold", metavar="N", type=int, help="Minimum clipping at read ends to be considered a potential large insertion (only with --detect-large-ins)", default=5000)
+    # filter_args.add_argument("--large-ins-threshold", metavar="N", type=int, help="Minimum clipping at read ends to be considered a potential large insertion (only with --detect-large-ins)", default=5000)
 
     cluster_args = parser.add_argument_group("SV Clustering parameters")
     cluster_args.add_argument("--cluster-binsize", metavar="N", type=int, help="Initial screening bin size in bp", default=100)
@@ -124,9 +127,9 @@ def from_cmdline():
     multi_args.add_argument("--combine-pair-relabel", help="Override low-quality genotypes when combining 2 samples (may be used for e.g. tumor-normal comparisons)", default=False, action="store_true")
     multi_args.add_argument("--combine-pair-relabel-threshold", help="Genotype quality below which a genotype call will be relabeled", default=20, type=int)
     multi_args.add_argument("--combine-close-handles", help="Close .SNF file handles after each use. May lower performance, but may be required when maximum number of file handles supported by OS is reached when merging many samples.", default=False, action="store_true")
-    #multi_args.add_argument("--combine-exhaustive", help="(DEV) Disable performance optimization in multi-calling", default=False, action="store_true")
-    #multi_args.add_argument("--combine-relabel-rare", help="(DEV)", default=False, action="store_true")
-    #multi_args.add_argument("--combine-with-missing", help="(DEV)", default=False, action="store_true")
+    # multi_args.add_argument("--combine-exhaustive", help="(DEV) Disable performance optimization in multi-calling", default=False, action="store_true")
+    # multi_args.add_argument("--combine-relabel-rare", help="(DEV)", default=False, action="store_true")
+    # multi_args.add_argument("--combine-with-missing", help="(DEV)", default=False, action="store_true")
 
     postprocess_args = parser.add_argument_group("SV Postprocessing, QC and output parameters")
     postprocess_args.add_argument("--output-rnames", help="Output names of all supporting reads for each SV in the RNAMEs info field", default=False, action="store_true")
@@ -148,7 +151,6 @@ def from_cmdline():
     mosaic_args.add_argument("--mosaic-qc-coverage-max-change-frac", help="Maximum relative coverage change across SV breakpoints", metavar="F", type=float, default=0.1)
     mosaic_args.add_argument("--mosaic-qc-strand", help="Apply filtering based on strand support of SV calls", metavar="True", type=tobool, default=True)
     mosaic_args.add_argument("--mosaic-include-germline", help="Report germline SVs as well in mosaic mode", default=False, action="store_true")
-
 
     developer_args = parser.add_argument_group("Developer parameters")
     developer_args.add_argument("--dev-cache", default=False, action="store_true", help=argparse.SUPPRESS)
@@ -179,104 +181,102 @@ def from_cmdline():
     developer_args.add_argument("--dev-trace-read", default=False, metavar="read_id", type=str, help=argparse.SUPPRESS)
     developer_args.add_argument("--dev-split-max-query-distance-mult", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
 
+    # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 
-    #developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
-
-    config=parser.parse_args()
+    config = parser.parse_args()
 
     if config.quiet:
-        sys.stdout=open(os.devnull,"w")
+        sys.stdout = open(os.devnull, "w")
 
-    config.start_date=datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    config.start_date = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
 
-    config.sort=not config.no_sort
-    #if config.low_memory:
+    config.sort = not config.no_sort
+    # if config.low_memory:
     #    config.task_count_multiplier=64
-    #else:
+    # else:
     #    config.task_count_multiplier=1
-    config.task_count_multiplier=0
+    config.task_count_multiplier = 0
 
-    config.version=VERSION
-    config.build=BUILD
-    config.snf_format_version=SNF_VERSION
-    config.command=" ".join(sys.argv)
+    config.version = VERSION
+    config.build = BUILD
+    config.snf_format_version = SNF_VERSION
+    config.command = " ".join(sys.argv)
 
-    if config.dev_call_region != None:
-        region_contig,region_startend=config.dev_call_region.replace(",","").split(":")
-        start,end=region_startend.split("-")
-        config.dev_call_region=dict(contig=region_contig,start=int(start),end=int(end))
+    if config.dev_call_region is not None:
+        region_contig, region_startend = config.dev_call_region.replace(",", "").split(":")
+        start, end = region_startend.split("-")
+        config.dev_call_region = dict(contig=region_contig, start=int(start), end=int(end))
 
-    #"--minsvlen" parameter is for final output filtering
-    #for intermediate steps, a lower threshold is used to account for sequencing, mapping imprecision
-    config.minsvlen_screen=int(config.minsvlen_screen_ratio*config.minsvlen)
-    #config.minsupport_screen=max(1,int(0.333*config.minsupport*(config.cluster_binsize/100.0)))
+    # "--minsvlen" parameter is for final output filtering
+    # for intermediate steps, a lower threshold is used to account for sequencing, mapping imprecision
+    config.minsvlen_screen = int(config.minsvlen_screen_ratio * config.minsvlen)
+    # config.minsupport_screen=max(1,int(0.333*config.minsupport*(config.cluster_binsize/100.0)))
 
-    if config.minsupport!="auto":
-        config.minsupport=int(config.minsupport)
+    if config.minsupport != "auto":
+        config.minsupport = int(config.minsupport)
 
-    #--minsupport auto defaults
-    config.minsupport_auto_base=1.5
-    config.minsupport_auto_regional_coverage_weight=0.75
+    # --minsupport auto defaults
+    config.minsupport_auto_base = 1.5
+    config.minsupport_auto_regional_coverage_weight = 0.75
 
-    if config.minsupport_auto_mult==None:
-        config.minsupport_auto_mult=0.1
+    if config.minsupport_auto_mult is None:
+        config.minsupport_auto_mult = 0.1
 
-    config.coverage_binsize=config.cluster_binsize
-    config.coverage_binsize_combine=config.cluster_binsize*config.cluster_binsize_combine_mult
+    config.coverage_binsize = config.cluster_binsize
+    config.coverage_binsize_combine = config.cluster_binsize * config.cluster_binsize_combine_mult
 
+    # INS Consensus parameters
+    # config.consensus_max_reads=20
+    # config.consensus_max_reads_bin=10
+    config.consensus_min_reads = 4
+    config.consensus_kmer_len = 6
+    config.consensus_kmer_skip_base = 3
+    config.consensus_kmer_skip_seqlen_mult = 1.0 / 500.0
+    config.consensus_low_threshold = 0.0  # 0.15
 
-    #INS Consensus parameters
-    #config.consensus_max_reads=20
-    #config.consensus_max_reads_bin=10
-    config.consensus_min_reads=4
-    config.consensus_kmer_len=6
-    config.consensus_kmer_skip_base=3
-    config.consensus_kmer_skip_seqlen_mult=1.0/500.0
-    config.consensus_low_threshold=0.0 #0.15
+    # Large INS
+    config.long_ins_rescale_base = 1.66
+    config.long_ins_rescale_mult = 0.33
 
-    #Large INS
-    config.long_ins_rescale_base=1.66
-    config.long_ins_rescale_mult=0.33
+    # BND
+    config.bnd_cluster_length = 1000
 
-    #BND
-    config.bnd_cluster_length=1000
-
-    #Genotyping
-    config.genotype_format="GT:GQ:DR:DV"
-    config.genotype_none=(".",".",0,0,0,None)
-    config.genotype_null=(0,0,0,0,0,None)
-    config.genotype_min_z_score=5
-    if config.genotype_ploidy!=2:
+    # Genotyping
+    config.genotype_format = "GT:GQ:DR:DV"
+    config.genotype_none = (".", ".", 0, 0, 0, None)
+    config.genotype_null = (0, 0, 0, 0, 0, None)
+    config.genotype_min_z_score = 5
+    if config.genotype_ploidy != 2:
         util.fatal_error("Currently only --genotype-ploidy 2 is supported")
 
-    #SNF
-    config.snf_block_size=10**5
+    # SNF
+    config.snf_block_size = 10 ** 5
 
-    #Combine
-    config.combine_exhaustive=False
-    config.combine_relabel_rare=False
-    config.combine_overlap_abs=2500
-    config.combine_min_size=100
+    # Combine
+    config.combine_exhaustive = False
+    config.combine_relabel_rare = False
+    config.combine_overlap_abs = 2500
+    config.combine_min_size = 100
 
-    #Misc
-    config.precise=25 #Max. sum of pos and length stdev for SVs to be labelled PRECISE
-    config.tandem_repeat_region_pad=500
-    config.id_prefix="Sniffles2."
-    config.phase_identifiers=["1","2"]
+    # Misc
+    config.precise = 25  # Max. sum of pos and length stdev for SVs to be labelled PRECISE
+    config.tandem_repeat_region_pad = 500
+    config.id_prefix = "Sniffles2."
+    config.phase_identifiers = ["1", "2"]
 
-    config.dev_profile=False
+    config.dev_profile = False
 
-    config.workdir=os.getcwd()
+    config.workdir = os.getcwd()
 
-    #Mosaic
+    # Mosaic
     if config.mosaic_include_germline:
-        config.mosaic=True
+        config.mosaic = True
 
-    config.qc_nm_measure=config.qc_nm
+    config.qc_nm_measure = config.qc_nm
     if config.mosaic:
-        #config.qc_coverage_max_change_frac=config.mosaic_qc_coverage_max_change_frac
-        config.qc_nm_measure=config.qc_nm_measure or config.mosaic_qc_nm
-        #config.qc_nm_mult=config.mosaic_qc_nm_mult
-        #config.qc_strand=config.mosaic_qc_strand
+        # config.qc_coverage_max_change_frac=config.mosaic_qc_coverage_max_change_frac
+        config.qc_nm_measure = config.qc_nm_measure or config.mosaic_qc_nm
+        # config.qc_nm_mult=config.mosaic_qc_nm_mult
+        # config.qc_strand=config.mosaic_qc_strand
 
     return config

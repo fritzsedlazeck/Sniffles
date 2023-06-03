@@ -11,6 +11,7 @@
 from dataclasses import dataclass
 import statistics
 import math
+from typing import Optional
 
 from sniffles import sv
 from sniffles import leadprov
@@ -26,7 +27,7 @@ class Cluster:
     seed: int
     leads: list
     repeat: bool
-    leads_long: list
+    leads_long: Optional[list]
 
     def compute_metrics(self, max_n=100):
         self.span = self.end - self.start
@@ -49,7 +50,7 @@ class Cluster:
 def merge_inner(cluster, threshold):
     read_seq = {}
     for ld in cluster.leads:
-        if not ld.read_qname in read_seq:
+        if ld.read_qname not in read_seq:
             read_seq[ld.read_qname] = []
         read_seq[ld.read_qname].append(ld)
 
@@ -70,7 +71,7 @@ def merge_inner(cluster, threshold):
                         abs(to_merge.qry_start - last_qry_end) < threshold or abs(to_merge.qry_start - last_qry_start) < threshold))
             if merge:
                 curr_lead.svlen += to_merge.svlen
-                if to_merge.seq == None or curr_lead.seq == None:
+                if to_merge.seq is None or curr_lead.seq is None:
                     curr_lead.seq = None
                 else:
                     curr_lead.seq += to_merge.seq
@@ -197,7 +198,7 @@ def resolve(svtype, leadtab_provider, config, tr):
             while tr_end < seed and tr_index + 1 < len(tr):
                 tr_index += 1
                 tr_start, tr_end = tr[tr_index]
-            if seed > tr_start and seed < tr_end:
+            if tr_start < seed < tr_end:
                 within_tr = True
 
         if svtype == "INS":
@@ -320,7 +321,7 @@ def resolve_block_groups(svtype, svcands, groups_initial, config):
         else:
             for group in groups:
                 # TODO: Favor bigger groups in placement
-                dist = abs(group.pos_mean - svcand.pos) + abs(abs(group.len_mean) - abs(svcand.svlen))
+                dist = abs(group.pos_mean - svcand.pos) + abs(abs(group.len_mean) - abs(svcand.svlen))  # check if group.pos_mean is updated or stays the same for the first SV starting the group
                 minlen = float(min(abs(group.len_mean), abs(svcand.svlen)))
                 if minlen > 0 and dist < best_dist and dist <= config.combine_match * math.sqrt(minlen) and dist <= config.combine_match_max:
                     if not config.combine_separate_intra or not svcand.sample_internal_id in group.included_samples:
