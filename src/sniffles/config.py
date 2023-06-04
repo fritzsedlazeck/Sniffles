@@ -7,6 +7,7 @@
 # Author:  Moritz Smolka
 # Contact: moritz.g.smolka@gmail.com
 #
+print(f"HRO DEV sniffles @ {__file__}")
 
 import os
 import sys
@@ -16,7 +17,7 @@ import argparse
 from sniffles import util
 
 VERSION = "Sniffles2"
-BUILD = "2.2.0-b5t-s6"
+BUILD = "2.3.0-hro-dev1"
 SNF_VERSION = "S2_rc4"
 
 
@@ -180,6 +181,7 @@ def from_cmdline():
     developer_args.add_argument("--cluster-resplit-binsize", metavar="N", type=int, default=20, help=argparse.SUPPRESS)
     developer_args.add_argument("--dev-trace-read", default=False, metavar="read_id", type=str, help=argparse.SUPPRESS)
     developer_args.add_argument("--dev-split-max-query-distance-mult", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
+    developer_args.add_argument("--dev-contig", default=None, type=str, help="Only process this contig.")
 
     # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 

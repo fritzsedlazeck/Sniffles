@@ -7,6 +7,7 @@
 # Author:  Moritz Smolka
 # Contact: moritz.g.smolka@gmail.com
 #
+print(f"HRO DEV sniffles @ {__file__}")
 
 DEV_MONITOR_MEM = False
 
@@ -34,21 +35,24 @@ from sniffles import parallel
 from sniffles import util
 
 # TODO: Dev/Debugging only - Remove for prod
-DEV_MONITOR_MEM = True
+DEV_MONITOR_MEM = False
 
 if DEV_MONITOR_MEM:
-    import psutil
-
-
-    def dbg_get_total_memory_usage_MB():
-        total = 0
-        n = 0
-        proc = psutil.Process(os.getpid())
-        for child in proc.children(recursive=True):
-            total += child.memory_info().rss
-            n += 1
-        total += proc.memory_info().rss
-        return total / (1000.0 * 1000.0)
+    try:
+        import psutil
+    except ImportError:
+        def dbg_get_total_memory_usage_MB():
+            pass
+    else:
+        def dbg_get_total_memory_usage_MB():
+            total = 0
+            n = 0
+            proc = psutil.Process(os.getpid())
+            for child in proc.children(recursive=True):
+                total += child.memory_info().rss
+                n += 1
+            total += proc.memory_info().rss
+            return total / (1000.0 * 1000.0)
 
 
 # """
@@ -343,16 +347,18 @@ def Sniffles2_Main(config, processes):
                 config.sample_ids_vcf.append((info["internal_id"], info["sample_id"]))
 
         # TODO: Assure header consistency across multiple .snfs
+        if config.dev_contig:
+            contig_lengths = [(name, length) for name, length in contig_lengths if name == config.dev_contig]
 
         for contig_str, contig_length in contig_lengths:
-            task=parallel.Task(id=task_id,contig=contig_str,start=0,end=contig_length-1,assigned_process_id=None,sv_id=0)
+            task = parallel.Task(id=task_id, contig=contig_str, start=0, end=contig_length-1, assigned_process_id=None, sv_id=0)
             tasks_list.append(task)
-            if not contig_str in contig_tasks_intervals:
+            if contig_str not in contig_tasks_intervals:
                 contig_tasks_intervals[contig_str] = []
             contig_tasks_intervals[contig_str].append((task.start, task.end, task))
             task_id += 1
 
-        print(f"Verified headers for {len(config.input)} .snf files.")
+        print(f"Verified headers for {len(input_snfs_sample_ids)} .snf files.")
         print("The following samples will be processed in multi-calling:")
         for info in config.snf_input_info:
             print(f"    {info['filename']} (sample ID in output VCF='{info['sample_id']}')")
@@ -386,7 +392,7 @@ def Sniffles2_Main(config, processes):
         else:
             print(f"Analyzing {total_mapped} alignments total...")
     elif config.mode == "combine":
-        print(f"Calling SVs across {len(config.input)} samples ({total_mapped} candidates total)...")
+        print(f"Calling SVs across {len(config.snf_input_info)} samples ({total_mapped} candidates total)...")
     print("")
 
     #
@@ -451,7 +457,7 @@ def Sniffles2_Main(config, processes):
 
         if len(processes_busy) > 0:
             for proc in processes_busy:
-                if proc.pipe_main.poll(0.01) == True:
+                if proc.pipe_main.poll(0.01):
                     # Process has finished building leadtab, receive and distribute leads that need to be synced
                     command, result = proc.pipe_main.recv()
                     if command == "worker_exception":
@@ -467,12 +473,12 @@ def Sniffles2_Main(config, processes):
                     assert (task.id == task_id)
 
                     if config.mode == "call_sample" or config.mode == "combine":
-                        if config.vcf != None:
+                        if config.vcf is not None:
                             svcalls = result["svcalls"]
                             sv_count += len(svcalls)
 
                             if config.sort:
-                                if not task_id in task_id_calls:
+                                if task_id not in task_id_calls:
                                     task_id_calls[task_id] = []
                                 task_id_calls[task_id].extend(svcalls)
                             else:
@@ -481,7 +487,7 @@ def Sniffles2_Main(config, processes):
 
                     elif config.mode == "genotype_vcf":
                         for svcall in result["svcalls"]:
-                            assert (not (svcall.raw_vcf_line_index in genotype_lineindex_svcalls_returned))
+                            assert (svcall.raw_vcf_line_index not in genotype_lineindex_svcalls_returned)
                             genotype_lineindex_svcalls_returned[svcall.raw_vcf_line_index] = svcall
 
                     if config.mode == "call_sample":
