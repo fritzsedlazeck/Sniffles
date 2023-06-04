@@ -12,27 +12,38 @@ import pickle
 import json
 import gzip
 import math
+from collections import OrderedDict
+from typing import Optional
 
 from sniffles import sv
 
 
 class SNFile:
     header_length: int
-    header: dict
+    _header: Optional[dict]
 
     def __init__(self, config, handle, filename=None):
         self.config = config
         self.handle = handle
         self.filename = filename
         self.blocks = {}
-        self.index = {}
+        self._header = None
+        self._index = {}
         self.total_length = 0
 
-    def is_open(self):
-        return self.handle != False
+    @property
+    def index(self) -> dict:
+        return self._index
+
+    @property
+    def header(self) -> dict:
+        return self._header
+
+    def is_open(self) -> bool:
+        return self.handle is not False
 
     def open(self):
-        if self.handle != False:
+        if self.handle is not False:
             self.close()
         self.handle = open(self.filename, "rb")
 
@@ -96,7 +107,7 @@ class SNFile:
             data = gzip.compress(self.serialize_block(block_id))
             self.handle.write(data)
             data_len = len(data)
-            self.index[block_id] = (offset, data_len)
+            self._index[block_id] = (offset, data_len)
             offset += data_len
             self.total_length += data_len
         if self.config.combine_close_handles:
@@ -108,11 +119,11 @@ class SNFile:
         try:
             header_text = self.handle.readline()
             self.header_length = len(header_text)
-            self.header = json.loads(header_text.strip())
+            self._header = json.loads(header_text.strip())
         except Exception as e:
             print(f"Error when reading SNF header from '{self.filename}': {e}. The file may not be a valid .snf file or could have been corrupted.")
             raise e
-        self.index = self.header["index"]
+        self._index = self._header["index"]
         if self.config.combine_close_handles:
             self.close()
 
@@ -125,7 +136,7 @@ class SNFile:
                 self.close()
             return None
 
-        if not block_index in self.index[contig]:
+        if block_index not in self.index[contig]:
             if self.config.combine_close_handles:
                 self.close()
             return None
@@ -152,7 +163,7 @@ class SNFile:
         return self.total_length
 
     def close(self):
-        if self.handle != False:
+        if self.handle is not False:
             self.handle.close()
             self.handle = False
 
@@ -167,3 +178,57 @@ class SNFile:
         for b in self.get_all_blocks(contig).values():
             coverage.update(b['_COVERAGE'])
         return coverage
+
+
+class LazySNFile(SNFile):
+    """
+    An SNFile, but its header data may be unloaded from memory and lazily loaded back in.
+
+    Important: Do not keep references to index or header outside, otherwise this class will
+               massively increase memory usage instead of limiting it.
+    """
+    _MAX_ACTIVE = 50  # maximum number of objects that will retain their data in memory
+    _ACTIVE: OrderedDict['LazySNFile'] = OrderedDict()
+
+    @property
+    def index(self) -> dict:
+        if self._header is None:
+            self.read_header()
+
+        return super().index
+
+    @property
+    def header(self) -> dict:
+        if self._header is None:
+            self.read_header()
+
+        return super().header
+
+    def read_header(self):
+        """
+        Loads header data for this object, potentially displacing another files' data from memory
+        """
+        if self in self._ACTIVE:
+            self._ACTIVE.move_to_end(self)
+        else:
+            self._ACTIVE[self] = True
+
+        if len(self._ACTIVE) > self._MAX_ACTIVE:
+            oldest_snf, _ = self._ACTIVE.popitem(last=False)
+            oldest_snf.unload()
+
+        # SBFile.read_header assumes start of file, so if we have an active handle, reset it there
+        if self.handle:
+            self.handle.seek(0)
+
+        return super().read_header()
+
+    def unload(self):
+        """
+        Unloads data for this object (=remove reference to header and index and allow them to be collected by GC).
+        """
+        if self in self._ACTIVE:
+            self._ACTIVE.pop(self)
+
+        self._header = None
+        self._index = None
