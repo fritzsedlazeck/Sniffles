@@ -116,8 +116,6 @@ class Task:
         overlap_abs = config.combine_overlap_abs
 
         sample_internal_ids = set(samples_headers_snf.keys())
-        # for sample_internal_id, (sample_filename, sample_header, sample_snf) in samples_headers_snf.items():
-        #     sample_internal_ids.add(sample_internal_id)
 
         #
         # Load candidate SVs from all samples for each block separately and cluster them based on start position

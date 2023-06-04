@@ -155,3 +155,15 @@ class SNFile:
         if self.handle != False:
             self.handle.close()
             self.handle = False
+
+    def get_all_blocks(self, contig: str):
+        blocks = {}
+        for block_start in self.index[contig].keys():
+            blocks[block_start] = self.read_blocks(contig, block_start)[0]
+        return blocks
+
+    def get_full_coverage(self, contig: str):
+        coverage = {}
+        for b in self.get_all_blocks(contig).values():
+            coverage.update(b['_COVERAGE'])
+        return coverage
