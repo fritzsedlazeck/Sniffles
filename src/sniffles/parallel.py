@@ -7,6 +7,7 @@
 # Author:  Moritz Smolka
 # Contact: moritz.g.smolka@gmail.com
 #
+print(f"HRO DEV sniffles @ {__file__}")
 
 from dataclasses import dataclass
 import gc
@@ -20,7 +21,6 @@ from sniffles import cluster
 from sniffles import sv
 from sniffles import postprocessing
 from sniffles import snf
-from sniffles import util
 
 
 @dataclass
@@ -100,9 +100,9 @@ class Task:
     def combine(self, config):
         samples_headers_snf = {}
         for snf_info in config.snf_input_info:
-            snf_in = snf.SNFile(config, open(snf_info["filename"], "rb"), filename=snf_info["filename"])
+            snf_in = snf.LazySNFile(config, open(snf_info["filename"], "rb"), filename=snf_info["filename"])
             snf_in.read_header()
-            samples_headers_snf[snf_info["internal_id"]] = (snf_info["filename"], snf_in.header, snf_in)
+            samples_headers_snf[snf_info["internal_id"]] = snf_in
 
             if config.combine_close_handles:
                 snf_in.close()
@@ -124,9 +124,12 @@ class Task:
         candidates_processed = 0
         svtypes_candidates_bins = {svtype: {} for svtype in sv.TYPES}
         groups_keep = {svtype: list() for svtype in sv.TYPES}
-        for block_index in range(self.start, self.end + config.snf_block_size, config.snf_block_size):  # iterate over all blocks
+        block_indices = list(range(self.start, self.end + config.snf_block_size, config.snf_block_size))
+        nblocks = len(block_indices)
+        for cur, block_index in enumerate(block_indices):  # iterate over all blocks
+            print(f'Processing block {cur+1}/{nblocks}', flush=True)
             samples_blocks = {}
-            for sample_internal_id, (sample_filename, sample_header, sample_snf) in samples_headers_snf.items():
+            for sample_internal_id, sample_snf in samples_headers_snf.items():
                 blocks = sample_snf.read_blocks(self.contig, block_index)
                 samples_blocks[sample_internal_id] = blocks
                 # sample_internal_id is the number of the processed file
@@ -135,7 +138,7 @@ class Task:
             for svtype in sv.TYPES:
                 bins = {}
                 # svcandidates=[]
-                for sample_internal_id, (sample_filename, sample_header, sample_snf) in samples_headers_snf.items():  # fetch current block for each file
+                for sample_internal_id in samples_headers_snf.keys():  # fetch current block for each file
                     blocks = samples_blocks[sample_internal_id]
                     if blocks is None:
                         continue
