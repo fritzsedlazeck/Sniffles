@@ -126,15 +126,9 @@ def call_from(cluster,config,keep_qc_fails,task):
     support_rev=len(leads) - support_fwd
 
     filter="PASS"
-    if config.qc_strand and (support_fwd==0 or support_rev==0):
-        filter="STRAND"
-        qc=False
 
-    if config.qc_nm:
+    if config.qc_nm_measure:
         nm_mean=util.mean(v.nm for v in leads)
-        if nm_mean > config.qc_nm_max:
-            filter="NM"
-            qc=False
     else:
         nm_mean=-1
 
@@ -299,6 +293,20 @@ def call_group(svgroup,config,task):
         if cons_a!=1 and cons_b!=1:
             return None
 
+    if config.combine_pair_relabel:
+        max_gt=(0,0)
+        for sample_id in genotypes:
+            a,b,qual,dr,dv,ps,new_id=genotypes[sample_id]
+            if qual > config.combine_pair_relabel_threshold and a!=".":
+                max_gt=max(max_gt,(a,b))
+
+        if max_gt!=(0,0):
+            for sample_id in genotypes:
+                a,b,qual,dr,dv,ps,new_id=genotypes[sample_id]
+                if qual < config.combine_pair_relabel_threshold and a!=".":
+                    max_a,max_b=max_gt
+                    genotypes[sample_id]=(max_a,max_b,qual,dr,dv,ps,new_id)
+
     svcall_pos=int(util.median(cand.pos for cand in svgroup.candidates))
     svcall_svlen=int(util.median(cand.svlen for cand in svgroup.candidates))
     svcall_alt=first_cand.alt
@@ -351,7 +359,8 @@ def call_group(svgroup,config,task):
 
 def classify_splits(read,leads,config,main_contig):
     minsvlen_screen=config.minsvlen_screen
-    maxsvlen_other=minsvlen_screen*5
+    maxsvlen_other=minsvlen_screen*config.dev_split_max_query_distance_mult
+    min_split_len_bnd=config.bnd_min_split_length
 
     leads.sort(key=lambda ld: ld.qry_start)
     last=leads[0]
@@ -469,7 +478,7 @@ def classify_splits(read,leads,config,main_contig):
             else:
                 a,b=last,curr
 
-            if a.contig == main_contig:
+            if a.contig == main_contig and abs(last.qry_end-last.qry_start) >= min_split_len_bnd and abs(curr.qry_end-curr.qry_start) >= min_split_len_bnd:
                 is_first=a.qry_start < b.qry_start
                 if is_first:
                     if a.strand=="+":

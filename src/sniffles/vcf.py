@@ -48,7 +48,7 @@ class VCF:
         self.handle=handle
         self.call_count=0
         self.info_order=["SVTYPE","SVLEN","END","SUPPORT","RNAMES","COVERAGE","STRAND"]
-        if config.qc_nm:
+        if config.qc_nm_measure:
             self.info_order.append("NM")
 
         self.default_genotype=config.genotype_none
@@ -96,11 +96,14 @@ class VCF:
         self.write_header_line('FILTER=<ID=STDEV_LEN,Description="SV length standard deviation filter">')
         self.write_header_line('FILTER=<ID=COV_MIN,Description="Minimum coverage filter">')
         self.write_header_line('FILTER=<ID=COV_CHANGE,Description="Coverage change filter">')
+        self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC,Description="Coverage fractional change filter">')
+        self.write_header_line('FILTER=<ID=MOSAIC_AF,Description="Mosaic maximum allele frequency filter">')
+        self.write_header_line('FILTER=<ID=ALN_NM,Description="Length adjusted mismatch filter">')
         self.write_header_line('FILTER=<ID=STRAND,Description="Strand support filter">')
         self.write_header_line('FILTER=<ID=SVLEN_MIN,Description="SV length filter">')
-        self.write_header_line('FILTER=<ID=NM,Description="Alignment noise level filter">')
         self.write_header_line('INFO=<ID=PRECISE,Number=0,Type=Flag,Description="Structural variation with precise breakpoints">')
         self.write_header_line('INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description="Structural variation with imprecise breakpoints">')
+        self.write_header_line('INFO=<ID=MOSAIC,Number=0,Type=Flag,Description="Structural variation classified as putative mosaic">')
         self.write_header_line('INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of structural variation">')
         self.write_header_line('INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variation">')
         self.write_header_line('INFO=<ID=CHR2,Number=1,Type=String,Description="Mate chromsome for BND SVs">')
@@ -178,6 +181,11 @@ class VCF:
             infos["END"]=None
 
         infos_ordered=["PRECISE" if call.precise else "IMPRECISE"]
+        af=call.get_info("AF")
+        af=af if af!=None else 0
+        sv_is_mosaic = af <= self.config.mosaic_af_max
+        if sv_is_mosaic and self.config.mosaic:
+            infos_ordered.append("MOSAIC")
         infos_ordered.extend(format_info(k,infos[k]) for k in self.info_order if infos[k]!=None)
         info_str=";".join(infos_ordered)
 

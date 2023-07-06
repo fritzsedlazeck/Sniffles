@@ -1,3 +1,5 @@
 .DS_Store
 src/sniffles.egg-info
 dist
+__pycache__
+*.pyc

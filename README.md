@@ -21,7 +21,7 @@ or
 
 If you previously installed Sniffles1 using conda and want to upgrade to Sniffles2, you can use:
 
-`conda update sniffles=2.0`
+`conda update sniffles=2.2`
 
 ## Requirements
 * Python >= 3.7
@@ -36,7 +36,7 @@ Please cite our paper at:
 
 https://www.nature.com/articles/s41592-018-0001-7
 
-A new preprint for the new methods and improvements introduced with Sniffles2 is here: https://www.biorxiv.org/content/10.1101/2022.04.04.487055v1 
+A new preprint for the new methods and improvements introduced with Sniffles2 is here: https://www.biorxiv.org/content/10.1101/2022.04.04.487055v1
 
 ## Use-Cases / Modes
 
@@ -55,10 +55,10 @@ Multi-sample SV calling using Sniffles2 population mode works in two steps:
 Alternatively, for step 2. you can supply a .tsv file, containing a list of .snf files, and custom sample ids in an optional second column (one sample per line), .e.g.:
 2. Combined calling using a .tsv as sample list: `sniffles --input snf_files_list.tsv --vcf multisample.vcf`
 
-### C. Non-Germline SV Calling (Somatic)
-To call non-germline SVs (i.e. somatic/mosaic) SVs, the *--non-germline* option should be added, i.e.:
+### C. Mosaic SV Calling (Non-germline or somatic SVs)
+To call mosaic SVs, the *--mosaic* option should be added, i.e.:
 
-`sniffles --input mapped_input.bam --vcf output.vcf --non-germline`
+`sniffles --input mapped_input.bam --vcf output.vcf --mosaic`
 
 ### D. Genotyping a known set of SVs (Force Calling)
 Example command, to determine the genotype of each SV in *input_known_svs.vcf* for *sample.bam* and write the re-genotyped SVs to *output_genotypes.vcf*:
