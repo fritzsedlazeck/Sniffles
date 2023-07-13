@@ -71,3 +71,6 @@ Example command, to determine the genotype of each SV in *input_known_svs.vcf* f
 * .bam or .cram files containing long read alignments (i.e. from minimap2 or ngmlr) are supported as input
 * .vcf.gz (bgzipped+tabix indexed) output is supported
 * Simultaneous output of both .vcf and .snf file (for multi-sample calling) is supported
+
+## Companion apps
+* We have developed a plotting tools for Sniffles2: [https://github.com/farhangus/sniffle2_plot](https://github.com/farhangus/sniffle2_plot)
