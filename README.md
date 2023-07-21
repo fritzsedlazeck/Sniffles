@@ -74,3 +74,4 @@ Example command, to determine the genotype of each SV in *input_known_svs.vcf* f
 
 ## Companion apps
 * We have developed a plotting tools for Sniffles2: [https://github.com/farhangus/sniffle2_plot](https://github.com/farhangus/sniffle2_plot)
+* We also provide VCF and scripts used for the manuscript [https://github.com/smolkmo/Sniffles2-Supplement](https://github.com/smolkmo/Sniffles2-Supplement) 
