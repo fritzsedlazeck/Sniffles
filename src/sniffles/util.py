@@ -9,7 +9,6 @@
 #
 
 import statistics
-import math
 import sys
 import time
 
@@ -46,7 +45,7 @@ def median_modes(nums):
     max_count = 0
     counts = {}
     for n in nums:
-        if not n in counts:
+        if n not in counts:
             counts[n] = 1
         else:
             counts[n] += 1
@@ -69,7 +68,7 @@ def mean_or_none(nums):
 
 def mean_or_none_round(nums):
     r = mean_or_none(nums)
-    if r == None:
+    if r is None:
         return r
     else:
         return round(r)
@@ -87,7 +86,7 @@ def trim(nums, pct=25):
 def most_common(nums):
     counts = {}
     for n in nums:
-        if not n in counts:
+        if n not in counts:
             counts[n] = 1
         else:
             counts[n] += 1
@@ -124,7 +123,7 @@ def load_tandem_repeats(filename, padding):
                 contig, start, end = parts[:3]
                 start = int(start)
                 end = int(end)
-                if not contig in contigs_tr:
+                if contig not in contigs_tr:
                     contigs_tr[contig] = []
                 if len(contigs_tr[contig]) > 0:
                     last_start, last_end = contigs_tr[contig][-1]

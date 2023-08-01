@@ -29,9 +29,14 @@ class Cluster:
     repeat: bool
     leads_long: Optional[list]
 
-    def compute_metrics(self, max_n=100):
-        self.span = self.end - self.start
+    @property
+    def span(self) -> Optional[int]:
+        if self.end is None or self.start is None:
+            return None
 
+        return self.end - self.start
+
+    def compute_metrics(self, max_n=100):
         n = min(len(self.leads), max_n)
         if n == 0:
             self.mean_svlen = 0
@@ -315,7 +320,7 @@ def resolve_block_groups(svtype, svcands, groups_initial, config):
                 # TODO: Favor bigger groups in placement
                 dist = abs(group.pos_mean - svcand.pos) + abs(group.bnd_mate_ref_start_mean - mate_ref_start)
                 if dist < best_dist and dist <= config.cluster_merge_bnd * 2 and group.bnd_mate_contig == mate_contig:
-                    if not config.combine_separate_intra or not svcand.sample_internal_id in group.included_samples:
+                    if not config.combine_separate_intra or svcand.sample_internal_id not in group.included_samples:
                         best_group = group
                         best_dist = dist
         else:
@@ -324,37 +329,14 @@ def resolve_block_groups(svtype, svcands, groups_initial, config):
                 dist = abs(group.pos_mean - svcand.pos) + abs(abs(group.len_mean) - abs(svcand.svlen))  # check if group.pos_mean is updated or stays the same for the first SV starting the group
                 minlen = float(min(abs(group.len_mean), abs(svcand.svlen)))
                 if minlen > 0 and dist < best_dist and dist <= config.combine_match * math.sqrt(minlen) and dist <= config.combine_match_max:
-                    if not config.combine_separate_intra or not svcand.sample_internal_id in group.included_samples:
+                    if (not config.combine_separate_intra or svcand.sample_internal_id not in group.included_samples) and group.align_call(svcand, config.combine_pctseq):
                         best_group = group
                         best_dist = dist
 
         if best_group is None:
-            group = sv.SVGroup(candidates=[svcand],
-                               pos_mean=float(svcand.pos),
-                               len_mean=float(abs(svcand.svlen)),
-                               included_samples=set([svcand.sample_internal_id]),
-                               coverages_nonincluded=dict())
-            if svtype == "BND":
-                group.bnd_mate_contig = mate_contig
-                group.bnd_mate_ref_start_mean = mate_ref_start
-            groups.append(group)
+            groups.append(
+                sv.SVGroup.from_candidate(svcand)
+            )
         else:
-            group_size = len(best_group.candidates)
-            best_group.pos_mean *= group_size
-            best_group.len_mean *= group_size
-            best_group.pos_mean += svcand.pos
-            best_group.len_mean += abs(svcand.svlen)
-            if svtype == "BND":
-                best_group.bnd_mate_ref_start_mean *= group_size
-                best_group.bnd_mate_ref_start_mean += mate_ref_start
-
-            best_group.candidates.append(svcand)
-            group_size += 1
-            best_group.pos_mean /= group_size
-            best_group.len_mean /= group_size
-            best_group.included_samples.add(svcand.sample_internal_id)
-
-            if svtype == "BND":
-                best_group.bnd_mate_ref_start_mean /= group_size
-
+            best_group.add_candidate(svcand)
     return groups

@@ -155,7 +155,7 @@ def from_leads(leads, initial_lead, max_grp=3, klen=15, skip=1, skip_repetitive=
     kmer_counts = {}
     # for lead in leads:
     for i, kmer in iter_kmers(initial_lead.seq, klen=klen, skip=skip_repetitive):
-        if not kmer in kmer_counts:
+        if kmer not in kmer_counts:
             kmer_counts[kmer] = 1
         else:
             kmer_counts[kmer] += 1
@@ -179,11 +179,11 @@ def from_leads(leads, initial_lead, max_grp=3, klen=15, skip=1, skip_repetitive=
 
             # Attempt to anchor kmers from seq to current group
             for i, kmer in iter_kmers(lead.seq, klen=klen, skip=skip):
-                if not kmer in group.anchors:  # and len(set(group.anchors[kmer]))==1:
+                if kmer not in group.anchors:  # and len(set(group.anchors[kmer]))==1:
                     continue
 
                 if len(set(group.anchors[kmer])) > 1:
-                    if last_j == None:
+                    if last_j is None:
                         # Do not allow the first kmer to have multiple potential positions
                         continue
 
@@ -197,11 +197,11 @@ def from_leads(leads, initial_lead, max_grp=3, klen=15, skip=1, skip_repetitive=
                     # Kmer can be unambiguously placed on group sequence
                     j = group.anchors[kmer][0]
 
-                if first_i == None and first_j == None:
+                if first_i is None and first_j is None:
                     first_i = i
                     first_j = j
 
-                if last_i != None and last_j != None:
+                if last_i is not None and last_j is not None:
                     # Determine mapping type by position of current and last kmer on the lead sequence and group sequence
                     dist_lead = i - last_i
                     dist_group = j - last_j
@@ -225,7 +225,7 @@ def from_leads(leads, initial_lead, max_grp=3, klen=15, skip=1, skip_repetitive=
                         maplen = last_i - i
                         act_j = last_j
                         for act_i in range(last_i, i):
-                            if not act_j in group.mappings:
+                            if act_j not in group.mappings:
                                 group.mappings[act_j] = []
                             group.mappings[act_j].append((maptype, maplen, act_i, act_i + 1, last_j, lead))
                             act_j += 1
@@ -247,10 +247,10 @@ def from_leads(leads, initial_lead, max_grp=3, klen=15, skip=1, skip_repetitive=
                         if curr_j <= group.consensus_min:  # +klen/1:
                             assert (curr_j == group.consensus_min)
                             kmer = lead.seq[i:i + klen]
-                            if not kmer in repetitive_kmers:
+                            if kmer not in repetitive_kmers:
                                 group.anchors[kmer] = [curr_j]
                             group.consensus_min -= 1
-                            if not curr_j in group.mappings:
+                            if curr_j not in group.mappings:
                                 group.mappings[curr_j] = []
                             group.mappings[curr_j].append(("M", 1, i, i + 1, first_j, lead))
 
@@ -261,10 +261,10 @@ def from_leads(leads, initial_lead, max_grp=3, klen=15, skip=1, skip_repetitive=
                         if curr_j + klen >= group.consensus_max:  # -klen/1:
                             assert (curr_j + klen == group.consensus_max)
                             kmer = lead.seq[i:i + klen]
-                            if not kmer in repetitive_kmers:
+                            if kmer not in repetitive_kmers:
                                 group.anchors[kmer] = [curr_j]
                             group.consensus_max += 1
-                            if not curr_j in group.mappings:
+                            if curr_j not in group.mappings:
                                 group.mappings[curr_j] = []
                             group.mappings[curr_j].append(("M", 1, i, i + 1, last_j, lead))
                 break
@@ -303,15 +303,15 @@ def novel_from_reads(best_lead, other_leads, klen, skip, skip_repetitive, debug=
         conseq = ""
         span = 0
         for j, kmer in iter_kmers(lead.seq, klen=klen, skip=skip):
-            if not kmer in anchors:
+            if kmer not in anchors:
                 continue
             i = anchors[kmer]
             if abs(i - j) > maxshift:
                 continue
-            if last_i != None and i <= last_i:
+            if last_i is not None and i <= last_i:
                 continue
 
-            if last_i == None:
+            if last_i is None:
                 if j > 0:
                     conseq = "-" * i
             else:
