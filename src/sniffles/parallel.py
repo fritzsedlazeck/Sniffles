@@ -11,8 +11,6 @@ import copy
 import logging
 from argparse import Namespace
 
-print(f"HRO DEV sniffles @ {__file__}")
-
 from dataclasses import dataclass
 import gc
 import math

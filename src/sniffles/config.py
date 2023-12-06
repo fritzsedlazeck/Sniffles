@@ -17,10 +17,8 @@ from typing import Union, Optional
 
 from sniffles import util
 
-print(f"HRO DEV sniffles @ {__file__}")
-
 VERSION = "Sniffles2"
-BUILD = "2.3.0-hro-dev3"
+BUILD = "2.3.0-rc0"
 SNF_VERSION = "S2_rc4"
 
 
