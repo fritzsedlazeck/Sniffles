@@ -120,6 +120,8 @@ def coverage_fulfill(requests_for_coverage,calls,lead_provider,config):
     return average_coverage_fwd,average_coverage_rev
 
 def qc_sv_support(svcall,coverage_global,config):
+    if config.mosaic:
+        return True
     if config.minsupport == "auto":
         if not qc_support_auto(svcall,coverage_global,config):
             svcall.filter="SUPPORT_MIN"
@@ -165,6 +167,10 @@ def qc_support_const(svcall,config):
     return svcall.support >= config.minsupport
 
 def qc_sv(svcall,config):
+    af=svcall.get_info("AF")
+    af=af if af!=None else 0
+    sv_is_mosaic = af <= config.mosaic_af_max
+
     if config.qc_stdev:
         stdev_pos=svcall.get_info("STDEV_POS")
         if stdev_pos > config.qc_stdev_abs_max:
@@ -187,29 +193,110 @@ def qc_sv(svcall,config):
         svcall.filter="SVLEN_MIN"
         return False
 
+    if svcall.svtype=="BND":
+        if config.qc_bnd_filter_strand and len(set(l.strand for l in svcall.postprocess.cluster.leads))<2:
+            svcall.filter="STRAND"
+            return False
+    elif ((config.mosaic and sv_is_mosaic) and config.mosaic_qc_strand) or (not (config.mosaic and sv_is_mosaic) and config.qc_strand):
+        is_long_ins=(svcall.svtype=="INS" and svcall.svlen >= config.long_ins_length)
+        if not is_long_ins and len(set(l.strand for l in svcall.postprocess.cluster.leads))<2:
+            svcall.filter="STRAND"
+            return False
+
+    if config.mosaic and sv_is_mosaic:
+        if svcall.svtype=="INV" or svcall.svtype=="DUP" and svcall.svlen < config.mosaic_qc_invdup_min_length:
+            svcall.filter="SVLEN_MIN"
+            return False
+
     #if (svcall.coverage_upstream != None and svcall.coverage_upstream < config.qc_coverage) or (svcall.coverage_downstream != None and svcall.coverage_downstream < config.qc_coverage):
     if svcall.svtype != "DEL" and svcall.svtype != "INS" and (svcall.coverage_center != None and svcall.coverage_center < config.qc_coverage):
         svcall.filter="COV_MIN"
         return False
 
-    if svcall.svtype == "DEL" and config.long_del_length != -1 and abs(svcall.svlen) >= config.long_del_length and not config.non_germline:
+    if svcall.svtype == "DEL" and config.long_del_length != -1 and abs(svcall.svlen) >= config.long_del_length and not config.mosaic:
         if svcall.coverage_center != None and svcall.coverage_upstream != None and svcall.coverage_downstream != None and svcall.coverage_center > (svcall.coverage_upstream+svcall.coverage_downstream)/2.0 * config.long_del_coverage:
             svcall.filter="COV_CHANGE"
             return False
     elif svcall.svtype=="INS" and ( (svcall.coverage_upstream != None and svcall.coverage_upstream < config.qc_coverage) or (svcall.coverage_downstream != None and svcall.coverage_downstream < config.qc_coverage)):
         svcall.filter="COV_CHANGE"
         return False
-    elif svcall.svtype == "DUP" and config.long_dup_length != -1 and abs(svcall.svlen) >= config.long_dup_length and not config.non_germline:
+    elif svcall.svtype == "DUP" and config.long_dup_length != -1 and abs(svcall.svlen) >= config.long_dup_length and not config.mosaic:
         if svcall.coverage_center != None and svcall.coverage_upstream != None and svcall.coverage_downstream != None and svcall.coverage_center < (svcall.coverage_upstream+svcall.coverage_downstream)/2.0 * config.long_dup_coverage:
             svcall.filter="COV_CHANGE"
+            return False
+
+    qc_coverage_max_change_frac=config.qc_coverage_max_change_frac
+    if config.mosaic and sv_is_mosaic:
+        qc_coverage_max_change_frac=config.mosaic_qc_coverage_max_change_frac
+    if qc_coverage_max_change_frac != -1.0:
+        if svcall.coverage_upstream!=None and svcall.coverage_upstream!=0:
+            u=float(svcall.coverage_upstream)
+        else:
+            u=1.0
+
+        if svcall.coverage_start!=None and svcall.coverage_start!=0:
+            s=float(svcall.coverage_start)
+        else:
+            s=1.0
+
+        if svcall.coverage_center!=None and svcall.coverage_center!=0:
+            c=float(svcall.coverage_center)
+        else:
+            c=1.0
+
+        if svcall.coverage_end!=None and svcall.coverage_end!=0:
+            e=float(svcall.coverage_end)
+        else:
+            e=1.0
+
+        if svcall.coverage_downstream!=None and svcall.coverage_downstream!=0:
+            d=float(svcall.coverage_downstream)
+        else:
+            d=1.0
+
+        if abs(u-s)/max(u,s) > qc_coverage_max_change_frac:
+            svcall.filter="COV_CHANGE_FRAC"
+            return False
+
+        if abs(s-c)/max(s,c) > qc_coverage_max_change_frac:
+            svcall.filter="COV_CHANGE_FRAC"
+            return False
+
+        if abs(c-e)/max(c,e) > qc_coverage_max_change_frac:
+            svcall.filter="COV_CHANGE_FRAC"
+            return False
+
+        if abs(e-d)/max(e,d) > qc_coverage_max_change_frac:
+            svcall.filter="COV_CHANGE_FRAC"
             return False
 
     return True
 
 def qc_sv_post_annotate(svcall,config):
+    af=svcall.get_info("AF")
+    af=af if af!=None else 0
+    sv_is_mosaic = af <= config.mosaic_af_max
+
     if (len(svcall.genotypes)==0 or (svcall.genotypes[0][0]!="." and svcall.genotypes[0][0]+svcall.genotypes[0][1]<2)) and (svcall.coverage_center != None and svcall.coverage_center < config.qc_coverage):
         svcall.filter="COV_MIN"
         return False
+
+    qc_nm=config.qc_nm
+    qc_nm_threshold=config.qc_nm_threshold*config.qc_nm_mult
+    if config.mosaic and sv_is_mosaic:
+        qc_nm=config.mosaic_qc_nm
+        qc_nm_threshold=config.qc_nm_threshold*config.qc_nm_mult
+    if qc_nm and svcall.nm > qc_nm_threshold and (len(svcall.genotypes)==0 or svcall.genotypes[0][1]==0):
+        svcall.filter="ALN_NM"
+        return False
+
+    if config.mosaic:
+        if sv_is_mosaic and ( af < config.mosaic_af_min or af > config.mosaic_af_max ):
+            svcall.filter="MOSAIC_AF"
+            return False
+        elif not sv_is_mosaic and not config.mosaic_include_germline:
+            svcall.filter="MOSAIC_AF"
+            return False
 
     return True
 
@@ -300,8 +387,8 @@ def genotype_sv(svcall,config,phase):
     genotype_z_score = min(60,int((-10) * likelihood_ratio(qz,q1)))
     genotype_quality = min(60,int((-10) * likelihood_ratio(q2,q1)))
 
-    is_long_ins=(svcall.svtype=="INS" and svcall.svlen >= config.long_ins_length)
-    if genotype_z_score < config.genotype_min_z_score and not config.non_germline and not is_long_ins:
+    is_long_ins=(svcall.svtype=="INS" and svcall.svlen >= config.long_ins_length and config.detect_large_ins)
+    if genotype_z_score < config.genotype_min_z_score and not config.mosaic and not is_long_ins:
         if svcall.filter=="PASS":
             svcall.filter="GT"
 

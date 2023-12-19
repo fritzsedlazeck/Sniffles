@@ -354,6 +354,7 @@ def novel_from_reads(best_lead,other_leads,klen,skip,skip_repetitive,debug=False
                     conseq_new.append("-"*len(buffer))
         conseq="".join(conseq_new)
 
+        # FIXME: can lead to ZeroDivisionError
         if span/float(len(best_lead.seq)) > minspan:
             alignments.append(conseq)
 

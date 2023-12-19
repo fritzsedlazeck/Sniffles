@@ -36,6 +36,7 @@ class Cluster:
             self.stdev_start=0
             return
 
+        # REVIEW: might need fix based on issue #407
         step=int(len(self.leads)/n)
         if n>1:
             self.mean_svlen=sum(self.leads[i].svlen for i in range(0,len(self.leads),step))/float(n)
@@ -247,6 +248,12 @@ def resolve(svtype,leadtab_provider,config,tr):
             i=max(0,i-2)
         i+=1
 
+    if config.dev_trace_read:
+        for c in clusters:
+            for ld in c.leads:
+                if ld.read_qname==config.dev_trace_read:
+                    print(f"[DEV_TRACE_READ [2/4] [cluster.resolve] Read lead {ld} is in cluster {c.id}, containing a total of {len(c.leads)} leads")
+
     if config.dev_dump_clusters:
         filename=f"{config.input}.clusters.{svtype}.{leadtab_provider.contig}.{leadtab_provider.start}.{leadtab_provider.end}.bed"
         print(f"Dumping clusters to {filename}")
@@ -265,7 +272,7 @@ def resolve(svtype,leadtab_provider,config,tr):
             if config.dev_no_resplit:
                 yield cluster
             else:
-                for new_cluster in resplit_bnd(cluster,merge_threshold=config.bnd_cluster_resplit):
+                for new_cluster in resplit_bnd(cluster,merge_threshold=config.cluster_merge_bnd):
                     yield new_cluster
         else:
             if svtype=="INS" or svtype=="DEL":

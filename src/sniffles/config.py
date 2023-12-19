@@ -16,7 +16,7 @@ import argparse
 from sniffles import util
 
 VERSION="Sniffles2"
-BUILD="2.0.7"
+BUILD="2.2"
 SNF_VERSION="S2_rc4"
 
 class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
@@ -25,9 +25,9 @@ class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescripti
 def tobool(v):
     if v==True or v==False:
         return v
-    elif v.lower()=="true" or v=="1":
+    elif v.strip().lower()=="true" or v.strip()=="1":
         return True
-    elif v.lower()=="false" or v=="0":
+    elif v.strip().lower()=="false" or v.strip()=="0":
         return False
     else:
         raise argparse.ArgumentTypeError("Boolean value (True | False) required for argument")
@@ -46,8 +46,8 @@ def from_cmdline():
     ... OR, simultaneously producing a single-sample VCF and SNF file for later multi-sample calling:
       sniffles --input sample1.bam --vcf sample1.vcf.gz --snf sample1.snf
 
-    ... OR, with additional options to specify tandem repeat annotations (for improved call accuracy), reference (for DEL sequences) and non-germline mode for detecting rare SVs:
-      sniffles --input sample1.bam --vcf sample1.vcf.gz --tandem-repeats tandem_repeats.bed --reference genome.fa --non-germline
+    ... OR, with additional options to specify tandem repeat annotations (for improved call accuracy), reference (for DEL sequences) and mosaic mode for detecting rare SVs:
+      sniffles --input sample1.bam --vcf sample1.vcf.gz --tandem-repeats tandem_repeats.bed --reference genome.fa --mosaic
 
  Usage example B - Multi-sample calling:
     Step 1. Create .snf for each sample: sniffles --input sample1.bam --snf sample1.snf
@@ -59,7 +59,7 @@ def from_cmdline():
  Usage example C - Determine genotypes for a set of known SVs (force calling):
     sniffles --input sample.bam --genotype-vcf input_known_svs.vcf --vcf output_genotypes.vcf
     """
-    usage="sniffles --input SORTED_INPUT.bam [--vcf OUTPUT.vcf] [--snf MERGEABLE_OUTPUT.snf] [--threads 4] [--non-germline]\n\n" + header + "\n\n" + example + "\n\n Use --help for full parameter/usage information\n \n"
+    usage="sniffles --input SORTED_INPUT.bam [--vcf OUTPUT.vcf] [--snf MERGEABLE_OUTPUT.snf] [--threads 4] [--mosaic]\n\n" + header + "\n\n" + example + "\n\n Use --help for full parameter/usage information\n \n"
     parser = argparse.ArgumentParser(description="", epilog=example, formatter_class=lambda prog: ArgFormatter(prog,max_help_position=100,width=150), usage=usage)
     parser.add_argument("--version", action="version", version=f"Sniffles2, Version {BUILD}")
 
@@ -69,26 +69,27 @@ def from_cmdline():
     main_args.add_argument("--snf", metavar="OUT.snf", type=str, help="Sniffles2 file (.snf) output filename to store candidates for later multi-sample calling", required=False)
     main_args.add_argument("--reference", metavar="reference.fasta", type=str, help="(Optional) Reference sequence the reads were aligned against. To enable output of deletion SV sequences, this parameter must be set.", default=None)
     main_args.add_argument("--tandem-repeats", metavar="IN.bed", type=str, help="(Optional) Input .bed file containing tandem repeat annotations for the reference genome.", default=None)
-    main_args.add_argument("--non-germline", help="Call non-germline SVs (rare, somatic or mosaic SVs)", default=False, action="store_true")
     main_args.add_argument("--phase", help="Determine phase for SV calls (requires the input alignments to be phased)", default=False, action="store_true")
     main_args.add_argument("-t","--threads", metavar="N", type=int, help="Number of parallel threads to use (speed-up for multi-core CPUs)", default=4)
 
     filter_args = parser.add_argument_group("SV Filtering parameters")
     filter_args.add_argument("--minsupport", metavar="auto", type=str, help="Minimum number of supporting reads for a SV to be reported (default: automatically choose based on coverage)", default="auto")
-    filter_args.add_argument("--minsupport-auto-mult", metavar="0.1/0.025", type=float, help="Coverage based minimum support multiplier for germline/non-germline modes (only for auto minsupport) ", default=None)
-    filter_args.add_argument("--minsvlen", metavar="N", type=int, help="Minimum SV length (in bp)", default=35)
+    filter_args.add_argument("--minsupport-auto-mult", metavar="0.1/0.025", type=float, help="Coverage based minimum support multiplier for germline mode (only for auto minsupport) ", default=None)
+    filter_args.add_argument("--minsvlen", metavar="N", type=int, help="Minimum SV length (in bp)", default=50)
     filter_args.add_argument("--minsvlen-screen-ratio", metavar="N", type=float, help="Minimum length for SV candidates (as fraction of --minsvlen)", default=0.9)
-    filter_args.add_argument("--mapq", metavar="N", type=int, help="Alignments with mapping quality lower than this value will be ignored", default=25)
+    filter_args.add_argument("--mapq", metavar="N", type=int, help="Alignments with mapping quality lower than this value will be ignored", default=20)
     filter_args.add_argument("--no-qc", "--qc-output-all", help="Output all SV candidates, disregarding quality control steps.", default=False, action="store_true")
     filter_args.add_argument("--qc-stdev", help="Apply filtering based on SV start position and length standard deviation", metavar="True", type=tobool, default=True)
     filter_args.add_argument("--qc-stdev-abs-max", help="Maximum standard deviation for SV length and size (in bp)", metavar="N", type=int, default=500)
     filter_args.add_argument("--qc-strand", help="Apply filtering based on strand support of SV calls", metavar="False", type=tobool, default=False)
     filter_args.add_argument("--qc-coverage", help="Minimum surrounding region coverage of SV calls", metavar="N", type=int, default=1)
     filter_args.add_argument("--long-ins-length", help="Insertion SVs longer than this value are considered as hard to detect based on the aligner and read length and subjected to more sensitive filtering.", metavar="2500", type=int, default=2500)
-    filter_args.add_argument("--long-del-length", help="Deletion SVs longer than this value are subjected to central coverage drop-based filtering (Not applicable for --non-germline)", metavar="50000", type=int, default=50000)
-    filter_args.add_argument("--long-del-coverage", help="Long deletions with central coverage (in relation to upstream/downstream coverage) higher than this value will be filtered (Not applicable for --non-germline)", metavar="0.66", type=float, default=0.66)
-    filter_args.add_argument("--long-dup-length", help="Duplication SVs longer than this value are subjected to central coverage increase-based filtering (Not applicable for --non-germline)", metavar="50000", type=int, default=50000)
-    filter_args.add_argument("--long-dup-coverage", help="Long duplications with central coverage (in relation to upstream/downstream coverage) lower than this value will be filtered (Not applicable for --non-germline)", metavar="1.33", type=float, default=1.33)
+    filter_args.add_argument("--long-del-length", help="Deletion SVs longer than this value are subjected to central coverage drop-based filtering (Not applicable for --mosaic)", metavar="50000", type=int, default=50000)
+    filter_args.add_argument("--long-del-coverage", help="Long deletions with central coverage (in relation to upstream/downstream coverage) higher than this value will be filtered (Not applicable for --mosaic)", metavar="0.66", type=float, default=0.66)
+    filter_args.add_argument("--long-dup-length", help="Duplication SVs longer than this value are subjected to central coverage increase-based filtering (Not applicable for --mosaic)", metavar="50000", type=int, default=50000)
+    filter_args.add_argument("--qc-bnd-filter-strand", help="Filter breakends that do not have support for both strands", type=tobool, default=True)
+    filter_args.add_argument("--bnd-min-split-length", help="Minimum length of read splits to be considered for breakends", type=int, default=1000)
+    filter_args.add_argument("--long-dup-coverage", help="Long duplications with central coverage (in relation to upstream/downstream coverage) lower than this value will be filtered (Not applicable for --mosaic)", metavar="1.33", type=float, default=1.33)
     filter_args.add_argument("--max-splits-kb", metavar="N", type=float, help="Additional number of splits per kilobase read sequence allowed before reads are ignored", default=0.1)
     filter_args.add_argument("--max-splits-base", metavar="N", type=int, help="Base number of splits allowed before reads are ignored (in addition to --max-splits-kb)", default=3)
     filter_args.add_argument("--min-alignment-length", metavar="N", type=int, help="Reads with alignments shorter than this length (in bp) will be ignored", default=1000)
@@ -103,7 +104,7 @@ def from_cmdline():
     cluster_args.add_argument("--cluster-repeat-h-max", metavar="N", type=float, help="Max. merging distance based on SV length criterion for tandem repeat cluster merging", default=1000)
     cluster_args.add_argument("--cluster-merge-pos", metavar="N", type=int, help="Max. merging distance for insertions and deletions on the same read and cluster in non-repeat regions", default=150)
     cluster_args.add_argument("--cluster-merge-len", metavar="F", type=float, help="Max. size difference for merging SVs as fraction of SV length", default=0.33)
-    cluster_args.add_argument("--cluster-merge-bnd", metavar="N", type=int, help="Max. merging distance for breakend SV candidates.", default=1500)
+    cluster_args.add_argument("--cluster-merge-bnd", metavar="N", type=int, help="Max. merging distance for breakend SV candidates.", default=1000)
 
     genotype_args = parser.add_argument_group("SV Genotyping parameters")
     genotype_args.add_argument("--genotype-ploidy", metavar="N", type=int, help="Sample ploidy (currently fixed at value 2)", default=2)
@@ -119,7 +120,10 @@ def from_cmdline():
     multi_args.add_argument("--combine-match", metavar="N", type=int, help="Multiplier for maximum deviation of multiple SV's start/end position for them to be combined across samples. Given by max_dev=M*sqrt(min(SV_length_a,SV_length_b)), where M is this parameter.", default=250)
     multi_args.add_argument("--combine-match-max", metavar="N", type=int, help="Upper limit for the maximum deviation computed for --combine-match, in bp.", default=1000)
     multi_args.add_argument("--combine-separate-intra", help="Disable combination of SVs within the same sample", default=False, action="store_true")
-    multi_args.add_argument("--combine-output-filtered", help="Include low-confidence / putative non-germline SVs in multi-calling", default=False, action="store_true")
+    multi_args.add_argument("--combine-output-filtered", help="Include low-confidence / mosaic SVs in multi-calling", default=False, action="store_true")
+    multi_args.add_argument("--combine-pair-relabel", help="Override low-quality genotypes when combining 2 samples (may be used for e.g. tumor-normal comparisons)", default=False, action="store_true")
+    multi_args.add_argument("--combine-pair-relabel-threshold", help="Genotype quality below which a genotype call will be relabeled", default=20, type=int)
+    multi_args.add_argument("--combine-close-handles", help="Close .SNF file handles after each use. May lower performance, but may be required when maximum number of file handles supported by OS is reached when merging many samples.", default=False, action="store_true")
     #multi_args.add_argument("--combine-exhaustive", help="(DEV) Disable performance optimization in multi-calling", default=False, action="store_true")
     #multi_args.add_argument("--combine-relabel-rare", help="(DEV)", default=False, action="store_true")
     #multi_args.add_argument("--combine-with-missing", help="(DEV)", default=False, action="store_true")
@@ -133,6 +137,18 @@ def from_cmdline():
     postprocess_args.add_argument("--max-del-seq-len", metavar="N", type=int, help="Maximum deletion sequence length to be output. Deletion SVs longer than this value will be written to the output as symbolic SVs.", default=50000)
     postprocess_args.add_argument("--symbolic", help="Output all SVs as symbolic, including insertions and deletions, instead of reporting nucleotide sequences.", default=False, action="store_true")
     postprocess_args.add_argument("--allow-overwrite", help="Allow overwriting output files if already existing", default=False, action="store_true")
+
+    mosaic_args = parser.add_argument_group("Mosaic calling mode parameters")
+    mosaic_args.add_argument("--mosaic", help="Set Sniffles run mode to detect rare, somatic and mosaic SVs", default=False, action="store_true")
+    mosaic_args.add_argument("--mosaic-af-max", help="Maximum allele frequency for which SVs are considered mosaic", metavar="F", default=0.3, type=float)
+    mosaic_args.add_argument("--mosaic-af-min", help="Minimum allele frequency for mosaic SVs to be output", metavar="F", default=0.05, type=float)
+    mosaic_args.add_argument("--mosaic-qc-invdup-min-length", help="Minimum SV length for mosaic inversion and duplication SVs", metavar="N", default=500, type=int)
+    mosaic_args.add_argument("--mosaic-qc-nm", default=True, action="store_true", help=argparse.SUPPRESS)
+    mosaic_args.add_argument("--mosaic-qc-nm-mult", metavar="F", type=float, default=1.66, help=argparse.SUPPRESS)
+    mosaic_args.add_argument("--mosaic-qc-coverage-max-change-frac", help="Maximum relative coverage change across SV breakpoints", metavar="F", type=float, default=0.1)
+    mosaic_args.add_argument("--mosaic-qc-strand", help="Apply filtering based on strand support of SV calls", metavar="True", type=tobool, default=True)
+    mosaic_args.add_argument("--mosaic-include-germline", help="Report germline SVs as well in mosaic mode", default=False, action="store_true")
+
 
     developer_args = parser.add_argument_group("Developer parameters")
     developer_args.add_argument("--dev-cache", default=False, action="store_true", help=argparse.SUPPRESS)
@@ -153,12 +169,17 @@ def from_cmdline():
     developer_args.add_argument("--low-memory", default=False, action="store_true", help=argparse.SUPPRESS)
     developer_args.add_argument("--repeat", default=False, action="store_true", help=argparse.SUPPRESS)
     developer_args.add_argument("--qc-nm", default=False, action="store_true", help=argparse.SUPPRESS)
-    developer_args.add_argument("--qc-nm-max", metavar="F", type=float, default=0.2, help=argparse.SUPPRESS)
+    developer_args.add_argument("--qc-nm-mult", metavar="F", type=float, default=1.66, help=argparse.SUPPRESS)
+    developer_args.add_argument("--qc-coverage-max-change-frac", help="Maximum relative coverage change across SV breakpoints", metavar="F", type=float, default=-1)
     developer_args.add_argument("--coverage-updown-bins", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
     developer_args.add_argument("--coverage-shift-bins", metavar="N", type=int, default=3, help=argparse.SUPPRESS)
     developer_args.add_argument("--coverage-shift-bins-min-aln-length", metavar="N", type=int, default=1000, help=argparse.SUPPRESS)
     developer_args.add_argument("--cluster-binsize-combine-mult", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
     developer_args.add_argument("--cluster-resplit-binsize", metavar="N", type=int, default=20, help=argparse.SUPPRESS)
+    developer_args.add_argument("--dev-trace-read", default=False, metavar="read_id", type=str, help=argparse.SUPPRESS)
+    developer_args.add_argument("--dev-split-max-query-distance-mult", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
+
+
     #developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 
     config=parser.parse_args()
@@ -198,13 +219,7 @@ def from_cmdline():
     config.minsupport_auto_regional_coverage_weight=0.75
 
     if config.minsupport_auto_mult==None:
-        if config.non_germline:
-            config.minsupport_auto_mult=0.025
-        else:
-            config.minsupport_auto_mult=0.1
-
-    if config.non_germline:
-        config.qc_nm=True
+        config.minsupport_auto_mult=0.1
 
     config.coverage_binsize=config.cluster_binsize
     config.coverage_binsize_combine=config.cluster_binsize*config.cluster_binsize_combine_mult
@@ -225,7 +240,6 @@ def from_cmdline():
 
     #BND
     config.bnd_cluster_length=1000
-    config.bnd_cluster_resplit=0
 
     #Genotyping
     config.genotype_format="GT:GQ:DR:DV"
@@ -237,7 +251,6 @@ def from_cmdline():
 
     #SNF
     config.snf_block_size=10**5
-    config.snf_combine_keep_open=True #Keep file handles open during .snf combining (might be an issue if the number of .snf files to merge is very large)
 
     #Combine
     config.combine_exhaustive=False
@@ -254,5 +267,16 @@ def from_cmdline():
     config.dev_profile=False
 
     config.workdir=os.getcwd()
+
+    #Mosaic
+    if config.mosaic_include_germline:
+        config.mosaic=True
+
+    config.qc_nm_measure=config.qc_nm
+    if config.mosaic:
+        #config.qc_coverage_max_change_frac=config.mosaic_qc_coverage_max_change_frac
+        config.qc_nm_measure=config.qc_nm_measure or config.mosaic_qc_nm
+        #config.qc_nm_mult=config.mosaic_qc_nm_mult
+        #config.qc_strand=config.mosaic_qc_strand
 
     return config

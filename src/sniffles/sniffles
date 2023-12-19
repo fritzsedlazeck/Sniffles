@@ -20,7 +20,6 @@ import collections
 import math
 import time
 import os
-from pathlib import Path
 import json
 
 import pysam
@@ -82,7 +81,7 @@ def Sniffles2_Main(config,processes):
         util.fatal_error_main(f"Failed to determine run mode from input. Please specify either: A single .bam file - OR - one or more .snf files - OR - a single .tsv file containing a list of .snf files and optional sample ids as input. (supplied were: {list(set(input_ext))})")
 
     if config.mode != "call_sample" and config.snf != None:
-        util.fatal_error_main(f"--snf cannot be used with run mode {mode}")
+        util.fatal_error_main(f"--snf cannot be used with run mode {config.mode}")
 
     if config.vcf == None and config.snf == None:
         util.fatal_error_main("Please specify at least one of: --vcf or --snf for output (both may be used at the same time)")
@@ -185,8 +184,6 @@ def Sniffles2_Main(config,processes):
         if os.path.exists(config.vcf) and not config.allow_overwrite:
             util.fatal_error_main(f"Output file '{config.vcf}' already exists! Use --allow-overwrite to ignore this check and overwrite.")
         else:
-            if not Path(config.vcf).parent.exists():
-                Path(config.vcf).parent.mkdir(parents=True)
             if config.vcf_output_bgz:
                 if not config.sort:
                     util.fatal_error_main(".gz (bgzip) output is only supported with sorting enabled")
@@ -333,7 +330,7 @@ def Sniffles2_Main(config,processes):
                     sample_id,_=os.path.splitext(os.path.basename(input_filename))
             config.snf_input_info.append({"internal_id":snf_internal_id, "sample_id": sample_id, "filename": input_filename})
             snf_internal_id+=1
-            snf_in.handle.close()
+            snf_in.close()
 
         if not config.combine_consensus:
             for info in config.snf_input_info:

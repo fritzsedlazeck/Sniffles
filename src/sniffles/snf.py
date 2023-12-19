@@ -24,6 +24,14 @@ class SNFile:
         self.index={}
         self.total_length=0
 
+    def is_open(self):
+        return self.handle!=False
+
+    def open(self):
+        if self.handle!=False:
+            self.close()
+        self.handle=open(self.filename,"rb")
+
     def store(self,svcand):
         block_index=int(svcand.pos/self.config.snf_block_size)*self.config.snf_block_size
         if not block_index in self.blocks:
@@ -77,6 +85,8 @@ class SNFile:
         return pickle.loads(data)
 
     def write_and_index(self):
+        if not self.is_open():
+            self.open()
         offset=0
         for block_id in sorted(self.blocks):
             data=gzip.compress(self.serialize_block(block_id))
@@ -85,8 +95,12 @@ class SNFile:
             self.index[block_id]=(offset,data_len)
             offset+=data_len
             self.total_length+=data_len
+        if self.config.combine_close_handles:
+            self.close()
 
     def read_header(self):
+        if not self.is_open():
+            self.open()
         try:
             header_text=self.handle.readline()
             self.header_length=len(header_text)
@@ -95,13 +109,21 @@ class SNFile:
             print(f"Error when reading SNF header from '{self.filename}': {e}. The file may not be a valid .snf file or could have been corrupted.")
             raise e
         self.index=self.header["index"]
+        if self.config.combine_close_handles:
+            self.close()
 
     def read_blocks(self,contig,block_index):
+        if not self.is_open():
+            self.open()
         block_index=str(block_index)
         if not contig in self.index:
+            if self.config.combine_close_handles:
+                self.close()
             return None
 
         if not block_index in self.index[contig]:
+            if self.config.combine_close_handles:
+                self.close()
             return None
 
         blocks=[]
@@ -112,7 +134,11 @@ class SNFile:
                 blocks.append(self.unserialize_block(data))
             except Exception as e:
                 print(f"Error when reading block '{contig}.{block_index}' from '{self.filename}': {e}. The file may not be a valid .snf file or could have been corrupted.")
+                if self.config.combine_close_handles:
+                    self.close()
                 raise e
+        if self.config.combine_close_handles:
+            self.close()
         return blocks
 
     def get_index(self):
@@ -122,4 +148,6 @@ class SNFile:
         return self.total_length
 
     def close(self):
-        self.handle.close()
+        if self.handle!=False:
+            self.handle.close()
+            self.handle=False
