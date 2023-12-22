@@ -50,6 +50,14 @@ class Task:
 
         return self._logger
 
+    def clean(self) -> 'Task':
+        """
+        Ensure this task is pickleable. This method will be called before sending this task to another process.
+        """
+        self.bam = None
+        self._logger = None
+        return self
+
     def build_leadtab(self, config):
         assert (self.lead_provider is None)
 

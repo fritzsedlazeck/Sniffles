@@ -17,7 +17,7 @@ class Result:
     svcount: int
 
     def __init__(self, task: Task, svcalls: list[SVCall], candidates_processed: int):
-        self.task = task
+        self.task = task.clean()
         self.processed_read_count = candidates_processed
         self.svcount = len(svcalls)
         self.store_calls(svcalls)

@@ -166,9 +166,9 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
         genotype_contig_svs = {}
         genotype_lineindex_svcalls_returned = {}
         for svcall in vcf_in.read_svs_iter():
-            if not svcall.contig in genotype_contig_svs:
+            if svcall.contig not in genotype_contig_svs:
                 genotype_contig_svs[svcall.contig] = []
-            assert (not svcall.raw_vcf_line_index in genotype_lineindex_svs)
+            assert (svcall.raw_vcf_line_index not in genotype_lineindex_svs)
             genotype_lineindex_order.append(svcall.raw_vcf_line_index)
             genotype_lineindex_svs[svcall.raw_vcf_line_index] = svcall
             genotype_contig_svs[svcall.contig].append(svcall)
@@ -440,14 +440,12 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
         print(f"{read_progress}{tasks_done_count}/{len(tasks_list)} tasks done; parallel {len(processes_busy)}/{len(processes)};{count_str} {mem_str}")
 
     last_tasks_todo = len(tasks_todo)
-    externals_count = 0
     tasks_done_count = 0
     processed_read_count = 0
     sv_count = 0
     snf_candidate_count = 0
     last_processed_read_pct = 0
     time_build_start = time.time()
-    seed = 100
     while len(tasks_todo) > 0 or len(processes_busy) > 0:
         while len(processes_free) > 0 and len(tasks_todo) > 0:
             task = tasks_todo.pop(0)
