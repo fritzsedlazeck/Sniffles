@@ -476,7 +476,7 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
                     processes_free.append(proc)
                     tasks_done_count += 1
 
-                    task_id = result.task.id
+                    task_id = result.task_id
                     task = tasks_list[task_id]
                     assert (task.id == task_id)
 
@@ -640,6 +640,11 @@ if __name__ == "__main__":
                 'console': {
                     'class': 'logging.StreamHandler',
                     'formatter': 'default',
+                }
+            },
+            'loggers': {
+                'sniffles.progress': {
+                    'level': logging.WARNING,
                 }
             },
             'root': {

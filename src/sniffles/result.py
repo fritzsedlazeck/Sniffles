@@ -1,7 +1,6 @@
+import os
 import pickle
-from typing import Union
 
-from sniffles.parallel import Task
 from sniffles.sv import SVCall
 from sniffles.vcf import VCF
 
@@ -11,19 +10,24 @@ class Result:
     A generic result of a sniffles task executed by a worker process.
     """
     processed_read_count: int
-    task: Task
+    task_id: int
     processed_read_count: int
     svcalls: list[SVCall]
     svcount: int
 
-    def __init__(self, task: Task, svcalls: list[SVCall], candidates_processed: int):
-        self.task = task.clean()
+    def __init__(self, task: 'Task', svcalls: list[SVCall], candidates_processed: int):
+        self.task_id = task.id
         self.processed_read_count = candidates_processed
         self.svcount = len(svcalls)
         self.store_calls(svcalls)
 
     def store_calls(self, svcalls):
         self.svcalls = svcalls
+
+    def cleanup(self):
+        """
+        Optional clean up code after writing this result
+        """
 
 
 class CallResult(Result):
@@ -59,7 +63,7 @@ class CombineResultTmpFile(CombineResult):
     """
     @property
     def tmpfile_name(self) -> str:
-        return f'tmp-{self.task.contig}-{self.task.id}.part'
+        return f'tmp{self.task_id}.part'
 
     def store_calls(self, svcalls):
         with open(self.tmpfile_name, 'wb') as f:
@@ -69,3 +73,6 @@ class CombineResultTmpFile(CombineResult):
     def svcalls(self) -> list[SVCall]:
         with open(self.tmpfile_name, 'rb') as f:
             return pickle.loads(f.read())
+
+    def cleanup(self):
+        os.unlink(self.tmpfile_name)

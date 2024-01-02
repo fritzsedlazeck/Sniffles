@@ -261,7 +261,7 @@ class SnifflesConfig(argparse.Namespace):
         self.add_mosaic_args(parser)
         self.add_developer_args(parser)
 
-        parser.parse_args(namespace=self)
+        parser.parse_args(args=args or None, namespace=self)
 
         if self.quiet:
             sys.stdout = open(os.devnull, "w")

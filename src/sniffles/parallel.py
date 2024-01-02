@@ -23,6 +23,7 @@ from sniffles import cluster
 from sniffles import sv
 from sniffles import postprocessing
 from sniffles import snf
+from sniffles.result import Result
 
 
 @dataclass
@@ -50,13 +51,11 @@ class Task:
 
         return self._logger
 
-    def clean(self) -> 'Task':
+    def execute(self) -> Result:
         """
-        Ensure this task is pickleable. This method will be called before sending this task to another process.
+        Execute this Task, returning a Result object
         """
-        self.bam = None
-        self._logger = None
-        return self
+        return Result(self, [], 0)
 
     def build_leadtab(self, config):
         assert (self.lead_provider is None)
@@ -126,6 +125,10 @@ class Task:
 class CallTask(Task):
     """
     """
+
+
+class GenotypeTask(Task):
+    ...
 
 
 class CombineTask(Task):
@@ -334,7 +337,6 @@ def Main_Internal(proc_id, config, pipe):
 
         if command == "call_sample":
             task = arg
-            result = {}
 
             if config.snf is not None or config.no_qc:
                 qc = False
@@ -373,7 +375,6 @@ def Main_Internal(proc_id, config, pipe):
 
         elif command == "genotype_vcf":
             task = arg
-            result = {}
 
             qc = False
             _, read_count = task.build_leadtab(config)

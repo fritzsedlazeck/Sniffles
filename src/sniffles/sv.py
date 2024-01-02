@@ -81,13 +81,6 @@ class SVCall:
     def finalize(self):
         self.postprocess = None
 
-    def __new__(cls, *args, **kwargs):
-        cls._counter += 1
-        return super().__new__(cls)
-
-    def __del__(self):
-        SVCall._counter -= 1
-
 
 @dataclass
 class SVGroup:

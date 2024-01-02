@@ -142,9 +142,11 @@ class VCF:
         self.write_raw("##" + text)
 
     def write_call(self, call):
-        # pysam coordinates are 0-based, VCF 1-based - therefore +1 is added to call.pos
-        end = call.end + 1
-        pos = call.pos + 1
+        # pysam coordinates are 0-based, VCF 1-based
+        # but VCF also requires the index of the base before the SV to be reported,
+        # so we are fine without offsetting
+        end = call.end
+        pos = call.pos
 
         # Determine genotypes columns
         ac = 0  # Allele count
@@ -205,10 +207,10 @@ class VCF:
         #    call.id=f"Sniffles2.{call.svtype}.{self.call_count+1:06}"
 
         # Resolve DEL sequence
-        if not self.config.symbolic and call.svtype == "DEL" and self.reference_handle != None and abs(call.svlen) <= self.config.max_del_seq_len:
+        if not self.config.symbolic and call.svtype == "DEL" and self.reference_handle is not None and abs(call.svlen) <= self.config.max_del_seq_len:
             try:
-                call.ref = self.reference_handle.fetch(call.contig, call.pos, call.pos - call.svlen)
-                call.alt = "N"
+                call.ref = self.reference_handle.fetch(call.contig, call.pos - 1, call.pos - call.svlen)  # VCF requires inclusion of the last reference base before the SV
+                call.alt = call.ref[0]
             except KeyError:
                 call.ref = "N"
                 call.alt = f"<{call.svtype}>"
@@ -219,6 +221,14 @@ class VCF:
         if self.config.symbolic:
             call.ref = "N"
             call.alt = f"<{call.svtype}>"
+        else:
+            if self.reference_handle is not None and call.ref == 'N':
+                if call.svtype == "INS":
+                    # Fetch the base before the SV
+                    call.ref = self.reference_handle.fetch(call.contig, start := max(0, call.pos - 1), start+1)
+                    call.alt = call.ref + call.alt
+                elif call.svtype != 'DEL':
+                    call.ref = self.reference_handle.fetch(call.contig, start := max(0, call.pos - 1), start+1)
 
         call.qual = max(0, min(60, call.qual))
 
