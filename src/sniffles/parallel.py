@@ -61,7 +61,10 @@ class Task:
     def build_leadtab(self, config):
         assert (self.lead_provider is None)
 
-        self.bam = pysam.AlignmentFile(config.input, config.input_mode, require_index=True)
+        if config.input_is_cram and config.reference is not None:
+            self.bam = pysam.AlignmentFile(config.input, config.input_mode, require_index=True, reference_filename=config.reference)
+        else:
+            self.bam = pysam.AlignmentFile(config.input, config.input_mode, require_index=True)
         self.lead_provider = leadprov.LeadProvider(config, self.id * config.task_read_id_offset_mult)
         externals = self.lead_provider.build_leadtab(self.contig, self.start, self.end, self.bam)
         return externals, self.lead_provider.read_count
