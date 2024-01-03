@@ -223,12 +223,16 @@ class VCF:
             call.alt = f"<{call.svtype}>"
         else:
             if self.reference_handle is not None and call.ref == 'N':
+                # Fetch the base before the SV
+                try:
+                    call.ref = self.reference_handle.fetch(call.contig, start := max(0, call.pos - 1), start + 1)
+                except (KeyError, ValueError):
+                    ...
+
                 if call.svtype == "INS":
-                    # Fetch the base before the SV
-                    call.ref = self.reference_handle.fetch(call.contig, start := max(0, call.pos - 1), start+1)
                     call.alt = call.ref + call.alt
-                elif call.svtype != 'DEL':
-                    call.ref = self.reference_handle.fetch(call.contig, start := max(0, call.pos - 1), start+1)
+                elif call.svtype == 'BND':
+                    call.alt = (call.ref + call.alt[1:]) if call.alt.startswith('N') else call.alt[:-1] + call.ref
 
         call.qual = max(0, min(60, call.qual))
 
