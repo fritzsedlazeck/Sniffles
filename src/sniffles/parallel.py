@@ -9,6 +9,7 @@
 #
 import copy
 import logging
+import multiprocessing
 from argparse import Namespace
 
 from dataclasses import dataclass
@@ -23,7 +24,7 @@ from sniffles import cluster
 from sniffles import sv
 from sniffles import postprocessing
 from sniffles import snf
-from sniffles.result import Result
+from sniffles.result import Result, ErrorResult, CallResult, GenotypeResult
 
 
 @dataclass
@@ -51,14 +52,16 @@ class Task:
 
         return self._logger
 
-    def execute(self) -> Result:
+    def execute(self) -> Optional[Result]:
         """
         Execute this Task, returning a Result object
         """
-        return Result(self, [], 0)
+        raise NotImplemented
 
-    def build_leadtab(self, config):
+    def build_leadtab(self):
         assert (self.lead_provider is None)
+
+        config = self.config
 
         if config.input_is_cram and config.reference is not None:
             self.bam = pysam.AlignmentFile(config.input, config.input_mode, require_index=True, reference_filename=config.reference)
@@ -126,9 +129,113 @@ class CallTask(Task):
     """
     """
 
+    def execute(self) -> CallResult:
+        config = self.config
+
+        if config.snf is not None or config.no_qc:
+            qc = False
+        else:
+            qc = True
+
+        _, read_count = self.build_leadtab()
+        svcandidates = self.call_candidates(qc, config)
+        svcalls = self.finalize_candidates(svcandidates, not qc, config)
+        if not config.no_qc:
+            svcalls = [s for s in svcalls if s.qc]
+
+        from sniffles.result import CallResult
+        result = CallResult(self, svcalls, read_count)
+
+        if config.snf is not None:  # and len(svcandidates):
+            snf_filename = f"{config.snf}.tmp_{self.id}.snf"
+
+            with open(snf_filename, "wb") as handle:
+                snf_out = snf.SNFile(config, handle)
+                for cand in svcandidates:
+                    snf_out.store(cand)
+                snf_out.annotate_block_coverages(self.lead_provider)
+                snf_out.write_and_index()
+                handle.close()
+            result.snf_filename = snf_filename
+            result.snf_index = snf_out.get_index()
+            result.snf_total_length = snf_out.get_total_length()
+            result.snf_candidate_count = len(svcandidates)
+            result.has_snf = True
+
+        result.coverage_average_total = self.coverage_average_total
+
+        return result
+
 
 class GenotypeTask(Task):
-    ...
+    def execute(self) -> Optional[GenotypeResult]:
+        config = self.config
+
+        qc = False
+        _, read_count = self.build_leadtab()
+        svcandidates = self.call_candidates(qc, config=config)
+        svcalls = self.finalize_candidates(svcandidates, not qc, config=config)
+
+        binsize = 5000
+        binedge = int(binsize / 10)
+        genotype_svs_svtypes_bins = {svtype: {} for svtype in sv.TYPES}
+        for genotype_sv in self.genotype_svs:
+            genotype_sv.genotype_match_sv = None
+            genotype_sv.genotype_match_dist = math.inf
+
+            if genotype_sv.svtype not in genotype_svs_svtypes_bins:
+                # TODO: Warn about unsupported SVTYPE
+                continue
+
+            bins = [int(genotype_sv.pos / binsize) * binsize]
+            if genotype_sv.pos % binsize < binedge:
+                bins.append((int(genotype_sv.pos / binsize) - 1) * binsize)
+            if genotype_sv.pos % binsize > binsize - binedge:
+                bins.append((int(genotype_sv.pos / binsize) + 1) * binsize)
+
+            for bin in bins:
+                if bin not in genotype_svs_svtypes_bins[genotype_sv.svtype]:
+                    genotype_svs_svtypes_bins[genotype_sv.svtype][bin] = []
+                genotype_svs_svtypes_bins[genotype_sv.svtype][bin].append(genotype_sv)
+
+        for cand in svcandidates:
+            bin = int(cand.pos / binsize) * binsize
+            if bin not in genotype_svs_svtypes_bins[cand.svtype]:
+                continue
+            if cand.svtype == "BND":
+                for genotype_sv in genotype_svs_svtypes_bins[cand.svtype][bin]:
+                    dist = abs(genotype_sv.pos - cand.pos)
+                    # if minlen>0 and dist < genotype_sv.genotype_match_dist and dist <= config.cluster_merge_bnd * 2:
+                    if dist < genotype_sv.genotype_match_dist and dist <= config.cluster_merge_bnd:
+                        if cand.bnd_info.mate_contig == genotype_sv.bnd_info.mate_contig:
+                            genotype_sv.genotype_match_sv = cand
+                            genotype_sv.genotype_match_dist = dist
+            else:
+                for genotype_sv in genotype_svs_svtypes_bins[cand.svtype][bin]:
+                    dist = abs(genotype_sv.pos - cand.pos) + abs(abs(genotype_sv.svlen) - abs(cand.svlen))
+                    minlen = float(min(abs(genotype_sv.svlen), abs(cand.svlen)))
+                    if minlen > 0 and dist < genotype_sv.genotype_match_dist and dist <= config.combine_match * math.sqrt(
+                            minlen) and dist <= config.combine_match_max:
+                        genotype_sv.genotype_match_sv = cand
+                        genotype_sv.genotype_match_dist = dist
+
+        postprocessing.coverage(self.genotype_svs, self.lead_provider, config)
+
+        # Determine genotypes for unmatched input SVs
+        for svcall in self.genotype_svs:
+            coverage_list = [svcall.coverage_start, svcall.coverage_center, svcall.coverage_end]
+            coverage_list = [c for c in coverage_list if c is not None]
+            if len(coverage_list) == 0:
+                return
+            coverage = round(sum(coverage_list) / len(coverage_list))
+            svcall.genotypes = {}
+            if coverage > 0:
+                svcall.genotypes[0] = (0, 0, 0, coverage, 0, None)
+            else:
+                svcall.genotypes[0] = config.genotype_none
+
+        from sniffles.result import GenotypeResult
+        return GenotypeResult(self, self.genotype_svs, read_count)
 
 
 class CombineTask(Task):
@@ -310,12 +417,76 @@ class CombineTask(Task):
         return CombineResult(self, svcalls, candidates_processed)
 
 
-@dataclass
+class ShutdownTask(Task):
+    def execute(self) -> Result:
+        raise Process.Shutdown
+
+
 class Process:
+    """
+    Handle for a worker process. Since we're forking, this class will be available in
+    both the parent and the worker processes.
+    """
     id: int
-    process: object = None
-    pipe_main: object = None
     externals: list = None
+    _running = False
+
+    class Shutdown(Exception):
+        """
+        Indicates this process should shut down
+        """
+
+    def __init__(self, process_id: int, config: Namespace, tasks: list[Task]):
+        self.id = process_id
+        self.config = config
+        self.tasks = tasks
+        self.task = None
+
+        self.pipe_main, self.pipe_worker = multiprocessing.Pipe()
+
+        self.process = multiprocessing.Process(
+            target=self.run
+        )
+
+    def start(self) -> None:
+        self._running = True
+        self.process.start()
+
+        while self._running:
+            if self.task is None:
+                self.task = self.tasks.pop(0)
+                self.pipe_main.send(self.task)
+
+            if self.pipe_main.poll(0.01):
+                result: Result = self.pipe_main.recv()
+
+                if result.error:
+                    logging.error(f'Error in process #{self.id}: {result}')
+                else:
+                    # Process result
+                    result
+
+
+    def run(self):
+        """
+        Entry point/main loop for the worker process
+        """
+        while self._running:
+            try:
+                task = self.pipe_worker.recv()
+
+                result = task.execute()
+
+                if result is not None:
+                    self.pipe_main.send(result)
+
+                del task
+                gc.collect()
+            except self.Shutdown:
+                self._running = False
+            except Exception as e:
+                self.pipe_main.send(ErrorResult(e))
+
 
 
 def Main(proc_id, config, pipe):
@@ -338,37 +509,6 @@ def Main_Internal(proc_id, config, pipe):
         if command == "call_sample":
             task = arg
 
-            if config.snf is not None or config.no_qc:
-                qc = False
-            else:
-                qc = True
-
-            _, read_count = task.build_leadtab(config)
-            svcandidates = task.call_candidates(qc, config)
-            svcalls = task.finalize_candidates(svcandidates, not qc, config)
-            if not config.no_qc:
-                svcalls = [s for s in svcalls if s.qc]
-
-            from sniffles.result import CallResult
-            result = CallResult(task, svcalls, read_count)
-
-            if config.snf is not None:  # and len(svcandidates):
-                snf_filename = f"{config.snf}.tmp_{task.id}.snf"
-
-                with open(snf_filename, "wb") as handle:
-                    snf_out = snf.SNFile(config, handle)
-                    for cand in svcandidates:
-                        snf_out.store(cand)
-                    snf_out.annotate_block_coverages(task.lead_provider)
-                    snf_out.write_and_index()
-                    handle.close()
-                result.snf_filename = snf_filename
-                result.snf_index = snf_out.get_index()
-                result.snf_total_length = snf_out.get_total_length()
-                result.snf_candidate_count = len(svcandidates)
-                result.has_snf = True
-
-            result.coverage_average_total = task.coverage_average_total
             pipe.send(["return_call_sample", result])
             del task
             gc.collect()
@@ -376,71 +516,6 @@ def Main_Internal(proc_id, config, pipe):
         elif command == "genotype_vcf":
             task = arg
 
-            qc = False
-            _, read_count = task.build_leadtab(config)
-            svcandidates = task.call_candidates(qc, config=config)
-            svcalls = task.finalize_candidates(svcandidates, not qc, config=config)
-
-            binsize = 5000
-            binedge = int(binsize / 10)
-            genotype_svs_svtypes_bins = {svtype: {} for svtype in sv.TYPES}
-            for genotype_sv in task.genotype_svs:
-                genotype_sv.genotype_match_sv = None
-                genotype_sv.genotype_match_dist = math.inf
-
-                if genotype_sv.svtype not in genotype_svs_svtypes_bins:
-                    # TODO: Warn about unsupported SVTYPE
-                    continue
-
-                bins = [int(genotype_sv.pos / binsize) * binsize]
-                if genotype_sv.pos % binsize < binedge:
-                    bins.append((int(genotype_sv.pos / binsize) - 1) * binsize)
-                if genotype_sv.pos % binsize > binsize - binedge:
-                    bins.append((int(genotype_sv.pos / binsize) + 1) * binsize)
-
-                for bin in bins:
-                    if bin not in genotype_svs_svtypes_bins[genotype_sv.svtype]:
-                        genotype_svs_svtypes_bins[genotype_sv.svtype][bin] = []
-                    genotype_svs_svtypes_bins[genotype_sv.svtype][bin].append(genotype_sv)
-
-            for cand in svcandidates:
-                bin = int(cand.pos / binsize) * binsize
-                if bin not in genotype_svs_svtypes_bins[cand.svtype]:
-                    continue
-                if cand.svtype == "BND":
-                    for genotype_sv in genotype_svs_svtypes_bins[cand.svtype][bin]:
-                        dist = abs(genotype_sv.pos - cand.pos)
-                        # if minlen>0 and dist < genotype_sv.genotype_match_dist and dist <= config.cluster_merge_bnd * 2:
-                        if dist < genotype_sv.genotype_match_dist and dist <= config.cluster_merge_bnd:
-                            if cand.bnd_info.mate_contig == genotype_sv.bnd_info.mate_contig:
-                                genotype_sv.genotype_match_sv = cand
-                                genotype_sv.genotype_match_dist = dist
-                else:
-                    for genotype_sv in genotype_svs_svtypes_bins[cand.svtype][bin]:
-                        dist = abs(genotype_sv.pos - cand.pos) + abs(abs(genotype_sv.svlen) - abs(cand.svlen))
-                        minlen = float(min(abs(genotype_sv.svlen), abs(cand.svlen)))
-                        if minlen > 0 and dist < genotype_sv.genotype_match_dist and dist <= config.combine_match * math.sqrt(
-                                minlen) and dist <= config.combine_match_max:
-                            genotype_sv.genotype_match_sv = cand
-                            genotype_sv.genotype_match_dist = dist
-
-            postprocessing.coverage(task.genotype_svs, task.lead_provider, config)
-
-            # Determine genotypes for unmatched input SVs
-            for svcall in task.genotype_svs:
-                coverage_list = [svcall.coverage_start, svcall.coverage_center, svcall.coverage_end]
-                coverage_list = [c for c in coverage_list if c is not None]
-                if len(coverage_list) == 0:
-                    return
-                coverage = round(sum(coverage_list) / len(coverage_list))
-                svcall.genotypes = {}
-                if coverage > 0:
-                    svcall.genotypes[0] = (0, 0, 0, coverage, 0, None)
-                else:
-                    svcall.genotypes[0] = config.genotype_none
-
-            from sniffles.result import GenotypeResult
-            result = GenotypeResult(task, task.genotype_svs, read_count)
 
             pipe.send(["return_genotype_vcf", result])
             del task

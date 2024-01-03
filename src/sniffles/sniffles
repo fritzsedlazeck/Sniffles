@@ -29,7 +29,7 @@ import pysam
 
 from dataclasses import dataclass
 
-from sniffles import config
+from sniffles.config import SnifflesConfig
 from sniffles import vcf
 from sniffles import snf
 from sniffles import parallel
@@ -66,10 +66,11 @@ if DEV_MONITOR_MEM:
 # END:TODO
 
 
-def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
+def Sniffles2_Main(processes: list):
     #
     # Determine Sniffles2 run mode
     #
+    config = SnifflesConfig()
 
     input_ext = [f.split(".")[-1].lower() for f in config.input]
 
@@ -234,6 +235,11 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
         #
         # Process .bam header
         #
+        task_classes = {
+            'call_sample': parallel.CallTask,
+            'genotype_vcf': parallel.GenotypeTask,
+        }
+
         total_mapped = bam_in.mapped
         if (config.threads == 1 and not config.low_memory) or config.task_count_multiplier == 0:
             task_max_reads = total_mapped
@@ -273,7 +279,7 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
                 else:
                     genotype_svs = None
 
-                task = parallel.Task(
+                task = task_classes[config.mode](
                     id=task_id,
                     contig=contig_str,
                     start=startpos,
@@ -383,20 +389,14 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
     #
     # Start workers
     #
-    for proc in range(config.threads):
-        pipe_main, pipe_proc = multiprocessing.Pipe()
-        proc = parallel.Process(id=proc, process=multiprocessing.Process(target=parallel.Main, args=(proc, config, pipe_proc)), pipe_main=pipe_main, externals=[])
-        processes.append(proc)
-
-    processes_free = [p for p in processes]
-    processes_busy = []
-    tasks_todo = [t for t in tasks_list]
+    for pnum in range(config.threads):
+        processes.append(parallel.Process(process_id=pnum, config=config, tasks=tasks_list))
 
     if config.vcf is not None and config.sort:
         task_id_calls = {}
 
     for proc in processes:
-        proc.process.start()
+        proc.start()
 
     print("")
     if config.mode == "call_sample" or config.mode == "genotype_vcf":
@@ -657,7 +657,7 @@ if __name__ == "__main__":
         logging.exception(f'Error configuring loggers.')
 
     try:
-        Sniffles2_Main(config.SnifflesConfig(), processes)
+        Sniffles2_Main(processes)
     except util.Sniffles2Exit:
         if len(processes):
             # Allow time for child process error messages to propagate

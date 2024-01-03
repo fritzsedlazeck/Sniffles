@@ -1,5 +1,6 @@
 import os
 import pickle
+import sys
 
 from sniffles.sv import SVCall
 from sniffles.vcf import VCF
@@ -14,6 +15,7 @@ class Result:
     processed_read_count: int
     svcalls: list[SVCall]
     svcount: int
+    error: bool = False
 
     def __init__(self, task: 'Task', svcalls: list[SVCall], candidates_processed: int):
         self.task_id = task.id
@@ -76,3 +78,13 @@ class CombineResultTmpFile(CombineResult):
 
     def cleanup(self):
         os.unlink(self.tmpfile_name)
+
+
+class ErrorResult:
+    error = True
+
+    def __init__(self, ex: Exception):
+        self.message = f'{ex}'
+
+    def __str__(self):
+        return self.message
