@@ -105,6 +105,8 @@ def Sniffles2_Main(processes: list):
     if config.vcf is None and config.snf is None:
         util.fatal_error_main("Please specify at least one of: --vcf or --snf for output (both may be used at the same time)")
 
+    log = logging.getLogger('sniffles.main')
+
     if config.mode == "call_sample":
         if config.sample_id is None:
             # config.sample_id,_=os.path.splitext(os.path.basename(config.input))
@@ -390,13 +392,17 @@ def Sniffles2_Main(processes: list):
     # Start workers
     #
     for pnum in range(config.threads):
-        processes.append(parallel.Process(process_id=pnum, config=config, tasks=tasks_list))
+        processes.append(parallel.SnifflesWorker(process_id=pnum, config=config, tasks=tasks_list))
 
     if config.vcf is not None and config.sort:
         task_id_calls = {}
 
     for proc in processes:
         proc.start()
+
+
+    for proc in processes:
+        proc.join()
 
     print("")
     if config.mode == "call_sample" or config.mode == "genotype_vcf":
@@ -414,95 +420,95 @@ def Sniffles2_Main(processes: list):
     #
     analysis_start_time = time.time()
 
-    def show_progress():
-        if config.no_progress:
-            return
+    # def show_progress():
+    #     if config.no_progress:
+    #         return
+    #
+    #     if processed_read_count > 1000:
+    #         obj_title = "?"
+    #         if config.mode == "call_sample" or config.mode == "genotype_vcf":
+    #             obj_title = "alignments"
+    #         elif config.mode == "combine":
+    #             obj_title = "candidates"
+    #         read_progress = f"{str(processed_read_count).rjust(len(str(total_mapped)))}/{total_mapped} {obj_title} processed ({int(100 * float(processed_read_count / total_mapped))}%, {int(processed_read_count / (time.time() - time_build_start))}/s); "
+    #     else:
+    #         read_progress = "(Estimating progress); "
+    #     if DEV_MONITOR_MEM:
+    #         mem_str = f" [DEV: Total memory usage={dbg_get_total_memory_usage_MB():.2f}MB]"
+    #     else:
+    #         mem_str = ""
+    #
+    #     count_str = ""
+    #     if config.mode == "call_sample" and config.snf is not None:
+    #         count_str += f" {snf_candidate_count} candidates."
+    #     if (config.mode == "call_sample" and config.vcf is not None) or config.mode == "combine":
+    #         count_str += f" {sv_count} SVs."
+    #     print(f"{read_progress}{tasks_done_count}/{len(tasks_list)} tasks done; parallel {len(processes_busy)}/{len(processes)};{count_str} {mem_str}")
 
-        if processed_read_count > 1000:
-            obj_title = "?"
-            if config.mode == "call_sample" or config.mode == "genotype_vcf":
-                obj_title = "alignments"
-            elif config.mode == "combine":
-                obj_title = "candidates"
-            read_progress = f"{str(processed_read_count).rjust(len(str(total_mapped)))}/{total_mapped} {obj_title} processed ({int(100 * float(processed_read_count / total_mapped))}%, {int(processed_read_count / (time.time() - time_build_start))}/s); "
-        else:
-            read_progress = "(Estimating progress); "
-        if DEV_MONITOR_MEM:
-            mem_str = f" [DEV: Total memory usage={dbg_get_total_memory_usage_MB():.2f}MB]"
-        else:
-            mem_str = ""
-
-        count_str = ""
-        if config.mode == "call_sample" and config.snf is not None:
-            count_str += f" {snf_candidate_count} candidates."
-        if (config.mode == "call_sample" and config.vcf is not None) or config.mode == "combine":
-            count_str += f" {sv_count} SVs."
-        print(f"{read_progress}{tasks_done_count}/{len(tasks_list)} tasks done; parallel {len(processes_busy)}/{len(processes)};{count_str} {mem_str}")
-
-    last_tasks_todo = len(tasks_todo)
-    tasks_done_count = 0
-    processed_read_count = 0
-    sv_count = 0
-    snf_candidate_count = 0
-    last_processed_read_pct = 0
-    time_build_start = time.time()
-    while len(tasks_todo) > 0 or len(processes_busy) > 0:
-        while len(processes_free) > 0 and len(tasks_todo) > 0:
-            task = tasks_todo.pop(0)
-            proc = processes_free.pop()
-            processes_busy.append(proc)
-            assert (task.assigned_process_id is None)
-            task.assigned_process_id = proc.id
-            proc.pipe_main.send([config.mode, task])
-
-        if total_mapped > 0:
-            # Progress disabled for CRAM files due to total read count not being stored in index
-            processed_read_pct = int(100 * float(processed_read_count / total_mapped))
-            if len(tasks_todo) != last_tasks_todo and processed_read_pct - last_processed_read_pct >= 5:
-                last_processed_read_pct = processed_read_pct
-                show_progress()
-                last_tasks_todo = len(tasks_todo)
-
-        if len(processes_busy) > 0:
-            for proc in processes_busy:
-                if proc.pipe_main.poll(0.01):
-                    # Process has finished building leadtab, receive and distribute leads that need to be synced
-                    command, result = proc.pipe_main.recv()
-                    if command == "worker_exception":
-                        util.fatal_error_main("An exception occured in a worker process (see surrounding error messages)")
-                    assert (command == "return_" + config.mode)
-                    processed_read_count += result.processed_read_count
-                    processes_busy.remove(proc)
-                    processes_free.append(proc)
-                    tasks_done_count += 1
-
-                    task_id = result.task_id
-                    task = tasks_list[task_id]
-                    assert (task.id == task_id)
-
-                    if config.mode == "call_sample" or config.mode == "combine":
-                        if config.vcf is not None:
-                            sv_count += result.svcount
-
-                            if config.sort:
-                                if task_id not in task_id_calls:
-                                    task_id_calls[task_id] = []
-                                task_id_calls[task_id].extend(result.svcalls)
-                            else:
-                                for svcall in result.svcalls:
-                                    vcf_out.write_call(svcall)
-
-                    elif config.mode == "genotype_vcf":
-                        for svcall in result.svcalls:
-                            assert (svcall.raw_vcf_line_index not in genotype_lineindex_svcalls_returned)
-                            genotype_lineindex_svcalls_returned[svcall.raw_vcf_line_index] = svcall
-
-                    if config.mode == "call_sample":
-                        if config.snf is not None and result.has_snf:
-                            # if result["snf_candidate_count"] > 0:
-                            snf_candidate_count += result.snf_candidate_count
-                            snf_parts.append(result)
-                            contig_coverages[task.contig].append(result.coverage_average_total)
+    # last_tasks_todo = len(tasks_todo)
+    # tasks_done_count = 0
+    # processed_read_count = 0
+    # sv_count = 0
+    # snf_candidate_count = 0
+    # last_processed_read_pct = 0
+    # time_build_start = time.time()
+    # while len(tasks_todo) > 0 or len(processes_busy) > 0:
+    #     while len(processes_free) > 0 and len(tasks_todo) > 0:
+    #         task = tasks_todo.pop(0)
+    #         proc = processes_free.pop()
+    #         processes_busy.append(proc)
+    #         assert (task.assigned_process_id is None)
+    #         task.assigned_process_id = proc.id
+    #         proc.pipe_main.send([config.mode, task])
+    #
+    #     if total_mapped > 0:
+    #         # Progress disabled for CRAM files due to total read count not being stored in index
+    #         processed_read_pct = int(100 * float(processed_read_count / total_mapped))
+    #         if len(tasks_todo) != last_tasks_todo and processed_read_pct - last_processed_read_pct >= 5:
+    #             last_processed_read_pct = processed_read_pct
+    #             show_progress()
+    #             last_tasks_todo = len(tasks_todo)
+    #
+    #     if len(processes_busy) > 0:
+    #         for proc in processes_busy:
+    #             if proc.pipe_main.poll(0.01):
+    #                 # Process has finished building leadtab, receive and distribute leads that need to be synced
+    #                 command, result = proc.pipe_main.recv()
+    #                 if command == "worker_exception":
+    #                     util.fatal_error_main("An exception occured in a worker process (see surrounding error messages)")
+    #                 assert (command == "return_" + config.mode)
+    #                 processed_read_count += result.processed_read_count
+    #                 processes_busy.remove(proc)
+    #                 processes_free.append(proc)
+    #                 tasks_done_count += 1
+    #
+    #                 task_id = result.task_id
+    #                 task = tasks_list[task_id]
+    #                 assert (task.id == task_id)
+    #
+    #                 if config.mode == "call_sample" or config.mode == "combine":
+    #                     if config.vcf is not None:
+    #                         sv_count += result.svcount
+    #
+    #                         if config.sort:
+    #                             if task_id not in task_id_calls:
+    #                                 task_id_calls[task_id] = []
+    #                             task_id_calls[task_id].extend(result.svcalls)
+    #                         else:
+    #                             for svcall in result.svcalls:
+    #                                 vcf_out.write_call(svcall)
+    #
+    #                 elif config.mode == "genotype_vcf":
+    #                     for svcall in result.svcalls:
+    #                         assert (svcall.raw_vcf_line_index not in genotype_lineindex_svcalls_returned)
+    #                         genotype_lineindex_svcalls_returned[svcall.raw_vcf_line_index] = svcall
+    #
+    #                 if config.mode == "call_sample":
+    #                     if config.snf is not None and result.has_snf:
+    #                         # if result["snf_candidate_count"] > 0:
+    #                         snf_candidate_count += result.snf_candidate_count
+    #                         snf_parts.append(result)
+    #                         contig_coverages[task.contig].append(result.coverage_average_total)
 
     #
     # Store avg. coverages for .snf file
@@ -512,8 +518,8 @@ def Sniffles2_Main(processes: list):
             contig_coverages[contig] = sum(contig_coverages[contig]) / len(contig_coverages[contig]) if len(contig_coverages[contig]) > 0 else 0
         config.contig_coverages = contig_coverages
 
-    if total_mapped > 0:
-        show_progress()
+    # if total_mapped > 0:
+    #     show_progress()
     print(f"Took {time.time() - analysis_start_time:.2f}s.")
     print("")
 
@@ -608,6 +614,8 @@ def Sniffles2_Main(processes: list):
             print(f"Indexing VCF output took {time.time() - vcf_index_start_time:.2f}s.")
 
     print(f"Done.")
+
+    snf_candidate_count = 0
 
     if config.mode == "call_sample" and config.snf is not None:
         print(f"Wrote {snf_candidate_count} SV candidates to {config.snf} (for multi-sample calling).")

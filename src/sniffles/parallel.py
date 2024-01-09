@@ -10,6 +10,7 @@
 import copy
 import logging
 import multiprocessing
+import threading
 from argparse import Namespace
 
 from dataclasses import dataclass
@@ -417,12 +418,14 @@ class CombineTask(Task):
         return CombineResult(self, svcalls, candidates_processed)
 
 
-class ShutdownTask(Task):
+class ShutdownTask:
+    id = None
+
     def execute(self) -> Result:
-        raise Process.Shutdown
+        raise SnifflesWorker.Shutdown
 
 
-class Process:
+class SnifflesWorker(threading.Thread):
     """
     Handle for a worker process. Since we're forking, this class will be available in
     both the parent and the worker processes.
@@ -433,7 +436,7 @@ class Process:
 
     class Shutdown(Exception):
         """
-        Indicates this process should shut down
+        Indicates this worker process should shut down
         """
 
     def __init__(self, process_id: int, config: Namespace, tasks: list[Task]):
@@ -445,47 +448,78 @@ class Process:
         self.pipe_main, self.pipe_worker = multiprocessing.Pipe()
 
         self.process = multiprocessing.Process(
-            target=self.run
+            target=self.run_worker
         )
 
+        self._logger = logging.getLogger('sniffles.worker')
+
+        super().__init__(target=self.run_parent)
+
     def start(self) -> None:
+        self._logger.info(f'Starting worker {self.id}')
         self._running = True
         self.process.start()
+        return super().start()
 
+    def run_parent(self):
+        """
+        Worker thread
+        """
         while self._running:
             if self.task is None:
-                self.task = self.tasks.pop(0)
-                self.pipe_main.send(self.task)
-
-            if self.pipe_main.poll(0.01):
-                result: Result = self.pipe_main.recv()
-
-                if result.error:
-                    logging.error(f'Error in process #{self.id}: {result}')
+                # we are not working on something...
+                if len(self.tasks) > 0:
+                    # ...but there is more work to be done
+                    self.task = self.tasks.pop(0)
+                    self.pipe_main.send(self.task)
+                    self._logger.info(f'Dispatched task #{self.task.id} to worker {self.id} ({len(self.tasks)}  tasks left)')
                 else:
-                    # Process result
-                    result
+                    # ...and no more work, so we shut down this worker
+                    self._logger.info(f'Worker {self.id} shutting down...')
+                    self.pipe_main.send(ShutdownTask())
+                    self._running = False
+            else:
+                if self.pipe_main.poll(0.01):
+                    self._logger.debug(f'Worker {self.id} got something on return queue...')
+                    result: Result = self.pipe_main.recv()
+                    self.task = None
 
+                    if result.error:
+                        self._logger.error(f'Error in process #{self.id}: {result}')
+                    else:
+                        # Process result
+                        # todo
+                        self._logger.info(f'Got result: {result}')
 
-    def run(self):
+        self.process.join(10)
+        self._logger.info(f'Worker {self.id} done')
+
+    def run_worker(self):
         """
         Entry point/main loop for the worker process
         """
         while self._running:
             try:
+                self._logger.debug(f'Worker {self.id} waiting for tasks...')
+
                 task = self.pipe_worker.recv()
+
+                self._logger.debug(f'Worker {self.id} got task {task.id}')
 
                 result = task.execute()
 
+                self._logger.debug(f'Worker {self.id} finished executing {task.id}, sending back result...')
+
                 if result is not None:
-                    self.pipe_main.send(result)
+                    self.pipe_worker.send(result)
 
                 del task
                 gc.collect()
             except self.Shutdown:
                 self._running = False
             except Exception as e:
-                self.pipe_main.send(ErrorResult(e))
+                self._logger.exception(f'Error in worker process')
+                self.pipe_worker.send(ErrorResult(e))
 
 
 
