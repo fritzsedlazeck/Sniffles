@@ -33,10 +33,12 @@ If you previously installed Sniffles1 using conda and want to upgrade to Sniffle
 
 ## Citation
 Please cite our paper at:
+Sniffles v2: 
+https://www.nature.com/articles/s41587-023-02024-y
 
+and 
+Sniffles v1:
 https://www.nature.com/articles/s41592-018-0001-7
-
-A new preprint for the new methods and improvements introduced with Sniffles2 is here: https://www.biorxiv.org/content/10.1101/2022.04.04.487055v1
 
 ## Use-Cases / Modes
 
