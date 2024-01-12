@@ -333,13 +333,13 @@ class VCF:
                     has_gt_headers[gt] = True
         
         if not has_gt_headers["GT"]:
-            header_lines.insert(len(header_lines),'##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">')
+            header_lines.insert(len(header_lines)-2,'##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">')
         if not has_gt_headers["GQ"]:
-            header_lines.insert(len(header_lines),'##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">')
+            header_lines.insert(len(header_lines)-2,'##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">')
         if not has_gt_headers["DR"]:
-            header_lines.insert(len(header_lines),'##FORMAT=<ID=DR,Number=1,Type=Integer,Description="Number of reference reads">')
+            header_lines.insert(len(header_lines)-2,'##FORMAT=<ID=DR,Number=1,Type=Integer,Description="Number of reference reads">')
         if not has_gt_headers["DV"]:
-            header_lines.insert(len(header_lines),'##FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of variant reads">')
+            header_lines.insert(len(header_lines)-2,'##FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of variant reads">')
 
         self.write_raw("\n".join(header_lines),endl="")
 
