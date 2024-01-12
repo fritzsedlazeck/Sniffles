@@ -317,6 +317,29 @@ class VCF:
         header_lines.insert(1,'##genotypeFileDate="'+self.config.start_date+'"')
         header_lines.insert(1,'##genotypeCommand="'+self.config.command+'"')
         header_lines.insert(1,f"##genotypeSource={self.config.version}_{self.config.build}")
+
+        # Fix missing genotype headers errors when reading input vcf in genotype mode.
+        # This error will happen when input vcf does not have GT,GQ,DR,DV headers.
+        # Some tools such as turvari will throw errors when processing the output vcf.
+        has_gt_headers = {
+            "GT":False,
+            "GQ":False,
+            "DR":False,
+            "DV":False,
+        }
+        for header_line in header_lines:
+            for gt in has_gt_headers.keys():
+                if "##FORMAT=<ID="+gt+"," in header_line:
+                    has_gt_headers[gt] = True
+        if has_gt_headers["GT"]:
+            header_lines.append('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">')
+        if has_gt_headers["GQ"]:
+            header_lines.append('##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">')
+        if has_gt_headers["DR"]:
+            header_lines.append('##FORMAT=<ID=DR,Number=1,Type=Integer,Description="Number of reference reads">')
+        if has_gt_headers["DV"]:
+            header_lines.append('##FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of variant reads">')
+
         self.write_raw("\n".join(header_lines),endl="")
 
     def close(self):
