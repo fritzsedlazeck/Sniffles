@@ -331,14 +331,15 @@ class VCF:
             for gt in has_gt_headers.keys():
                 if "##FORMAT=<ID="+gt+"," in header_line:
                     has_gt_headers[gt] = True
-        if has_gt_headers["GT"]:
-            header_lines.append('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">')
-        if has_gt_headers["GQ"]:
-            header_lines.append('##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">')
-        if has_gt_headers["DR"]:
-            header_lines.append('##FORMAT=<ID=DR,Number=1,Type=Integer,Description="Number of reference reads">')
-        if has_gt_headers["DV"]:
-            header_lines.append('##FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of variant reads">')
+        
+        if not has_gt_headers["GT"]:
+            header_lines.insert(len(header_lines),'##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">')
+        if not has_gt_headers["GQ"]:
+            header_lines.insert(len(header_lines),'##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">')
+        if not has_gt_headers["DR"]:
+            header_lines.insert(len(header_lines),'##FORMAT=<ID=DR,Number=1,Type=Integer,Description="Number of reference reads">')
+        if not has_gt_headers["DV"]:
+            header_lines.insert(len(header_lines),'##FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of variant reads">')
 
         self.write_raw("\n".join(header_lines),endl="")
 
