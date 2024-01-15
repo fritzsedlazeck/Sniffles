@@ -18,7 +18,7 @@ from typing import Union, Optional
 from sniffles import util
 
 VERSION = "Sniffles2"
-BUILD = "2.3.0-rc1"
+BUILD = "2.3.0"
 SNF_VERSION = "S2_rc4"
 
 
@@ -77,7 +77,7 @@ class SnifflesConfig(argparse.Namespace):
         """
         Output is always sorted
         """
-        return True
+        return not self.no_sort
 
     input: str
     vcf: str

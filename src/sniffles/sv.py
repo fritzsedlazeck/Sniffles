@@ -7,11 +7,15 @@
 # Author:  Moritz Smolka
 # Contact: moritz.g.smolka@gmail.com
 #
-
+import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Callable
 
-from edlib import align
+try:
+    from edlib import align
+except ImportError:
+    logging.getLogger('sniffles.dependencies').warning('Dependency edlib not installed - alignments are disabled.')
+    align: Optional[Callable] = None
 
 from sniffles import util
 
@@ -140,7 +144,7 @@ class SVGroup:
         """
         Check if the candidate aligns with this group better than given limit.
         """
-        if not limit:
+        if not limit or align is None:
             return True
 
         distance = align(self.candidates[0].alt, candidate.alt)['editDistance']
