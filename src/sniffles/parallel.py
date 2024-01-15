@@ -463,7 +463,7 @@ class SnifflesWorker(threading.Thread):
 
     def run_parent(self):
         """
-        Worker thread
+        Worker thread, running in parent process
         """
         while self._running:
             if self.task is None:
@@ -474,7 +474,7 @@ class SnifflesWorker(threading.Thread):
                     self.pipe_main.send(self.task)
                     self._logger.info(f'Dispatched task #{self.task.id} to worker {self.id} ({len(self.tasks)}  tasks left)')
                 else:
-                    # ...and no more work, so we shut down this worker
+                    # ...and no more work available, so we shut down this worker
                     self._logger.info(f'Worker {self.id} shutting down...')
                     self.pipe_main.send(ShutdownTask())
                     self._running = False
@@ -485,11 +485,11 @@ class SnifflesWorker(threading.Thread):
                     self.task = None
 
                     if result.error:
-                        self._logger.error(f'Error in process #{self.id}: {result}')
+                        self._logger.error(f'Error in worker {self.id}: {result}')
                     else:
                         # Process result
                         # todo
-                        self._logger.info(f'Got result: {result}')
+                        self._logger.info(f'Worker {self.id} got result for task #{result.task_id}')
 
         self.process.join(10)
         self._logger.info(f'Worker {self.id} done')

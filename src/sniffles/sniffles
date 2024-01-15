@@ -10,6 +10,8 @@
 import logging.config
 from typing import Optional
 
+from utils.resmon import ResourceMonitor
+
 DEV_MONITOR_MEM = False
 
 import sys
@@ -128,6 +130,12 @@ def Sniffles2_Main(processes: list):
     print(f"  Working dir: {config.workdir}")
     print(f"  Used command: {config.command}")
     print("==============================")
+
+    if config.dev_monitor_memory:
+        monitor = ResourceMonitor(config.threads, config.dev_monitor_memory)
+        log.info(f'Logging memory usage to {monitor.filename}')
+    else:
+        monitor = None
 
     #
     # call_sample/genotype_vcf: Open .bam file for single calling / .snf creation
@@ -622,6 +630,9 @@ def Sniffles2_Main(processes: list):
 
     if (config.mode == "call_sample" or config.mode == "combine") and config.vcf is not None:
         print(f"Wrote {vcf_out.call_count} called SVs to {config.vcf} {vcf_output_info_str}")
+
+    if monitor:
+        monitor.stop()
 
     #
     # Finalize

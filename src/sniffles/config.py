@@ -243,6 +243,7 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-split-max-query-distance-mult", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-disable-interblock-threads", default=False, help=argparse.SUPPRESS, action="store_true")
         developer_args.add_argument("--dev-combine-medians", default=False, help=argparse.SUPPRESS, action="store_true")
+        developer_args.add_argument("--dev-monitor-memory", metavar="N", type=int, default=0, help=argparse.SUPPRESS)
 
         # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 
