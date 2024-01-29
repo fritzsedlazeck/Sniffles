@@ -10,6 +10,8 @@
 import logging.config
 from typing import Optional
 
+from utils.resmon import ResourceMonitor
+
 DEV_MONITOR_MEM = False
 
 import sys
@@ -125,6 +127,10 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
     print(f"  Working dir: {config.workdir}")
     print(f"  Used command: {config.command}")
     print("==============================")
+
+    monitor = ResourceMonitor(config.threads)
+    logging.getLogger('sniffles.resources').info(f'Logging memory usage to {monitor.filename}')
+
 
     #
     # call_sample/genotype_vcf: Open .bam file for single calling / .snf creation
