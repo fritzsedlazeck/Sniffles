@@ -45,7 +45,7 @@ class Result:
             if self.svcalls:
                 for call in self.svcalls:
                     vcf_out.write_call(call)
-                log.debug(f"Wrote {len(self.svcalls)} calls to {vcf_out}")
+                log.debug(f"Wrote {len(self.svcalls)} calls to VCF.")
             else:
                 log.debug(f'No calls for {self}')
             return len(self.svcalls)
