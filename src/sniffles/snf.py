@@ -7,15 +7,16 @@
 # Author:  Moritz Smolka
 # Contact: moritz.g.smolka@gmail.com
 #
-
+import os
 import pickle
 import json
 import gzip
 import math
 from collections import OrderedDict
-from typing import Optional
+from typing import Optional, Union
 
 from sniffles import sv
+from sniffles.config import SnifflesConfig
 
 
 class SNFile:
@@ -30,6 +31,7 @@ class SNFile:
         self._header = None
         self._index = {}
         self.total_length = 0
+        self._results = []
 
     @property
     def index(self) -> dict:
@@ -161,6 +163,57 @@ class SNFile:
 
     def get_total_length(self):
         return self.total_length
+
+    def add_result(self, result):
+        if result.has_snf:
+            self._results.append(result)
+
+    def _calculate_contig_coverages(self, contigs: list[str]) -> dict[str, float]:
+        contig_coverages: dict[str, list[float]] = {
+            c: [] for c in contigs
+        }
+
+        for r in self._results:
+            contig_coverages[r.contig].append(r.coverage_average_total)
+
+        res = {}
+        for contig in contig_coverages:
+            res[contig] = sum(contig_coverages[contig]) / len(contig_coverages[contig]) if len(contig_coverages[contig]) > 0 else 0
+
+        return res
+
+    def write_results(self, config: SnifflesConfig, contigs: list[str]) -> int:
+        """
+        Writes all added results (regional temporary .snf files) to this file. Returns SNF candidate count
+        """
+        main_index = {}
+        offset = 0
+        snf_candidate_count = sum(r.snf_candidate_count for r in self._results)
+        parts_sorted = sorted(self._results, key=lambda r: r.task_id)
+        for part in parts_sorted:
+            part_contig = part.contig
+            if part_contig not in main_index:
+                main_index[part_contig] = {}
+            for block, (part_block_start, part_block_len) in part.snf_index.items():
+                if block not in main_index[part_contig]:
+                    main_index[part_contig][block] = []
+                main_index[part_contig][block].append((part_block_start + offset, part_block_len))
+            offset += part.snf_total_length
+
+        config.contig_coverages = self._calculate_contig_coverages(contigs)
+        header = {"config": config.__dict__, "index": main_index, "snf_candidate_count": snf_candidate_count}
+        header_json = json.dumps(header, default=lambda obj: "<Unstored_Object>") + "\n"
+        self.handle.write(header_json.encode())
+
+        for part in parts_sorted:
+            with open(part.snf_filename, "rb") as part_handle:
+                part_data = part_handle.read()
+                part_handle.close()
+            self.handle.write(part_data)
+            os.remove(part.snf_filename)
+
+        return snf_candidate_count
+
 
     def close(self):
         if self.handle is not False:

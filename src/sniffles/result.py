@@ -17,6 +17,7 @@ class Result:
     """
     processed_read_count: int
     task_id: int
+    contig: str
     processed_read_count: int
     svcalls: list[SVCall]
     svcount: int
@@ -24,6 +25,7 @@ class Result:
 
     def __init__(self, task: 'Task', svcalls: list[SVCall], candidates_processed: int):
         self.task_id = task.id
+        self.contig = task.contig
         self.processed_read_count = candidates_processed
         self.svcount = len(svcalls)
         self.store_calls(svcalls)
@@ -64,6 +66,12 @@ class CallResult(Result):
     snf_index = None
     snf_total_length = None
     snf_candidate_count = None
+
+    def emit(self, **kwargs) -> int:
+        res = super().emit(**kwargs)
+        if snf_out := kwargs.get('snf_out'):
+            snf_out.add_result(self)
+        return res
 
 
 class GenotypeResult(Result):

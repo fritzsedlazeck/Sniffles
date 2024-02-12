@@ -91,9 +91,9 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
 
         config.input_is_cram = False
         if "bam" in input_ext:
-            config.input_mode = "rb"
+            config.input_mode = r"rb"
         elif "cram" in input_ext:
-            config.input_mode = "rc"
+            config.input_mode = r"rc"
             config.input_is_cram = True
 
     elif "snf" in input_ext or "tsv" in input_ext:
@@ -240,6 +240,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     #
     task_id = 0
     tasks_list = []
+    contigs = []
     contig_tasks_intervals = {}
 
     if config.mode == "call_sample" or config.mode == "genotype_vcf":
@@ -265,7 +266,6 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             config.task_read_id_offset_mult = 10 ** math.ceil(math.log(total_mapped) + 1)
 
         contig_lengths = []
-        contig_coverages = {}
         contigs_with_tr_annotations = 0
         for contig in bam_in.get_index_statistics():
             if task_max_reads == 0:
@@ -273,9 +273,9 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             else:
                 task_count = max(1, math.ceil(contig.mapped / float(task_max_reads)))
             contig_str = str(contig.contig)
+            contigs.append(contig_str)
             contig_length = bam_in.get_reference_length(contig_str)
             contig_lengths.append((contig_str, contig_length))
-            contig_coverages[contig_str] = []
             task_length = math.floor(contig_length / float(task_count))
             contigs_with_tr_annotations += int(contig_str in contig_tandem_repeats)
             startpos = 0
@@ -518,10 +518,6 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     #
     # Store avg. coverages for .snf file
     #
-    if config.mode == "call_sample" and config.snf is not None:
-        for contig in contig_coverages:
-            contig_coverages[contig] = sum(contig_coverages[contig]) / len(contig_coverages[contig]) if len(contig_coverages[contig]) > 0 else 0
-        config.contig_coverages = contig_coverages
 
     # if total_mapped > 0:
     #     show_progress()
@@ -542,6 +538,11 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
 
     for t in finished_tasks:
         t.result.emit(vcf_out=vcf_out, snf_out=snf_out)
+
+    if snf_out:
+        snf_candidate_count = snf_out.write_results(config, contigs)
+        snf_out.close()
+        log.info(f"Wrote {snf_candidate_count} SV candidates to {config.snf} (for multi-sample calling).")
 
     # if (config.mode == "call_sample" or config.mode == "combine") and config.vcf is not None and config.sort:
     #     reassigned_count = 0
@@ -581,35 +582,6 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     #     if reassigned_count != ignored_count:
     #         print(f"ERROR: {ignored_count} calls ignored, but only {reassigned_count} were reassigned to correct tasks")
     #
-    if config.mode == "call_sample" and config.snf is not None:
-        #
-        # Combine regional temporary .snf files from workers
-        #
-        main_index = {}
-        offset = 0
-        parts_sorted = sorted(snf_parts, key=lambda r: r.task.id)
-        for part in parts_sorted:
-            part_contig = part.task.contig
-            if part_contig not in main_index:
-                main_index[part_contig] = {}
-            for block, (part_block_start, part_block_len) in part.snf_index.items():
-                if block not in main_index[part_contig]:
-                    main_index[part_contig][block] = []
-                main_index[part_contig][block].append((part_block_start + offset, part_block_len))
-            offset += part.snf_total_length
-
-        header = {"config": config.__dict__, "index": main_index, "snf_candidate_count": snf_candidate_count}
-        header_json = json.dumps(header, default=lambda obj: "<Unstored_Object>") + "\n"
-        snf_out.handle.write(header_json.encode())
-
-        for part in parts_sorted:
-            with open(part.snf_filename, "rb") as part_handle:
-                part_data = part_handle.read()
-                part_handle.close()
-            snf_out.handle.write(part_data)
-            os.remove(part.snf_filename)
-
-        snf_out.close()
 
     if DEV_MONITOR_MEM:
         logging.debug(f"[DEV: Total memory usage={dbg_get_total_memory_usage_MB():.2f}MB]")
@@ -630,11 +602,6 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             print(f"Indexing VCF output took {time.time() - vcf_index_start_time:.2f}s.")
 
     print(f"Done.")
-
-    snf_candidate_count = 0
-
-    if config.mode == "call_sample" and config.snf is not None:
-        log.info(f"Wrote {snf_candidate_count} SV candidates to {config.snf} (for multi-sample calling).")
 
     if (config.mode == "call_sample" or config.mode == "combine") and config.vcf is not None:
         log.info(f"Wrote {vcf_out.call_count} called SVs to {config.vcf} {vcf_output_info_str}")
