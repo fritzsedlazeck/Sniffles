@@ -46,7 +46,6 @@ if DEV_MONITOR_MEM:
     except ImportError:
         logging.getLogger('sniffles.memory').warning('psutil not available.')
 
-
         def dbg_get_total_memory_usage_MB():
             pass
     else:
