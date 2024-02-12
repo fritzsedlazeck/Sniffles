@@ -531,8 +531,8 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
 
     finished_tasks: list[parallel.Task] = []
     for proc in processes:
-        finished_tasks.extend(proc.finished_tasks)
         proc.join()
+        finished_tasks.extend(proc.finished_tasks)
 
     print(f"Took {time.time() - analysis_start_time:.2f}s.")
     print("")

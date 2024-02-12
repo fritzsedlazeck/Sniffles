@@ -17,7 +17,7 @@ from argparse import Namespace
 from dataclasses import dataclass
 import gc
 import math
-from typing import Optional
+from typing import Optional, List
 
 import pysam
 
@@ -273,7 +273,7 @@ class CombineTask(Task):
 
     def __str__(self):
         if len(self.block_indices) > 0:
-            return f'''Task {self.id} [{self.start} ({self.block_indices[0]}) .. {self.end} ({self.block_indices[-1]})]'''
+            return f'''Task {self.id} Contig {self.contig} [{self.start} ({self.block_indices[0]}) .. {self.end} ({self.block_indices[-1]})]'''
         else:
             return f'Task {self.id} [no blocks available]'
 
@@ -502,39 +502,52 @@ class SnifflesWorker(threading.Thread):
         """
         Worker thread, running in parent process
         """
-        while self._running:
-            if self.task is None:
-                # we are not working on something...
-                if len(self.tasks) > 0:
-                    # ...but there is more work to be done
-                    self.maybe_recycle()
+        try:
+            while self._running:
+                if self.task is None:
+                    # we are not working on something...
+                    if len(self.tasks) > 0:
+                        # ...but there is more work to be done
+                        self.maybe_recycle()
 
-                    self.task = self.tasks.pop(0)
-                    self.pipe_main.send(self.task)
-                    self._logger.info(f'Dispatched task #{self.task.id} to worker {self.id} ({len(self.tasks)}  tasks left)')
-                else:
-                    # ...and no more work available, so we shut down this worker
-                    self._logger.info(f'Worker {self.id} shutting down...')
-                    self.pipe_main.send(ShutdownTask())
-                    self._running = False
-            else:
-                if self.pipe_main.poll(0.01):
-                    self._logger.debug(f'Worker {self.id} got result for task {self.task.id}...')
-                    result: Result = self.pipe_main.recv()
-
-                    if result.error:
-                        self._logger.error(f'Worker {self.id} received error: {result}')
+                        try:
+                            self.task = self.tasks.pop(0)
+                        except IndexError:
+                            # another worker may have taken the last task
+                            self._logger.debug(f'No more tasks to do for {self.id}')
+                        else:
+                            self.pipe_main.send(self.task)
+                            self._logger.info(f'Dispatched task #{self.task.id} to worker {self.id} ({len(self.tasks)}  tasks left)')
                     else:
-                        self._logger.info(f'Worker {self.id} got result for task #{result.task_id}')
+                        # ...and no more work available, so we shut down this worker
+                        self._logger.info(f'Worker {self.id} shutting down...')
+                        self.pipe_main.send(ShutdownTask())
+                        self._running = False
+                else:
+                    if self.pipe_main.poll(0.01):
+                        self._logger.debug(f'Worker {self.id} got result for task {self.task.id}...')
+                        result: Result = self.pipe_main.recv()
 
-                    self.task.add_result(result)
-                    self.finished_tasks.append(self.task)
-                    self.task = None
+                        if result.error:
+                            self._logger.error(f'Worker {self.id} received error: {result}')
+                        else:
+                            self._logger.info(f'Worker {self.id} got result for task #{result.task_id}')
 
-                    self.recycle = True
+                        self.task.add_result(result)
+                        self.finished_tasks.append(self.task)
+                        self.task = None
 
-        self.process.join(10)
-        self._logger.info(f'Worker {self.id} done')
+                        self.recycle = True
+
+            self.process.join(10)
+        except:
+            self._logger.exception(f'Unhandled error in worker {self.id}. This may result in an orphened worker process.')
+            try:
+                self.process.kill()
+            except:
+                ...
+        else:
+            self._logger.info(f'Worker {self.id} done')
 
     def run_worker(self):
         """
@@ -564,3 +577,8 @@ class SnifflesWorker(threading.Thread):
             except Exception as e:
                 self._logger.exception(f'Error in worker process')
                 self.pipe_worker.send(ErrorResult(e))
+
+
+def execute_task(task: Task):
+    logging.getLogger('sniffles.parallel').info(f'Working on {task}')
+    return task.execute()
