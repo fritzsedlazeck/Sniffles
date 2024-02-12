@@ -157,6 +157,9 @@ class CallTask(Task):
         if not config.no_qc:
             svcalls = [s for s in svcalls if s.qc]
 
+        if config.sort:
+            svcalls = sorted(svcalls, key=lambda svcall: svcall.pos)
+
         from sniffles.result import CallResult
         result = CallResult(self, svcalls, read_count)
 
