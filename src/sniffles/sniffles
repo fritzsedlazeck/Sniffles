@@ -68,7 +68,7 @@ if DEV_MONITOR_MEM:
 # END:TODO
 
 
-def Sniffles2_Main(processes: list):
+def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     #
     # Determine Sniffles2 run mode
     #
@@ -408,10 +408,6 @@ def Sniffles2_Main(processes: list):
     for proc in processes:
         proc.start()
 
-
-    for proc in processes:
-        proc.join()
-
     print("")
     if config.mode == "call_sample" or config.mode == "genotype_vcf":
         if config.input_is_cram:
@@ -528,90 +524,101 @@ def Sniffles2_Main(processes: list):
 
     # if total_mapped > 0:
     #     show_progress()
-    print(f"Took {time.time() - analysis_start_time:.2f}s.")
-    print("")
 
     #
     # Output results
     #
-    lastcall = None
-    if (config.mode == "call_sample" or config.mode == "combine") and config.vcf is not None and config.sort:
-        reassigned_count = 0
-        ignored_count = 0
-        sort_start_time = time.time()
-        for task in tasks_list:
-            if task.id not in task_id_calls:
-                continue
-            for call in sorted(task_id_calls[task.id], key=lambda call: call.pos):
-                if call.pos < task.start or call.pos >= task.end or call.contig != task.contig:
-                    new_target_tasks = list(task for start, end, task in contig_tasks_intervals[call.contig] if task.start <= call.pos < task.end)
-                    if len(new_target_tasks) != 1:
-                        print(f"WARNING: Unable to assign call at {call.contig}:{call.pos} to unambiguous task. (got {len(new_target_tasks)} intervals). SVCall={call}")
-                        if len(new_target_tasks) == 0:
-                            continue
 
-                    new_task_id = new_target_tasks[0].id
-                    if new_task_id not in task_id_calls:
-                        task_id_calls[new_task_id] = []
-                    task_id_calls[new_task_id].append(call)
-                    # print(f"Migrated a call from {task} to {new_target_tasks[0].data}: {call}")
-                    reassigned_count += 1
+    finished_tasks: list[parallel.Task] = []
+    for proc in processes:
+        finished_tasks.extend(proc.finished_tasks)
+        proc.join()
 
-        for task in tasks_list:  # Tasks are already sorted by contig/coordinate (from .bam index)
-            if task.id not in task_id_calls:
-                continue
-            for call in sorted(task_id_calls[task.id], key=lambda call: call.pos):
-                # assert(lastcall==None or lastcall.pos<call.pos or lastcall.contig!=call.contig)
-                # assert(call.pos >= task.start)
-                # assert(call.pos < task.end)
-                # assert(call.contig==task.contig)
-                if call.pos < task.start or call.pos >= task.end or call.contig != task.contig:
-                    ignored_count += 1
-                else:
-                    vcf_out.write_call(call)
+    print(f"Took {time.time() - analysis_start_time:.2f}s.")
+    print("")
 
-        if reassigned_count != ignored_count:
-            print(f"ERROR: {ignored_count} calls ignored, but only {reassigned_count} were reassigned to correct tasks")
+    finished_tasks.sort(key=lambda task: task.id)
 
-    if config.mode == "call_sample" and config.snf is not None:
-        #
-        # Combine regional temporary .snf files from workers
-        #
-        main_index = {}
-        offset = 0
-        parts_sorted = sorted(snf_parts, key=lambda r: r.task.id)
-        for part in parts_sorted:
-            part_contig = part.task.contig
-            if part_contig not in main_index:
-                main_index[part_contig] = {}
-            for block, (part_block_start, part_block_len) in part.snf_index.items():
-                if block not in main_index[part_contig]:
-                    main_index[part_contig][block] = []
-                main_index[part_contig][block].append((part_block_start + offset, part_block_len))
-            offset += part.snf_total_length
+    for t in finished_tasks:
+        t.result.emit(config, vcf_out=vcf_out)
 
-        header = {"config": config.__dict__, "index": main_index, "snf_candidate_count": snf_candidate_count}
-        header_json = json.dumps(header, default=lambda obj: "<Unstored_Object>") + "\n"
-        snf_out.handle.write(header_json.encode())
-
-        for part in parts_sorted:
-            with open(part.snf_filename, "rb") as part_handle:
-                part_data = part_handle.read()
-                part_handle.close()
-            snf_out.handle.write(part_data)
-            os.remove(part.snf_filename)
-
-        snf_out.close()
-
-    if DEV_MONITOR_MEM:
-        logging.debug(f"[DEV: Total memory usage={dbg_get_total_memory_usage_MB():.2f}MB]")
-
-    if config.mode == "genotype_vcf":
-        vcf_out.rewrite_header_genotype(vcf_in.header_str)
-
-        for lineindex in genotype_lineindex_order:
-            if lineindex in genotype_lineindex_svcalls_returned:
-                vcf_out.rewrite_genotype(genotype_lineindex_svcalls_returned[lineindex])
+    # if (config.mode == "call_sample" or config.mode == "combine") and config.vcf is not None and config.sort:
+    #     reassigned_count = 0
+    #     ignored_count = 0
+    #     sort_start_time = time.time()
+    #     for task in tasks_list:
+    #         if task.id not in task_id_calls:
+    #             continue
+    #         for call in sorted(task_id_calls[task.id], key=lambda call: call.pos):
+    #             if call.pos < task.start or call.pos >= task.end or call.contig != task.contig:
+    #                 new_target_tasks = list(task for start, end, task in contig_tasks_intervals[call.contig] if task.start <= call.pos < task.end)
+    #                 if len(new_target_tasks) != 1:
+    #                     print(f"WARNING: Unable to assign call at {call.contig}:{call.pos} to unambiguous task. (got {len(new_target_tasks)} intervals). SVCall={call}")
+    #                     if len(new_target_tasks) == 0:
+    #                         continue
+    #
+    #                 new_task_id = new_target_tasks[0].id
+    #                 if new_task_id not in task_id_calls:
+    #                     task_id_calls[new_task_id] = []
+    #                 task_id_calls[new_task_id].append(call)
+    #                 # print(f"Migrated a call from {task} to {new_target_tasks[0].data}: {call}")
+    #                 reassigned_count += 1
+    #
+    #     for task in tasks_list:  # Tasks are already sorted by contig/coordinate (from .bam index)
+    #         if task.id not in task_id_calls:
+    #             continue
+    #         for call in sorted(task_id_calls[task.id], key=lambda call: call.pos):
+    #             # assert(lastcall==None or lastcall.pos<call.pos or lastcall.contig!=call.contig)
+    #             # assert(call.pos >= task.start)
+    #             # assert(call.pos < task.end)
+    #             # assert(call.contig==task.contig)
+    #             if call.pos < task.start or call.pos >= task.end or call.contig != task.contig:
+    #                 ignored_count += 1
+    #             else:
+    #                 vcf_out.write_call(call)
+    #
+    #     if reassigned_count != ignored_count:
+    #         print(f"ERROR: {ignored_count} calls ignored, but only {reassigned_count} were reassigned to correct tasks")
+    #
+    # if config.mode == "call_sample" and config.snf is not None:
+    #     #
+    #     # Combine regional temporary .snf files from workers
+    #     #
+    #     main_index = {}
+    #     offset = 0
+    #     parts_sorted = sorted(snf_parts, key=lambda r: r.task.id)
+    #     for part in parts_sorted:
+    #         part_contig = part.task.contig
+    #         if part_contig not in main_index:
+    #             main_index[part_contig] = {}
+    #         for block, (part_block_start, part_block_len) in part.snf_index.items():
+    #             if block not in main_index[part_contig]:
+    #                 main_index[part_contig][block] = []
+    #             main_index[part_contig][block].append((part_block_start + offset, part_block_len))
+    #         offset += part.snf_total_length
+    #
+    #     header = {"config": config.__dict__, "index": main_index, "snf_candidate_count": snf_candidate_count}
+    #     header_json = json.dumps(header, default=lambda obj: "<Unstored_Object>") + "\n"
+    #     snf_out.handle.write(header_json.encode())
+    #
+    #     for part in parts_sorted:
+    #         with open(part.snf_filename, "rb") as part_handle:
+    #             part_data = part_handle.read()
+    #             part_handle.close()
+    #         snf_out.handle.write(part_data)
+    #         os.remove(part.snf_filename)
+    #
+    #     snf_out.close()
+    #
+    # if DEV_MONITOR_MEM:
+    #     logging.debug(f"[DEV: Total memory usage={dbg_get_total_memory_usage_MB():.2f}MB]")
+    #
+    # if config.mode == "genotype_vcf":
+    #     vcf_out.rewrite_header_genotype(vcf_in.header_str)
+    #
+    #     for lineindex in genotype_lineindex_order:
+    #         if lineindex in genotype_lineindex_svcalls_returned:
+    #             vcf_out.rewrite_genotype(genotype_lineindex_svcalls_returned[lineindex])
 
     if config.vcf is not None:
         vcf_out.close()
@@ -633,15 +640,6 @@ def Sniffles2_Main(processes: list):
 
     if monitor:
         monitor.stop()
-
-    #
-    # Finalize
-    #
-    for proc in processes:
-        proc.pipe_main.send(["finalize", None])
-
-    for proc in processes:
-        proc.process.join()
 
 
 if __name__ == "__main__":

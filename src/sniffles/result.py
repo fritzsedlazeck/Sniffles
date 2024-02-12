@@ -1,9 +1,14 @@
+import logging
 import os
 import pickle
 import sys
 
+from sniffles.config import SnifflesConfig
 from sniffles.sv import SVCall
 from sniffles.vcf import VCF
+
+
+log = logging.getLogger(__name__)
 
 
 class Result:
@@ -25,6 +30,12 @@ class Result:
 
     def store_calls(self, svcalls):
         self.svcalls = svcalls
+
+    def emit(self, config: SnifflesConfig, **kwargs) -> int:
+        """
+        Emit this result to a file. Returns the number of records written.
+        """
+        return 0
 
     def cleanup(self):
         """
@@ -51,12 +62,18 @@ class CombineResult(Result):
     """
     Result of a combine run for one task, simple variant with calls in memory. Must be pickleable.
     """
-    def emit(self, file: VCF):
+    def emit(self, config: SnifflesConfig, vcf_out: VCF = None) -> int:
         """
         Emit this result to the given file
         """
-        for call in self.svcalls:
-            file.write_call(call)
+        if vcf_out:
+            for call in self.svcalls:
+                vcf_out.write_call(call)
+            log.info(f"Wrote {len(self.svcalls)} calls to {vcf_out}")
+            return len(self.svcalls)
+        else:
+            log.info(f'No vcf output file specified.')
+            return 0
 
 
 class CombineResultTmpFile(CombineResult):

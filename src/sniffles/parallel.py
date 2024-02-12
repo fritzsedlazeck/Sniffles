@@ -10,6 +10,7 @@
 import copy
 import logging
 import multiprocessing
+import os
 import threading
 from argparse import Namespace
 
@@ -45,6 +46,7 @@ class Task:
     tandem_repeats: list = None
     genotype_svs: list = None
     _logger = None
+    result: Result = None
 
     @property
     def logger(self) -> logging.Logger:
@@ -52,6 +54,17 @@ class Task:
             self._logger = logging.getLogger(f'sniffles.progress')
 
         return self._logger
+
+    @property
+    def done(self) -> bool:
+        return self.result is not None
+
+    @property
+    def success(self) -> bool:
+        return self.done and not self.result.error
+
+    def add_result(self, result: Result) -> None:
+        self.result = result
 
     def execute(self) -> Optional[Result]:
         """
@@ -414,12 +427,18 @@ class CombineTask(Task):
         for svtype in groups_keep:
             svcalls.extend(sv.call_groups(groups_keep[svtype], self.config, self))
 
+        if self.config.sort:
+            svcalls.sort(key=lambda call: call.pos)
+
         from sniffles.result import CombineResult
         return CombineResult(self, svcalls, candidates_processed)
 
 
 class ShutdownTask:
     id = None
+
+    def __str__(self):
+        return 'Shutdown Request'
 
     def execute(self) -> Result:
         raise SnifflesWorker.Shutdown
@@ -432,6 +451,7 @@ class SnifflesWorker(threading.Thread):
     """
     id: int
     externals: list = None
+    recycle: bool = False
     _running = False
 
     class Shutdown(Exception):
@@ -444,6 +464,7 @@ class SnifflesWorker(threading.Thread):
         self.config = config
         self.tasks = tasks
         self.task = None
+        self.finished_tasks = []
 
         self.pipe_main, self.pipe_worker = multiprocessing.Pipe()
 
@@ -461,6 +482,22 @@ class SnifflesWorker(threading.Thread):
         self.process.start()
         return super().start()
 
+    def maybe_recycle(self):
+        """
+        Recycle this worker if that has been requested
+        """
+        if self.recycle:
+            self._logger.info(f'Recycling worker {self.id}')
+            # Shut down current worker process
+            self.pipe_main.send(ShutdownTask())
+            self.process.join(2)
+            # Start new one
+            self.process = multiprocessing.Process(
+                target=self.run_worker
+            )
+            self.process.start()
+            self.recycle = False
+
     def run_parent(self):
         """
         Worker thread, running in parent process
@@ -470,6 +507,8 @@ class SnifflesWorker(threading.Thread):
                 # we are not working on something...
                 if len(self.tasks) > 0:
                     # ...but there is more work to be done
+                    self.maybe_recycle()
+
                     self.task = self.tasks.pop(0)
                     self.pipe_main.send(self.task)
                     self._logger.info(f'Dispatched task #{self.task.id} to worker {self.id} ({len(self.tasks)}  tasks left)')
@@ -480,16 +519,19 @@ class SnifflesWorker(threading.Thread):
                     self._running = False
             else:
                 if self.pipe_main.poll(0.01):
-                    self._logger.debug(f'Worker {self.id} got something on return queue...')
+                    self._logger.debug(f'Worker {self.id} got result for task {self.task.id}...')
                     result: Result = self.pipe_main.recv()
-                    self.task = None
 
                     if result.error:
-                        self._logger.error(f'Error in worker {self.id}: {result}')
+                        self._logger.error(f'Worker {self.id} received error: {result}')
                     else:
-                        # Process result
-                        # todo
                         self._logger.info(f'Worker {self.id} got result for task #{result.task_id}')
+
+                    self.task.add_result(result)
+                    self.finished_tasks.append(self.task)
+                    self.task = None
+
+                    self.recycle = True
 
         self.process.join(10)
         self._logger.info(f'Worker {self.id} done')
@@ -498,9 +540,11 @@ class SnifflesWorker(threading.Thread):
         """
         Entry point/main loop for the worker process
         """
+        self.pid = os.getpid()
+
         while self._running:
             try:
-                self._logger.debug(f'Worker {self.id} waiting for tasks...')
+                self._logger.debug(f'Worker {self.id} ({self.pid}) waiting for tasks...')
 
                 task = self.pipe_worker.recv()
 
@@ -520,49 +564,3 @@ class SnifflesWorker(threading.Thread):
             except Exception as e:
                 self._logger.exception(f'Error in worker process')
                 self.pipe_worker.send(ErrorResult(e))
-
-
-
-def Main(proc_id, config, pipe):
-    try:
-        if config.dev_profile:
-            import cProfile
-            cProfile.runctx("Main_Internal(proc_id,config,pipe)", globals(), locals(), sort="cumulative")
-        else:
-            Main_Internal(proc_id, config, pipe)
-    except Exception as e:
-        pipe.send(["worker_exception", ""])
-        raise e
-
-
-def Main_Internal(proc_id, config, pipe):
-    tasks = {}
-    while True:
-        command, arg = pipe.recv()
-
-        if command == "call_sample":
-            task = arg
-
-            pipe.send(["return_call_sample", result])
-            del task
-            gc.collect()
-
-        elif command == "genotype_vcf":
-            task = arg
-
-
-            pipe.send(["return_genotype_vcf", result])
-            del task
-            gc.collect()
-
-        elif command == "combine":
-            task = arg
-
-            result = task.execute()
-
-            pipe.send(["return_combine", result])
-            del task
-            gc.collect()
-
-        elif command == "finalize":
-            return
