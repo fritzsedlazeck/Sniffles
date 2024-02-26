@@ -7,6 +7,10 @@ import time
 from dataclasses import dataclass
 from threading import Thread
 
+from sniffles.config import SnifflesConfig
+
+
+log = logging.getLogger('sniffles.ResourceMonitor')
 
 @dataclass
 class MemoryUsage:
@@ -14,7 +18,7 @@ class MemoryUsage:
     A snapshot of memory usage for this process and all its workers
     """
     pid: int
-    mem: float
+    mem: float  # RSS in KiB
 
 
 class ResourceMonitor:
@@ -23,9 +27,12 @@ class ResourceMonitor:
     _unknown: float
     _workers: dict[int, MemoryUsage]
 
-    def __init__(self, worker_slots: int, update_interval: float = 10.0, filename: str = None):
-        self._slots = worker_slots
-        self._update_interval = update_interval
+    WORKER_MEMORY_LIMIT = 1024 * 1024 * 2  # in KiB
+
+    def __init__(self, config: SnifflesConfig):
+
+        self._slots = config.threads
+        self._update_interval = config.dev_monitor_memory or 30.0
         self._pid = os.getpid()
 
         try:
@@ -38,15 +45,17 @@ class ResourceMonitor:
 
             self._running = True
 
-            if filename is None:
-                filename = f'memory-{os.environ.get("SLURM_JOB_ID") or os.getpid()}.csv'
-            if filename is not None:
-                self._file = open(filename, "w")
-                self._file.write(self._generate_header())
+            if config.dev_monitor_memory:
+                self._filename = filename = f'memory-{config.run_id}.csv'
+                try:
+                    self._file = open(filename, "w")
+                    self._file.write(self._generate_header())
+                except:
+                    log.exception(f'Unable to write memory usage to {filename}')
+                else:
+                    log.info(f'Logging memory usage to {filename}')
             else:
                 self._file = None
-
-            self._filename = filename
 
             self.update()
             self._update_thread = Thread(target=self._run_update, daemon=True)
@@ -70,10 +79,10 @@ class ResourceMonitor:
         return self.parent + sum(self.workers.values())
 
     def stop(self):
+        """
+        Stop memory monitoring thread. This may take up to update_interval to complete.
+        """
         self._running = False
-
-    def set_slot_process(self, slot: int, process: 'SnifflesWorker'):
-        self._slots[slot] = process
 
     def _generate_header(self):
         return f'''total,pidp,memp,{','.join(f'pid{i},mem{i}' for i in range(self._slots))}\n'''
@@ -109,3 +118,12 @@ class ResourceMonitor:
     @property
     def filename(self) -> str:
         return self._filename
+
+    def __call__(self, worker_id: int, worker_pid: int) -> bool:
+        """
+        Call the resource monitor to get a recycle hint. Returns True if the given process should recycle.
+        """
+        if worker_pid in self._workers:
+            return self._workers[worker_pid].mem > self.WORKER_MEMORY_LIMIT
+
+        return False

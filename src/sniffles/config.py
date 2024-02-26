@@ -87,6 +87,7 @@ class SnifflesConfig(argparse.Namespace):
     phase: bool
     threads: int
     contig: Optional[str]
+    run_id: str
 
     @property
     def vcf_output_bgz(self) -> Optional[bool]:
@@ -176,6 +177,7 @@ class SnifflesConfig(argparse.Namespace):
         multi_args.add_argument("--combine-pair-relabel-threshold", help="Genotype quality below which a genotype call will be relabeled", default=20, type=int)
         multi_args.add_argument("--combine-close-handles", help="Close .SNF file handles after each use. May lower performance, but may be required when maximum number of file handles supported by OS is reached when merging many samples.", default=False, action="store_true")
         multi_args.add_argument("--combine-pctseq", default=0.7, type=float, help="Minimum alignment distance as percent of SV length to be merged. Set to 0 to disable alignments for merging.")
+        multi_args.add_argument("--combine-max-inmemory-results", default=20, type=int, help=argparse.SUPPRESS)
         # multi_args.add_argument("--combine-exhaustive", help="(DEV) Disable performance optimization in multi-calling", default=False, action="store_true")
         # multi_args.add_argument("--combine-relabel-rare", help="(DEV)", default=False, action="store_true")
         # multi_args.add_argument("--combine-with-missing", help="(DEV)", default=False, action="store_true")
@@ -244,6 +246,9 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-disable-interblock-threads", default=False, help=argparse.SUPPRESS, action="store_true")
         developer_args.add_argument("--dev-combine-medians", default=False, help=argparse.SUPPRESS, action="store_true")
         developer_args.add_argument("--dev-monitor-memory", metavar="N", type=int, default=0, help=argparse.SUPPRESS)
+        developer_args.add_argument("--dev-monitor-filename", metavar="memory.csv", type=str, help=argparse.SUPPRESS)
+        developer_args.add_argument("--dev-debug-log", default=False, action="store_true", help=argparse.SUPPRESS)
+        developer_args.add_argument("--dev-progress-log", default=False, action="store_true", help=argparse.SUPPRESS)
 
         # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 
@@ -268,11 +273,8 @@ class SnifflesConfig(argparse.Namespace):
             sys.stdout = open(os.devnull, "w")
 
         self.start_date = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        self.run_id = f'{os.environ.get("SLURM_JOB_ID") or os.getpid()}'
 
-        # if config.low_memory:
-        #    config.task_count_multiplier=64
-        # else:
-        #    config.task_count_multiplier=1
         self.task_count_multiplier = 0
 
         self.version = VERSION

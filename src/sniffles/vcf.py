@@ -7,12 +7,16 @@
 # Author:  Moritz Smolka
 # Contact: moritz.g.smolka@gmail.com
 #
+import logging
 
 import pysam
 import os
 
 from sniffles import sv
 from sniffles import util
+
+
+log = logging.getLogger(__name__)
 
 
 def format_info(k, v):

@@ -14,7 +14,7 @@ from typing import Optional, Callable
 try:
     from edlib import align
 except ImportError:
-    logging.getLogger('sniffles.dependencies').warning('Dependency edlib not installed - alignments are disabled.')
+    logging.getLogger('sniffles.dependencies').info('Dependency edlib not installed - alignments are disabled.')
     align: Optional[Callable] = None
 
 from sniffles import util

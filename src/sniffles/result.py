@@ -17,6 +17,7 @@ class Result:
     """
     processed_read_count: int
     task_id: int
+    run_id: str
     contig: str
     processed_read_count: int
     svcalls: list[SVCall]
@@ -25,6 +26,7 @@ class Result:
 
     def __init__(self, task: 'Task', svcalls: list[SVCall], candidates_processed: int):
         self.task_id = task.id
+        self.run_id = task.config.run_id
         self.contig = task.contig
         self.processed_read_count = candidates_processed
         self.svcount = len(svcalls)
@@ -42,21 +44,17 @@ class Result:
         """
         vcf_out = kwargs.get('vcf_out')
         if vcf_out:
-            if self.svcalls:
-                for call in self.svcalls:
+            calls = self.svcalls
+            if calls:
+                for call in calls:
                     vcf_out.write_call(call)
-                log.debug(f"Wrote {len(self.svcalls)} calls to VCF.")
+                log.debug(f"Wrote {len(calls)} calls from {self} to VCF.")
             else:
                 log.debug(f'No calls for {self}')
-            return len(self.svcalls)
+            return len(calls)
         else:
             log.debug(f'No vcf output file specified.')
             return 0
-
-    def cleanup(self):
-        """
-        Optional clean up code after writing this result
-        """
 
 
 class CallResult(Result):
@@ -84,6 +82,8 @@ class CombineResult(Result):
     """
     Result of a combine run for one task, simple variant with calls in memory. Must be pickleable.
     """
+    def __str__(self):
+        return f'CombineResult #{self.task_id}'
 
 
 class CombineResultTmpFile(CombineResult):
@@ -92,7 +92,7 @@ class CombineResultTmpFile(CombineResult):
     """
     @property
     def tmpfile_name(self) -> str:
-        return f'tmp{self.task_id}.part'
+        return f'result-{self.run_id}-{self.task_id}.part'
 
     def store_calls(self, svcalls):
         with open(self.tmpfile_name, 'wb') as f:
@@ -102,6 +102,11 @@ class CombineResultTmpFile(CombineResult):
     def svcalls(self) -> list[SVCall]:
         with open(self.tmpfile_name, 'rb') as f:
             return pickle.loads(f.read())
+
+    def emit(self, **kwargs) -> int:
+        res = super().emit(**kwargs)
+        self.cleanup()
+        return res
 
     def cleanup(self):
         os.unlink(self.tmpfile_name)
