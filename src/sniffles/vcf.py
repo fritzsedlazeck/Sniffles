@@ -150,7 +150,7 @@ class VCF:
         # but VCF also requires the index of the base before the SV to be reported,
         # so we are fine without offsetting
         end = call.end
-        pos = call.pos
+        pos = call.pos if call.pos > 0 else 1
 
         # Determine genotypes columns
         ac = 0  # Allele count
