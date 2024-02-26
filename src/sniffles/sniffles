@@ -7,6 +7,7 @@
 # Author:  Moritz Smolka
 # Contact: moritz.g.smolka@gmail.com
 #
+import logging
 import logging.config
 from typing import Optional
 
@@ -20,18 +21,13 @@ if not sys.version_info >= (3, 7):
     print(f"Error: Sniffles2 must be run with Python version 3.7 or above (detected Python version: {sys.version_info.major}.{sys.version_info.minor}). Exiting")
     exit(1)
 
-import multiprocessing
-import collections
 import math
 import time
 import os
-import json
 
 import pysam
 
-from dataclasses import dataclass
-
-from sniffles import config
+from sniffles.config import SnifflesConfig
 from sniffles import vcf
 from sniffles import snf
 from sniffles import parallel
@@ -67,10 +63,11 @@ if DEV_MONITOR_MEM:
 # END:TODO
 
 
-def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
+def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     #
     # Determine Sniffles2 run mode
     #
+    config = SnifflesConfig()
 
     input_ext = [f.split(".")[-1].lower() for f in config.input]
 
@@ -89,9 +86,9 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
 
         config.input_is_cram = False
         if "bam" in input_ext:
-            config.input_mode = "rb"
+            config.input_mode = r"rb"
         elif "cram" in input_ext:
-            config.input_mode = "rc"
+            config.input_mode = r"rc"
             config.input_is_cram = True
 
     elif "snf" in input_ext or "tsv" in input_ext:
@@ -104,6 +101,12 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
 
     if config.vcf is None and config.snf is None:
         util.fatal_error_main("Please specify at least one of: --vcf or --snf for output (both may be used at the same time)")
+
+    log = logging.getLogger('sniffles.main')
+    if config.dev_debug_log:
+        logging.getLogger().setLevel(logging.DEBUG)
+    if config.dev_progress_log:
+        logging.getLogger('sniffles.progress').setLevel(logging.INFO)
 
     if config.mode == "call_sample":
         if config.sample_id is None:
@@ -120,12 +123,14 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
         else:
             config.sample_ids_vcf = []  # Determined from .snf headers
 
-    print(f"Running {config.version}, build {config.build}")
-    print(f"  Run Mode: {config.mode}")
-    print(f"  Start on: {config.start_date}")
-    print(f"  Working dir: {config.workdir}")
-    print(f"  Used command: {config.command}")
-    print("==============================")
+    log.info(f"Running {config.version}, build {config.build}")
+    log.info(f"  Run Mode: {config.mode}")
+    log.info(f"  Start on: {config.start_date}")
+    log.info(f"  Working dir: {config.workdir}")
+    log.info(f"  Used command: {config.command}")
+    log.info("==============================")
+
+    monitor = ResourceMonitor(config)
 
     monitor = ResourceMonitor(config.threads)
     logging.getLogger('sniffles.resources').info(f'Logging memory usage to {monitor.filename}')
@@ -136,7 +141,7 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
     #
     contig_tandem_repeats = {}
     if config.mode == "call_sample" or config.mode == "genotype_vcf":
-        print(f"Opening for reading: {config.input}")
+        log.info(f"Opening for reading: {config.input}")
         bam_in = pysam.AlignmentFile(config.input, config.input_mode)
         try:
             has_index = bam_in.check_index()
@@ -150,7 +155,7 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
         #
         if config.tandem_repeats is not None:
             contig_tandem_repeats = util.load_tandem_repeats(config.tandem_repeats, config.tandem_repeat_region_pad)
-            print(f"Opening for reading: {config.tandem_repeats} (tandem repeat annotations for {len(contig_tandem_repeats)} contigs)")
+            log.info(f"Opening for reading: {config.tandem_repeats} (tandem repeat annotations for {len(contig_tandem_repeats)} contigs)")
 
     #
     # genotype_vcf: Read SVs from VCF to be genotyped
@@ -177,7 +182,7 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
             genotype_lineindex_order.append(svcall.raw_vcf_line_index)
             genotype_lineindex_svs[svcall.raw_vcf_line_index] = svcall
             genotype_contig_svs[svcall.contig].append(svcall)
-        print(f"Opening for reading: {config.genotype_vcf} (read {len(genotype_lineindex_svs)} SVs to be genotyped)")
+        log.info(f"Opening for reading: {config.genotype_vcf} (read {len(genotype_lineindex_svs)} SVs to be genotyped)")
 
     #
     # Open output files
@@ -214,13 +219,14 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
 
         if config.mode == "call_sample" or config.mode == "combine":
             if config.reference is not None:
-                print(f"Opening for reading: {config.reference}")
+                log.info(f"Opening for reading: {config.reference}")
             vcf_out.open_reference()
 
-        print(f"Opening for writing: {config.vcf} {vcf_output_info_str}")
+        log.info(f"Opening for writing: {config.vcf} {vcf_output_info_str}")
 
+    snf_out = None
     if config.snf is not None:
-        print(f"Opening for writing: {config.snf}")
+        log.info(f"Opening for writing: {config.snf}")
 
         if os.path.exists(config.snf) and not config.allow_overwrite:
             util.fatal_error_main(f"Output file '{config.snf}' already exists! Use --allow-overwrite to ignore this check and overwrite.")
@@ -233,12 +239,18 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
     #
     task_id = 0
     tasks_list = []
+    contigs = []
     contig_tasks_intervals = {}
 
     if config.mode == "call_sample" or config.mode == "genotype_vcf":
         #
         # Process .bam header
         #
+        task_classes = {
+            'call_sample': parallel.CallTask,
+            'genotype_vcf': parallel.GenotypeTask,
+        }
+
         total_mapped = bam_in.mapped
         if (config.threads == 1 and not config.low_memory) or config.task_count_multiplier == 0:
             task_max_reads = total_mapped
@@ -253,7 +265,6 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
             config.task_read_id_offset_mult = 10 ** math.ceil(math.log(total_mapped) + 1)
 
         contig_lengths = []
-        contig_coverages = {}
         contigs_with_tr_annotations = 0
         for contig in bam_in.get_index_statistics():
             if task_max_reads == 0:
@@ -261,9 +272,9 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
             else:
                 task_count = max(1, math.ceil(contig.mapped / float(task_max_reads)))
             contig_str = str(contig.contig)
+            contigs.append(contig_str)
             contig_length = bam_in.get_reference_length(contig_str)
             contig_lengths.append((contig_str, contig_length))
-            contig_coverages[contig_str] = []
             task_length = math.floor(contig_length / float(task_count))
             contigs_with_tr_annotations += int(contig_str in contig_tandem_repeats)
             startpos = 0
@@ -278,7 +289,7 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
                 else:
                     genotype_svs = None
 
-                task = parallel.Task(
+                task = task_classes[config.mode](
                     id=task_id,
                     contig=contig_str,
                     start=startpos,
@@ -298,7 +309,7 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
         config.contig_lengths = contig_lengths
 
         if contigs_with_tr_annotations < len(contig_lengths) and config.tandem_repeats != None:
-            print(f"Info: {contigs_with_tr_annotations} of {len(contig_lengths)} contigs in the input sample have associated tandem repeat annotations.")
+            log.info(f"Info: {contigs_with_tr_annotations} of {len(contig_lengths)} contigs in the input sample have associated tandem repeat annotations.")
 
             if contigs_with_tr_annotations == 0:
                 util.fatal_error_main("A tandem repeat annotations file was provided, but no matching annotations were found for any contig in the sample input file. Please check if the contig naming scheme in the tandem repeat annotations matches with the one in the input sample file.")
@@ -314,7 +325,7 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
         input_snfs_sample_ids: list[tuple[str, Optional[str]]] = []
 
         if len(config.input) == 1 and input_ext[0] == "tsv":
-            print(f"Opening for reading: {config.input[0]} (loading list of .snf files and associated sample ids)")
+            log.info(f"Opening for reading: {config.input[0]} (loading list of .snf files and associated sample ids)")
             with open(config.input[0], "r") as tsv_handle:
                 for line_index, line in enumerate(tsv_handle.readlines()):
                     line_strip = line.strip()
@@ -361,6 +372,12 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
         if config.contig:
             contig_lengths = [(name, length) for name, length in contig_lengths if name in config.contig]
 
+        result_class = None
+        if len(input_snfs_sample_ids) > config.combine_max_inmemory_results:
+            log.info(f'Using tmp file aggregation for merge.')
+            from sniffles.result import CombineResultTmpFile
+            result_class = CombineResultTmpFile
+
         for contig_str, contig_length in contig_lengths:
             task = parallel.CombineTask(
                 id=task_id,
@@ -369,7 +386,8 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
                 end=contig_length - 1,
                 assigned_process_id=None,
                 sv_id=0,
-                config=config
+                config=config,
+                result_class=result_class,
             )
             tasks_list.extend(task.scatter())
             if contig_str not in contig_tasks_intervals:
@@ -377,10 +395,10 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
             contig_tasks_intervals[contig_str].append((task.start, task.end, task))
             task_id = tasks_list[-1].id + 1
 
-        print(f"Verified headers for {len(input_snfs_sample_ids)} .snf files.")
-        print("The following samples will be processed in multi-calling:")
+        log.info(f"Verified headers for {len(input_snfs_sample_ids)} .snf files.")
+        log.info("The following samples will be processed in multi-calling:")
         for info in config.snf_input_info:
-            print(f"    {info['filename']} (sample ID in output VCF='{info['sample_id']}')")
+            log.info(f"    {info['filename']} (sample ID in output VCF='{info['sample_id']}')")
 
     if config.mode != "genotype_vcf" and config.vcf is not None:
         vcf_out.write_header(contig_lengths)
@@ -388,246 +406,77 @@ def Sniffles2_Main(config: config.SnifflesConfig, processes: list):
     #
     # Start workers
     #
-    for proc in range(config.threads):
-        pipe_main, pipe_proc = multiprocessing.Pipe()
-        proc = parallel.Process(id=proc, process=multiprocessing.Process(target=parallel.Main, args=(proc, config, pipe_proc)), pipe_main=pipe_main, externals=[])
-        processes.append(proc)
-
-    processes_free = [p for p in processes]
-    processes_busy = []
-    tasks_todo = [t for t in tasks_list]
+    for pnum in range(config.threads):
+        processes.append(parallel.SnifflesWorker(process_id=pnum, config=config, tasks=tasks_list, recycle_hint=monitor))
 
     if config.vcf is not None and config.sort:
         task_id_calls = {}
 
     for proc in processes:
-        proc.process.start()
+        proc.start()
 
-    print("")
+    log.info("")
     if config.mode == "call_sample" or config.mode == "genotype_vcf":
         if config.input_is_cram:
             # CRAM file
-            print(f"Analyzing alignments... (progress display disabled for CRAM input)")
+            log.info(f"Analyzing alignments... (progress display disabled for CRAM input)")
         else:
-            print(f"Analyzing {total_mapped} alignments total...")
+            log.info(f"Analyzing {total_mapped} alignments total...")
     elif config.mode == "combine":
-        print(f"Calling SVs across {len(config.snf_input_info)} samples ({total_mapped} candidates total)...")
-    print("")
+        log.info(f"Calling SVs across {len(config.snf_input_info)} samples ({total_mapped} candidates total)...")
+    log.info("")
 
     #
     # Distribute analysis tasks to workers and collect results
     #
     analysis_start_time = time.time()
 
-    def show_progress():
-        if config.no_progress:
-            return
+    finished_tasks: list[parallel.Task] = []
+    for proc in processes:
+        proc.join()
+        finished_tasks.extend(proc.finished_tasks)
 
-        if processed_read_count > 1000:
-            obj_title = "?"
-            if config.mode == "call_sample" or config.mode == "genotype_vcf":
-                obj_title = "alignments"
-            elif config.mode == "combine":
-                obj_title = "candidates"
-            read_progress = f"{str(processed_read_count).rjust(len(str(total_mapped)))}/{total_mapped} {obj_title} processed ({int(100 * float(processed_read_count / total_mapped))}%, {int(processed_read_count / (time.time() - time_build_start))}/s); "
-        else:
-            read_progress = "(Estimating progress); "
-        if DEV_MONITOR_MEM:
-            mem_str = f" [DEV: Total memory usage={dbg_get_total_memory_usage_MB():.2f}MB]"
-        else:
-            mem_str = ""
+    log.info(f"Took {time.time() - analysis_start_time:.2f}s.")
+    log.info("")
 
-        count_str = ""
-        if config.mode == "call_sample" and config.snf is not None:
-            count_str += f" {snf_candidate_count} candidates."
-        if (config.mode == "call_sample" and config.vcf is not None) or config.mode == "combine":
-            count_str += f" {sv_count} SVs."
-        print(f"{read_progress}{tasks_done_count}/{len(tasks_list)} tasks done; parallel {len(processes_busy)}/{len(processes)};{count_str} {mem_str}")
+    finished_tasks.sort(key=lambda task: task.id)
 
-    last_tasks_todo = len(tasks_todo)
-    tasks_done_count = 0
-    processed_read_count = 0
-    sv_count = 0
-    snf_candidate_count = 0
-    last_processed_read_pct = 0
-    time_build_start = time.time()
-    while len(tasks_todo) > 0 or len(processes_busy) > 0:
-        while len(processes_free) > 0 and len(tasks_todo) > 0:
-            task = tasks_todo.pop(0)
-            proc = processes_free.pop()
-            processes_busy.append(proc)
-            assert (task.assigned_process_id is None)
-            task.assigned_process_id = proc.id
-            proc.pipe_main.send([config.mode, task])
+    for t in finished_tasks:
+        t.result.emit(vcf_out=vcf_out, snf_out=snf_out)
 
-        if total_mapped > 0:
-            # Progress disabled for CRAM files due to total read count not being stored in index
-            processed_read_pct = int(100 * float(processed_read_count / total_mapped))
-            if len(tasks_todo) != last_tasks_todo and processed_read_pct - last_processed_read_pct >= 5:
-                last_processed_read_pct = processed_read_pct
-                show_progress()
-                last_tasks_todo = len(tasks_todo)
-
-        if len(processes_busy) > 0:
-            for proc in processes_busy:
-                if proc.pipe_main.poll(0.01):
-                    # Process has finished building leadtab, receive and distribute leads that need to be synced
-                    command, result = proc.pipe_main.recv()
-                    if command == "worker_exception":
-                        util.fatal_error_main("An exception occured in a worker process (see surrounding error messages)")
-                    assert (command == "return_" + config.mode)
-                    processed_read_count += result.processed_read_count
-                    processes_busy.remove(proc)
-                    processes_free.append(proc)
-                    tasks_done_count += 1
-
-                    task_id = result.task_id
-                    task = tasks_list[task_id]
-                    assert (task.id == task_id)
-
-                    if config.mode == "call_sample" or config.mode == "combine":
-                        if config.vcf is not None:
-                            sv_count += result.svcount
-
-                            if config.sort:
-                                if task_id not in task_id_calls:
-                                    task_id_calls[task_id] = []
-                                task_id_calls[task_id].extend(result.svcalls)
-                            else:
-                                for svcall in result.svcalls:
-                                    vcf_out.write_call(svcall)
-
-                    elif config.mode == "genotype_vcf":
-                        for svcall in result.svcalls:
-                            assert (svcall.raw_vcf_line_index not in genotype_lineindex_svcalls_returned)
-                            genotype_lineindex_svcalls_returned[svcall.raw_vcf_line_index] = svcall
-
-                    if config.mode == "call_sample":
-                        if config.snf is not None and result.has_snf:
-                            # if result["snf_candidate_count"] > 0:
-                            snf_candidate_count += result.snf_candidate_count
-                            snf_parts.append(result)
-                            contig_coverages[task.contig].append(result.coverage_average_total)
-
-    #
-    # Store avg. coverages for .snf file
-    #
-    if config.mode == "call_sample" and config.snf is not None:
-        for contig in contig_coverages:
-            contig_coverages[contig] = sum(contig_coverages[contig]) / len(contig_coverages[contig]) if len(contig_coverages[contig]) > 0 else 0
-        config.contig_coverages = contig_coverages
-
-    if total_mapped > 0:
-        show_progress()
-    print(f"Took {time.time() - analysis_start_time:.2f}s.")
-    print("")
-
-    #
-    # Output results
-    #
-    lastcall = None
-    if (config.mode == "call_sample" or config.mode == "combine") and config.vcf is not None and config.sort:
-        reassigned_count = 0
-        ignored_count = 0
-        sort_start_time = time.time()
-        for task in tasks_list:
-            if task.id not in task_id_calls:
-                continue
-            for call in sorted(task_id_calls[task.id], key=lambda call: call.pos):
-                if call.pos < task.start or call.pos >= task.end or call.contig != task.contig:
-                    new_target_tasks = list(task for start, end, task in contig_tasks_intervals[call.contig] if task.start <= call.pos < task.end)
-                    if len(new_target_tasks) != 1:
-                        print(f"WARNING: Unable to assign call at {call.contig}:{call.pos} to unambiguous task. (got {len(new_target_tasks)} intervals). SVCall={call}")
-                        if len(new_target_tasks) == 0:
-                            continue
-
-                    new_task_id = new_target_tasks[0].id
-                    if new_task_id not in task_id_calls:
-                        task_id_calls[new_task_id] = []
-                    task_id_calls[new_task_id].append(call)
-                    # print(f"Migrated a call from {task} to {new_target_tasks[0].data}: {call}")
-                    reassigned_count += 1
-
-        for task in tasks_list:  # Tasks are already sorted by contig/coordinate (from .bam index)
-            if task.id not in task_id_calls:
-                continue
-            for call in sorted(task_id_calls[task.id], key=lambda call: call.pos):
-                # assert(lastcall==None or lastcall.pos<call.pos or lastcall.contig!=call.contig)
-                # assert(call.pos >= task.start)
-                # assert(call.pos < task.end)
-                # assert(call.contig==task.contig)
-                if call.pos < task.start or call.pos >= task.end or call.contig != task.contig:
-                    ignored_count += 1
-                else:
-                    vcf_out.write_call(call)
-
-        if reassigned_count != ignored_count:
-            print(f"ERROR: {ignored_count} calls ignored, but only {reassigned_count} were reassigned to correct tasks")
-
-    if config.mode == "call_sample" and config.snf is not None:
-        #
-        # Combine regional temporary .snf files from workers
-        #
-        main_index = {}
-        offset = 0
-        parts_sorted = sorted(snf_parts, key=lambda r: r.task.id)
-        for part in parts_sorted:
-            part_contig = part.task.contig
-            if part_contig not in main_index:
-                main_index[part_contig] = {}
-            for block, (part_block_start, part_block_len) in part.snf_index.items():
-                if block not in main_index[part_contig]:
-                    main_index[part_contig][block] = []
-                main_index[part_contig][block].append((part_block_start + offset, part_block_len))
-            offset += part.snf_total_length
-
-        header = {"config": config.__dict__, "index": main_index, "snf_candidate_count": snf_candidate_count}
-        header_json = json.dumps(header, default=lambda obj: "<Unstored_Object>") + "\n"
-        snf_out.handle.write(header_json.encode())
-
-        for part in parts_sorted:
-            with open(part.snf_filename, "rb") as part_handle:
-                part_data = part_handle.read()
-                part_handle.close()
-            snf_out.handle.write(part_data)
-            os.remove(part.snf_filename)
-
+    if snf_out:
+        snf_candidate_count = snf_out.write_results(config, contigs)
         snf_out.close()
+        log.info(f"Wrote {snf_candidate_count} SV candidates to {config.snf} (for multi-sample calling).")
 
     if DEV_MONITOR_MEM:
         logging.debug(f"[DEV: Total memory usage={dbg_get_total_memory_usage_MB():.2f}MB]")
-
-    if config.mode == "genotype_vcf":
-        vcf_out.rewrite_header_genotype(vcf_in.header_str)
-
-        for lineindex in genotype_lineindex_order:
-            if lineindex in genotype_lineindex_svcalls_returned:
-                vcf_out.rewrite_genotype(genotype_lineindex_svcalls_returned[lineindex])
+    #
+    # if config.mode == "genotype_vcf":
+    #     vcf_out.rewrite_header_genotype(vcf_in.header_str)
+    #
+    #     for lineindex in genotype_lineindex_order:
+    #         if lineindex in genotype_lineindex_svcalls_returned:
+    #             vcf_out.rewrite_genotype(genotype_lineindex_svcalls_returned[lineindex])
 
     if config.vcf is not None:
         vcf_out.close()
         if config.vcf_output_bgz:
             vcf_index_start_time = time.time()
-            print(f"Generating index for {config.vcf}...")
-            pysam.tabix_index(config.vcf, preset="vcf", force=True)
-            print(f"Indexing VCF output took {time.time() - vcf_index_start_time:.2f}s.")
-
-    print(f"Done.")
-
-    if config.mode == "call_sample" and config.snf is not None:
-        print(f"Wrote {snf_candidate_count} SV candidates to {config.snf} (for multi-sample calling).")
+            log.info(f"Generating index for {config.vcf}...")
+            try:
+                pysam.tabix_index(config.vcf, preset="vcf", force=True)
+            except:
+                log.exception(f'Error indexing VCF.')
+            else:
+                log.info(f"Indexing VCF output took {time.time() - vcf_index_start_time:.2f}s.")
 
     if (config.mode == "call_sample" or config.mode == "combine") and config.vcf is not None:
-        print(f"Wrote {vcf_out.call_count} called SVs to {config.vcf} {vcf_output_info_str}")
+        log.info(f"Wrote {vcf_out.call_count} called SVs to {config.vcf} {vcf_output_info_str}")
 
-    #
-    # Finalize
-    #
-    for proc in processes:
-        proc.pipe_main.send(["finalize", None])
-
-    for proc in processes:
-        proc.process.join()
+    if monitor:
+        log.debug(f'Stopping resource monitoring.')
+        monitor.stop()
 
 
 if __name__ == "__main__":
@@ -645,6 +494,7 @@ if __name__ == "__main__":
                 'console': {
                     'class': 'logging.StreamHandler',
                     'formatter': 'default',
+                    'stream': 'ext://sys.stdout',
                 }
             },
             'loggers': {
@@ -653,16 +503,16 @@ if __name__ == "__main__":
                 }
             },
             'root': {
-                'level': logging.DEBUG,
+                'level': logging.INFO,
                 'handlers': ['console'],
             },
             'disable_existing_loggers': False,
         })
-    except Exception:
+    except (ValueError, TypeError, AttributeError, ImportError):
         logging.exception(f'Error configuring loggers.')
 
     try:
-        Sniffles2_Main(config.SnifflesConfig(), processes)
+        Sniffles2_Main(processes)
     except util.Sniffles2Exit:
         if len(processes):
             # Allow time for child process error messages to propagate
@@ -680,3 +530,5 @@ if __name__ == "__main__":
             except:
                 pass
         exit(1)
+    except:
+        logging.getLogger('sniffles.main').exception(f'Unhandled error while running sniffles.')

@@ -1,8 +1,14 @@
+import logging
 import os
 import pickle
+import sys
 
+from sniffles.config import SnifflesConfig
 from sniffles.sv import SVCall
 from sniffles.vcf import VCF
+
+
+log = logging.getLogger(__name__)
 
 
 class Result:
@@ -11,12 +17,17 @@ class Result:
     """
     processed_read_count: int
     task_id: int
+    run_id: str
+    contig: str
     processed_read_count: int
     svcalls: list[SVCall]
     svcount: int
+    error: bool = False
 
     def __init__(self, task: 'Task', svcalls: list[SVCall], candidates_processed: int):
         self.task_id = task.id
+        self.run_id = task.config.run_id
+        self.contig = task.contig
         self.processed_read_count = candidates_processed
         self.svcount = len(svcalls)
         self.store_calls(svcalls)
@@ -24,10 +35,26 @@ class Result:
     def store_calls(self, svcalls):
         self.svcalls = svcalls
 
-    def cleanup(self):
+    def emit(self, **kwargs) -> int:
         """
-        Optional clean up code after writing this result
+        Emit this result to a file. Returns the number of records written.
         """
+        """
+        Emit this result to the given file
+        """
+        vcf_out = kwargs.get('vcf_out')
+        if vcf_out:
+            calls = self.svcalls
+            if calls:
+                for call in calls:
+                    vcf_out.write_call(call)
+                log.debug(f"Wrote {len(calls)} calls from {self} to VCF.")
+            else:
+                log.debug(f'No calls for {self}')
+            return len(calls)
+        else:
+            log.debug(f'No vcf output file specified.')
+            return 0
 
 
 class CallResult(Result):
@@ -37,6 +64,12 @@ class CallResult(Result):
     snf_index = None
     snf_total_length = None
     snf_candidate_count = None
+
+    def emit(self, **kwargs) -> int:
+        res = super().emit(**kwargs)
+        if snf_out := kwargs.get('snf_out'):
+            snf_out.add_result(self)
+        return res
 
 
 class GenotypeResult(Result):
@@ -49,12 +82,8 @@ class CombineResult(Result):
     """
     Result of a combine run for one task, simple variant with calls in memory. Must be pickleable.
     """
-    def emit(self, file: VCF):
-        """
-        Emit this result to the given file
-        """
-        for call in self.svcalls:
-            file.write_call(call)
+    def __str__(self):
+        return f'CombineResult #{self.task_id}'
 
 
 class CombineResultTmpFile(CombineResult):
@@ -63,7 +92,7 @@ class CombineResultTmpFile(CombineResult):
     """
     @property
     def tmpfile_name(self) -> str:
-        return f'tmp{self.task_id}.part'
+        return f'result-{self.run_id}-{self.task_id}.part'
 
     def store_calls(self, svcalls):
         with open(self.tmpfile_name, 'wb') as f:
@@ -74,5 +103,20 @@ class CombineResultTmpFile(CombineResult):
         with open(self.tmpfile_name, 'rb') as f:
             return pickle.loads(f.read())
 
+    def emit(self, **kwargs) -> int:
+        res = super().emit(**kwargs)
+        self.cleanup()
+        return res
+
     def cleanup(self):
         os.unlink(self.tmpfile_name)
+
+
+class ErrorResult:
+    error = True
+
+    def __init__(self, ex: Exception):
+        self.message = f'{ex}'
+
+    def __str__(self):
+        return self.message
