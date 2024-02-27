@@ -7,354 +7,581 @@
 # Author:  Moritz Smolka
 # Contact: moritz.g.smolka@gmail.com
 #
-
-from dataclasses import dataclass
+import copy
 import gc
+import logging
 import math
+import multiprocessing
+import os
+import threading
+from argparse import Namespace
+from dataclasses import dataclass
+from typing import Optional, Union, Callable
 
 import pysam
 
-from sniffles import leadprov
 from sniffles import cluster
-from sniffles import sv
+from sniffles import leadprov
 from sniffles import postprocessing
 from sniffles import snf
-from sniffles import util
+from sniffles import sv
+from sniffles.result import Result, ErrorResult, CallResult, GenotypeResult, CombineResult
+
 
 @dataclass
 class Task:
+    """
+    A task is a generic unit of work sent to a child process to be worked on in parallel. Must be pickleable.
+    """
     id: int
     sv_id: int
     contig: str
     start: int
     end: int
-    assigned_process_id: int=None
-    lead_provider: object=None
-    bam: object=None
-    tandem_repeats: list=None
-    genotype_svs: list=None
+    config: Namespace
+    assigned_process_id: Optional[int] = None
+    lead_provider: leadprov.LeadProvider = None
+    bam: object = None
+    tandem_repeats: list = None
+    genotype_svs: list = None
+    _logger = None
+    result: Result = None
 
-    def build_leadtab(self,config):
-        assert(self.lead_provider==None)
-        if config.input_is_cram == True and config.reference is not None:
-            self.bam=pysam.AlignmentFile(config.input, config.input_mode, require_index=True,reference_filename =config.reference)
+    @property
+    def logger(self) -> logging.Logger:
+        if self._logger is None:
+            self._logger = logging.getLogger(f'sniffles.progress')
+
+        return self._logger
+
+    @property
+    def done(self) -> bool:
+        return self.result is not None
+
+    @property
+    def success(self) -> bool:
+        return self.done and not self.result.error
+
+    def add_result(self, result: Result) -> None:
+        self.result = result
+
+    def execute(self) -> Optional[Result]:
+        """
+        Execute this Task, returning a Result object
+        """
+        raise NotImplemented
+
+    def build_leadtab(self):
+        assert (self.lead_provider is None)
+
+        config = self.config
+
+        if config.input_is_cram and config.reference is not None:
+            self.bam = pysam.AlignmentFile(config.input, config.input_mode, require_index=True, reference_filename=config.reference)
         else:
-            self.bam=pysam.AlignmentFile(config.input, config.input_mode, require_index=True)
-        self.lead_provider=leadprov.LeadProvider(config,self.id*config.task_read_id_offset_mult)
-        externals=self.lead_provider.build_leadtab(self.contig,self.start,self.end,self.bam)
-        return externals,self.lead_provider.read_count
+            self.bam = pysam.AlignmentFile(config.input, config.input_mode, require_index=True)
+        self.lead_provider = leadprov.LeadProvider(config, self.id * config.task_read_id_offset_mult)
+        externals = self.lead_provider.build_leadtab(self.contig, self.start, self.end, self.bam)
+        return externals, self.lead_provider.read_count
 
-    def call_candidates(self,keep_qc_fails,config):
-        candidates=[]
+    def call_candidates(self, keep_qc_fails, config):
+        candidates = []
         for svtype in sv.TYPES:
-            for svcluster in cluster.resolve(svtype,self.lead_provider,config,self.tandem_repeats):
-                for svcall in sv.call_from(svcluster,config,keep_qc_fails,self):
-                    if config.dev_trace_read!=False:
-                        cluster_has_read=False
+            for svcluster in cluster.resolve(svtype, self.lead_provider, config, self.tandem_repeats):
+                for svcall in sv.call_from(svcluster, config, keep_qc_fails, self):
+                    if config.dev_trace_read is not False:
+                        cluster_has_read = False
                         for ld in svcluster.leads:
-                            if ld.read_qname==config.dev_trace_read:
-                                cluster_has_read=True
+                            if ld.read_qname == config.dev_trace_read:
+                                cluster_has_read = True
                         if cluster_has_read:
                             import copy
-                            svcall_copy=copy.deepcopy(svcall)
-                            svcall_copy.postprocess=None
+                            svcall_copy = copy.deepcopy(svcall)
+                            svcall_copy.postprocess = None
                             print(f"[DEV_TRACE_READ] [3/4] [Task.call_candidates] Read {config.dev_trace_read} -> Cluster {svcluster.id} -> preliminary SVCall {svcall_copy}")
                     candidates.append(svcall)
 
-        self.coverage_average_fwd,self.coverage_average_rev=postprocessing.coverage(candidates,self.lead_provider,config)
-        self.coverage_average_total=self.coverage_average_fwd+self.coverage_average_rev
+        self.coverage_average_fwd, self.coverage_average_rev = postprocessing.coverage(candidates, self.lead_provider, config)
+        self.coverage_average_total = self.coverage_average_fwd + self.coverage_average_rev
         return candidates
 
-    def finalize_candidates(self,candidates,keep_qc_fails,config):
-        passed=[]
+    def finalize_candidates(self, candidates, keep_qc_fails, config):
+        passed = []
         for svcall in candidates:
-            svcall.qc=svcall.qc and postprocessing.qc_sv(svcall,config)
+            svcall.qc = svcall.qc and postprocessing.qc_sv(svcall, config)
             if not keep_qc_fails and not svcall.qc:
                 continue
-            svcall.qc=svcall.qc and postprocessing.qc_sv_support(svcall,self.coverage_average_total,config)
+            svcall.qc = svcall.qc and postprocessing.qc_sv_support(svcall, self.coverage_average_total, config)
             if not keep_qc_fails and not svcall.qc:
                 continue
 
-            postprocessing.annotate_sv(svcall,config)
+            postprocessing.annotate_sv(svcall, config)
 
-            svcall.qc=svcall.qc and postprocessing.qc_sv_post_annotate(svcall,config)
+            svcall.qc = svcall.qc and postprocessing.qc_sv_post_annotate(svcall, config)
 
-            if config.dev_trace_read!=False:
-                cluster_has_read=False
+            if config.dev_trace_read:
+                cluster_has_read = False
                 for ld in svcall.postprocess.cluster.leads:
-                    if ld.read_qname==config.dev_trace_read:
-                        cluster_has_read=True
+                    if ld.read_qname == config.dev_trace_read:
+                        cluster_has_read = True
                 if cluster_has_read:
                     import copy
-                    svcall_copy=copy.deepcopy(svcall)
-                    svcall_copy.postprocess=None
+                    svcall_copy = copy.deepcopy(svcall)
+                    svcall_copy.postprocess = None
                     print(f"[DEV_TRACE_READ] [4/4] [Task.finalize_candidates] Read {config.dev_trace_read} -> Cluster {svcall.postprocess.cluster.id} -> finalized SVCall, QC={svcall_copy.qc}: {svcall_copy}")
 
             if not keep_qc_fails and not svcall.qc:
                 continue
 
-            svcall.finalize() #Remove internal information (not written to output) before sending to mainthread for VCF writing
+            svcall.finalize()  # Remove internal information (not written to output) before sending to mainthread for VCF writing
             passed.append(svcall)
         return passed
 
-    def combine(self,config):
-        samples_headers_snf={}
-        for snf_info in config.snf_input_info:
-            snf_in=snf.SNFile(config,open(snf_info["filename"],"rb"),filename=snf_info["filename"])
-            snf_in.read_header()
-            samples_headers_snf[snf_info["internal_id"]]=(snf_info["filename"],snf_in.header,snf_in)
 
-            if config.combine_close_handles:
+class CallTask(Task):
+    """
+    """
+
+    def execute(self) -> CallResult:
+        config = self.config
+
+        if config.snf is not None or config.no_qc:
+            qc = False
+        else:
+            qc = True
+
+        _, read_count = self.build_leadtab()
+        svcandidates = self.call_candidates(qc, config)
+        svcalls = self.finalize_candidates(svcandidates, not qc, config)
+        if not config.no_qc:
+            svcalls = [s for s in svcalls if s.qc]
+
+        if config.sort:
+            svcalls = sorted(svcalls, key=lambda svcall: svcall.pos)
+
+        from sniffles.result import CallResult
+        result = CallResult(self, svcalls, read_count)
+
+        if config.snf is not None:  # and len(svcandidates):
+            snf_filename = f"{config.snf}.tmp_{self.id}.snf"
+
+            with open(snf_filename, "wb") as handle:
+                snf_out = snf.SNFile(config, handle)
+                for cand in svcandidates:
+                    snf_out.store(cand)
+                snf_out.annotate_block_coverages(self.lead_provider)
+                snf_out.write_and_index()
+                handle.close()
+            result.snf_filename = snf_filename
+            result.snf_index = snf_out.get_index()
+            result.snf_total_length = snf_out.get_total_length()
+            result.snf_candidate_count = len(svcandidates)
+            result.has_snf = True
+
+        result.coverage_average_total = self.coverage_average_total
+
+        return result
+
+
+class GenotypeTask(Task):
+    def execute(self) -> Optional[GenotypeResult]:
+        config = self.config
+
+        qc = False
+        _, read_count = self.build_leadtab()
+        svcandidates = self.call_candidates(qc, config=config)
+        svcalls = self.finalize_candidates(svcandidates, not qc, config=config)
+
+        binsize = 5000
+        binedge = int(binsize / 10)
+        genotype_svs_svtypes_bins = {svtype: {} for svtype in sv.TYPES}
+        for genotype_sv in self.genotype_svs:
+            genotype_sv.genotype_match_sv = None
+            genotype_sv.genotype_match_dist = math.inf
+
+            if genotype_sv.svtype not in genotype_svs_svtypes_bins:
+                # TODO: Warn about unsupported SVTYPE
+                continue
+
+            bins = [int(genotype_sv.pos / binsize) * binsize]
+            if genotype_sv.pos % binsize < binedge:
+                bins.append((int(genotype_sv.pos / binsize) - 1) * binsize)
+            if genotype_sv.pos % binsize > binsize - binedge:
+                bins.append((int(genotype_sv.pos / binsize) + 1) * binsize)
+
+            for bin in bins:
+                if bin not in genotype_svs_svtypes_bins[genotype_sv.svtype]:
+                    genotype_svs_svtypes_bins[genotype_sv.svtype][bin] = []
+                genotype_svs_svtypes_bins[genotype_sv.svtype][bin].append(genotype_sv)
+
+        for cand in svcandidates:
+            bin = int(cand.pos / binsize) * binsize
+            if bin not in genotype_svs_svtypes_bins[cand.svtype]:
+                continue
+            if cand.svtype == "BND":
+                for genotype_sv in genotype_svs_svtypes_bins[cand.svtype][bin]:
+                    dist = abs(genotype_sv.pos - cand.pos)
+                    # if minlen>0 and dist < genotype_sv.genotype_match_dist and dist <= config.cluster_merge_bnd * 2:
+                    if dist < genotype_sv.genotype_match_dist and dist <= config.cluster_merge_bnd:
+                        if cand.bnd_info.mate_contig == genotype_sv.bnd_info.mate_contig:
+                            genotype_sv.genotype_match_sv = cand
+                            genotype_sv.genotype_match_dist = dist
+            else:
+                for genotype_sv in genotype_svs_svtypes_bins[cand.svtype][bin]:
+                    dist = abs(genotype_sv.pos - cand.pos) + abs(abs(genotype_sv.svlen) - abs(cand.svlen))
+                    minlen = float(min(abs(genotype_sv.svlen), abs(cand.svlen)))
+                    if minlen > 0 and dist < genotype_sv.genotype_match_dist and dist <= config.combine_match * math.sqrt(
+                            minlen) and dist <= config.combine_match_max:
+                        genotype_sv.genotype_match_sv = cand
+                        genotype_sv.genotype_match_dist = dist
+
+        postprocessing.coverage(self.genotype_svs, self.lead_provider, config)
+
+        # Determine genotypes for unmatched input SVs
+        for svcall in self.genotype_svs:
+            coverage_list = [svcall.coverage_start, svcall.coverage_center, svcall.coverage_end]
+            coverage_list = [c for c in coverage_list if c is not None]
+            if len(coverage_list) == 0:
+                return
+            coverage = round(sum(coverage_list) / len(coverage_list))
+            svcall.genotypes = {}
+            if coverage > 0:
+                svcall.genotypes[0] = (0, 0, 0, coverage, 0, None)
+            else:
+                svcall.genotypes[0] = config.genotype_none
+
+        from sniffles.result import GenotypeResult
+        return GenotypeResult(self, self.genotype_svs, read_count)
+
+
+class CombineTask(Task):
+    """
+    Task to merge/combine multiple SNF files into one.
+    """
+    MIN_BLOCKS_PER_THREAD = 100
+    emit_first_block = True
+    result_class = CombineResult
+
+    block_indices: list[int] = None
+
+    def __init__(self, *args, **kwargs):
+        self.result_class = kwargs.pop('result_class', None) or self.result_class
+        super().__init__(*args, **kwargs)
+        self.generate_blocks()
+
+    def generate_blocks(self):
+        """
+        Generate a set of blocks
+        """
+        self.block_indices = list(range(self.start, self.end + self.config.snf_block_size, self.config.snf_block_size))
+
+    def __str__(self):
+        if len(self.block_indices) > 0:
+            return f'''Task {self.id} Contig {self.contig} [{self.start} ({self.block_indices[0]}) .. {self.end} ({self.block_indices[-1]})]'''
+        else:
+            return f'Task {self.id} [no blocks available]'
+
+    def clone(self, first_block: int, block_count: int, new_id: int = None, emit_first: bool = True) -> 'CombineTask':
+        """
+        Clone this task with a subset of the blocks to be processed.
+        """
+        obj = copy.copy(self)
+        if new_id is not None:
+            obj.id = new_id
+        obj.block_indices = self.block_indices[first_block:first_block + block_count]
+        obj.emit_first_block = emit_first
+        obj.start = obj.block_indices[0]
+        obj.end = obj.block_indices[-1] + obj.config.snf_block_size
+        return obj
+
+    def scatter(self) -> list['CombineTask']:
+        """
+        Scatter this task to a number of tasks to be run in parallel, on block level:
+        - Distribute blocks equally to tasks, each one working on consecutive blocks
+        - First task gets any blocks that can not be evenly distributed
+        - Tasks other than the first one have to process their first block for kept groups, and
+          should not emit calls for this block (as these will be emitted by the previous task)
+        """
+        if self.config.threads > 1:
+            if (nBlocks := len(self.block_indices)) >= self.MIN_BLOCKS_PER_THREAD * 2 and not self.config.dev_disable_interblock_threads:
+                parallel_tasks = min(self.config.threads, int(nBlocks / self.MIN_BLOCKS_PER_THREAD))
+                blocks_per_task = int(nBlocks / parallel_tasks)
+                blocks_for_first_task = nBlocks - blocks_per_task * (parallel_tasks - 1)
+                if parallel_tasks > 1:
+                    return [self.clone(0, blocks_for_first_task)] + [
+                        self.clone(
+                            blocks_for_first_task + i * blocks_per_task - 1,  # Start one block earlier...
+                            blocks_per_task,
+                            emit_first=False,  # ...but dont emit it
+                            new_id=self.id + i + 1
+                        ) for i in range(parallel_tasks - 1)
+                    ]
+
+        return [self]
+
+    def execute(self):
+        samples_headers_snf = {}
+        for snf_info in self.config.snf_input_info:
+            snf_in = snf.LazySNFile(self.config, open(snf_info["filename"], "rb"), filename=snf_info["filename"])
+            snf_in.read_header()
+            samples_headers_snf[snf_info["internal_id"]] = snf_in
+
+            if self.config.combine_close_handles:
                 snf_in.close()
 
-        svcalls=[]
+        svcalls = []
 
-        #block_groups_keep_threshold=5000
-        #TODO: Parameterize
-        bin_min_size=config.combine_min_size
-        bin_max_candidates=max(25,int(len(config.snf_input_info)*0.5))
-        overlap_abs=config.combine_overlap_abs
+        # block_groups_keep_threshold=5000
+        # TODO: Parameterize
+        bin_min_size = self.config.combine_min_size
+        bin_max_candidates = max(25, int(len(self.config.snf_input_info) * 0.5))
+        overlap_abs = self.config.combine_overlap_abs
 
-        sample_internal_ids=set()
-        for sample_internal_id,(sample_filename,sample_header,sample_snf) in samples_headers_snf.items():
-            sample_internal_ids.add(sample_internal_id)
+        sample_internal_ids = set(samples_headers_snf.keys())
 
         #
         # Load candidate SVs from all samples for each block separately and cluster them based on start position
         #
-        had=False
-        candidates_processed=0
-        svtypes_candidates_bins={svtype: {} for svtype in sv.TYPES}
-        groups_keep={svtype:list() for svtype in sv.TYPES}
-        for block_index in range(self.start,self.end+config.snf_block_size,config.snf_block_size):
-            samples_blocks={}
-            for sample_internal_id,(sample_filename,sample_header,sample_snf) in samples_headers_snf.items():
-                blocks=sample_snf.read_blocks(self.contig,block_index)
-                samples_blocks[sample_internal_id]=blocks
+        candidates_processed = 0
+        groups_keep = {svtype: list() for svtype in sv.TYPES}
+
+        for cur, block_index in enumerate(self.block_indices):  # iterate over all blocks
+            self.logger.info(f'Processing block {cur + 1}/{len(self.block_indices)} (active calls: {sv.SVCall._counter} groups: {sv.SVGroup._counter})')
+            samples_blocks = {}
+            for sample_internal_id, sample_snf in samples_headers_snf.items():
+                blocks = sample_snf.read_blocks(self.contig, block_index)
+                samples_blocks[sample_internal_id] = blocks
+                # sample_internal_id is the number of the processed file
+                # blocks is a list[dict[str, list[SVCall]]] {'INS': [...], 'DEL': [...], ...}
 
             for svtype in sv.TYPES:
-                bins={}
-                #svcandidates=[]
-                for sample_internal_id,(sample_filename,sample_header,sample_snf) in samples_headers_snf.items():
-                    blocks=samples_blocks[sample_internal_id]
-                    if blocks==None:
+                bins = {}
+                # svcandidates=[]
+                for sample_internal_id in samples_headers_snf.keys():  # fetch current block for each file
+                    blocks = samples_blocks[sample_internal_id]
+                    if blocks is None:
                         continue
-                    for block in blocks:
+                    for block in blocks:  # usually only 1 block
                         for cand in block[svtype]:
-                            #if config.combine_pass_only and (cand.qc==False or cand.filter!="PASS"):
+                            # if config.combine_pass_only and (cand.qc==False or cand.filter!="PASS"):
                             #    continue
 
-                            cand.sample_internal_id=sample_internal_id
+                            cand.sample_internal_id = sample_internal_id
 
-                            bin=int(cand.pos/bin_min_size)*bin_min_size
-                            if not bin in bins:
-                                bins[bin]=[cand]
+                            bin = int(cand.pos / bin_min_size) * bin_min_size
+                            if bin not in bins:
+                                bins[bin] = [cand]
                             else:
                                 bins[bin].append(cand)
-                        candidates_processed+=len(block[svtype])
+                        candidates_processed += len(block[svtype])
 
-                if len(bins)==0:
+                if len(bins) == 0:
                     continue
 
-                curr_bin=0
-                size=0
-                svcands=[]
-                keep=groups_keep[svtype]
-                sorted_bins=sorted(bins)
-                last_bin=sorted_bins[-1]
+                size = 0
+                svcands = []
+                keep = groups_keep[svtype]
+                sorted_bins = sorted(bins)
+                last_bin = sorted_bins[-1]
                 for curr_bin in sorted_bins:
-                    svcands.extend(bins[curr_bin])
-                    size+=bin_min_size
+                    svcands.extend(bins[curr_bin])  # here SVCalls from bins are collected...
+                    size += bin_min_size
 
-                    if (not config.combine_exhaustive and len(svcands) >= bin_max_candidates) or curr_bin == last_bin:
-                        if len(svcands)==0:
-                            size=0
+                    if (not self.config.combine_exhaustive and len(svcands) >= bin_max_candidates) or curr_bin == last_bin:
+                        if len(svcands) == 0:
+                            size = 0
                             continue
-                        prevkept=len(keep)
-                        svgroups=cluster.resolve_block_groups(svtype,svcands,keep,config)
-                        groups_call=[]
-                        keep=[]
-                        for group in svgroups:
-                            coverage_bin=int(group.pos_mean/config.coverage_binsize_combine)*config.coverage_binsize_combine
-                            for non_included_sample in sample_internal_ids-group.included_samples:
-                                if samples_blocks[non_included_sample]!=None and coverage_bin in samples_blocks[non_included_sample][0]["_COVERAGE"]:
-                                    coverage=samples_blocks[non_included_sample][0]["_COVERAGE"][coverage_bin]
-                                else:
-                                    coverage=0
-                                if non_included_sample in group.coverages_nonincluded:
-                                    group.coverages_nonincluded[non_included_sample]=max(coverage,group.coverages_nonincluded[non_included_sample])
-                                else:
-                                    group.coverages_nonincluded[non_included_sample]=coverage
 
-                            if abs(group.pos_mean - curr_bin) < max(size*0.5,overlap_abs):
+                        svgroups = cluster.resolve_block_groups(svtype, svcands, keep, self.config)
+                        groups_call = []
+                        keep = []
+                        for group in svgroups:
+                            coverage_bin = int(
+                                group.pos_mean / self.config.coverage_binsize_combine) * self.config.coverage_binsize_combine
+                            for non_included_sample in sample_internal_ids - group.included_samples:
+                                if samples_blocks[non_included_sample] is not None and coverage_bin in samples_blocks[non_included_sample][0]["_COVERAGE"]:
+                                    coverage = samples_blocks[non_included_sample][0]["_COVERAGE"][coverage_bin]
+                                else:
+                                    coverage = 0
+                                if non_included_sample in group.coverages_nonincluded:
+                                    group.coverages_nonincluded[non_included_sample] = max(
+                                        coverage,
+                                        group.coverages_nonincluded[non_included_sample]
+                                    )
+                                else:
+                                    group.coverages_nonincluded[non_included_sample] = coverage
+
+                            if abs(group.pos_mean - curr_bin) < max(size * 0.5, overlap_abs):
                                 keep.append(group)
                             else:
                                 groups_call.append(group)
-                        svcalls.extend(sv.call_groups(groups_call,config,self))
-                        size=0
-                        svcands=[]
 
-                groups_keep[svtype]=keep
+                        if cur > 0 or self.emit_first_block:
+                            if cur == 1 and not self.emit_first_block and len(self.block_indices) > 1:
+                                # If we're not emitting the first block
+                                svcalls.extend(call for call in sv.call_groups(groups_call, self.config, self) if not call.pos < self.block_indices[1])
+                            else:
+                                svcalls.extend(sv.call_groups(groups_call, self.config, self))
+
+                        size = 0
+                        svcands = []
+
+                groups_keep[svtype] = keep
 
         for svtype in groups_keep:
-            svcalls.extend(sv.call_groups(groups_keep[svtype],config,self))
+            svcalls.extend(sv.call_groups(groups_keep[svtype], self.config, self))
 
-        return svcalls,candidates_processed
+        if self.config.sort:
+            svcalls.sort(key=lambda call: call.pos)
 
-@dataclass
-class Process:
-    id: int
-    process: object=None
-    pipe_main: object=None
-    externals: list=None
+        return self.result_class(self, svcalls, candidates_processed)
 
-def Main(proc_id,config,pipe):
-    try:
-        if config.dev_profile:
-            import cProfile
-            cProfile.runctx("Main_Internal(proc_id,config,pipe)",globals(),locals(),sort="cumulative")
+
+class ShutdownTask:
+    id = None
+
+    def __str__(self):
+        return 'Shutdown Request'
+
+    def execute(self) -> Result:
+        raise SnifflesWorker.Shutdown
+
+
+class SnifflesWorker(threading.Thread):
+    """
+    Handle for a worker process. Since we're forking, this class will be available in
+    both the parent and the worker processes.
+    """
+    id: int  # sequential ID of this worker, starting with 0 for the first
+    externals: list = None
+    recycle: bool = False
+    _running = False
+
+    class Shutdown(Exception):
+        """
+        Indicates this worker process should shut down
+        """
+
+    def __init__(self, process_id: int, config: Namespace, tasks: list[Task], recycle_hint: Union[bool, Callable] = None):
+        self.id = process_id
+        self.config = config
+        self.tasks = tasks
+        self.task = None
+        self.finished_tasks = []
+        self.recycle = recycle_hint
+
+        self.pipe_main, self.pipe_worker = multiprocessing.Pipe()
+
+        self.process = multiprocessing.Process(
+            target=self.run_worker
+        )
+
+        self._logger = logging.getLogger('sniffles.worker')
+
+        super().__init__(target=self.run_parent)
+
+    def start(self) -> None:
+        self._logger.info(f'Starting worker {self.id}')
+        self._running = True
+        self.process.start()
+        return super().start()
+
+    def maybe_recycle(self):
+        """
+        Recycle this worker if that has been requested
+        """
+        recycle = self.recycle(self.id, self.process.pid) if callable(self.recycle) else self.recycle
+
+        if recycle:
+            self._logger.info(f'Recycling worker {self.id}')
+            # Shut down current worker process
+            self.pipe_main.send(ShutdownTask())
+            self.process.join(2)
+            # Start new one
+            self.process = multiprocessing.Process(
+                target=self.run_worker
+            )
+            self.process.start()
+
+    def run_parent(self):
+        """
+        Worker thread, running in parent process
+        """
+        try:
+            while self._running:
+                if self.task is None:
+                    # we are not working on something...
+                    if len(self.tasks) > 0:
+                        # ...but there is more work to be done
+                        self.maybe_recycle()
+
+                        try:
+                            self.task = self.tasks.pop(0)
+                        except IndexError:
+                            # another worker may have taken the last task
+                            self._logger.debug(f'No more tasks to do for {self.id}')
+                        else:
+                            self.pipe_main.send(self.task)
+                            self._logger.info(f'Dispatched task #{self.task.id} to worker {self.id} ({len(self.tasks)}  tasks left)')
+                    else:
+                        # ...and no more work available, so we shut down this worker
+                        self._logger.info(f'Worker {self.id} shutting down...')
+                        self.pipe_main.send(ShutdownTask())
+                        self._running = False
+                else:
+                    if self.pipe_main.poll(0.01):
+                        self._logger.debug(f'Worker {self.id} got result for task {self.task.id}...')
+                        result: Result = self.pipe_main.recv()
+
+                        if result.error:
+                            self._logger.error(f'Worker {self.id} received error: {result}')
+                        else:
+                            self._logger.info(f'Worker {self.id} got result for task #{result.task_id}')
+
+                        self.task.add_result(result)
+                        self.finished_tasks.append(self.task)
+                        self.task = None
+
+            self.process.join(10)
+        except:
+            self._logger.exception(f'Unhandled error in worker {self.id}. This may result in an orphened worker process.')
+            try:
+                self.process.kill()
+            except:
+                ...
         else:
-            Main_Internal(proc_id,config,pipe)
-    except Exception as e:
-        pipe.send(["worker_exception",""])
-        raise e
+            self._logger.info(f'Worker {self.id} done')
 
-def Main_Internal(proc_id,config,pipe):
-    tasks={}
-    while True:
-        command,arg=pipe.recv()
+    def run_worker(self):
+        """
+        Entry point/main loop for the worker process
+        """
+        self.pid = os.getpid()
 
-        if command=="call_sample":
-            task=arg
-            result={}
+        while self._running:
+            try:
+                self._logger.debug(f'Worker {self.id} ({self.pid}) waiting for tasks...')
 
-            if config.snf != None or config.no_qc:
-                qc=False
-            else:
-                qc=True
+                task = self.pipe_worker.recv()
 
-            _,read_count=task.build_leadtab(config)
-            svcandidates=task.call_candidates(qc,config)
-            svcalls=task.finalize_candidates(svcandidates,not qc,config)
-            if config.no_qc:
-                result["svcalls"]=svcalls
-            else:
-                result["svcalls"]=[s for s in svcalls if s.qc]
+                self._logger.debug(f'Worker {self.id} got task {task.id}')
 
-            if config.snf != None: # and len(svcandidates):
-                snf_filename=f"{config.snf}.tmp_{task.id}.snf"
+                result = task.execute()
 
-                with open(snf_filename,"wb") as handle:
-                    snf_out=snf.SNFile(config,handle)
-                    for cand in svcandidates:
-                        snf_out.store(cand)
-                    snf_out.annotate_block_coverages(task.lead_provider)
-                    snf_out.write_and_index()
-                    handle.close()
-                result["snf_filename"]=snf_filename
-                result["snf_index"]=snf_out.get_index()
-                result["snf_total_length"]=snf_out.get_total_length()
-                result["snf_candidate_count"]=len(svcandidates)
-                result["has_snf"]=True
-            else:
-                result["has_snf"]=False
+                self._logger.debug(f'Worker {self.id} finished executing {task.id}, sending back result...')
 
-            #if config.vcf != None:
-            #    svcalls=task.finalize_candidates(svcandidates,config)
-            #    result["svcalls"]=svcalls
+                if result is not None:
+                    self.pipe_worker.send(result)
 
-            result["task_id"]=task.id
-            result["processed_read_count"]=read_count
-            result["coverage_average_total"]=task.coverage_average_total
-            pipe.send(["return_call_sample",result])
-            del task
-            gc.collect()
+                del task
+                gc.collect()
+            except self.Shutdown:
+                self._running = False
+            except Exception as e:
+                self._logger.exception(f'Error in worker process')
+                self.pipe_worker.send(ErrorResult(e))
 
-        elif command=="genotype_vcf":
-            task=arg
-            result={}
 
-            qc=False
-            _,read_count=task.build_leadtab(config)
-            svcandidates=task.call_candidates(qc,config=config)
-            svcalls=task.finalize_candidates(svcandidates,not qc,config=config)
-
-            binsize=5000
-            binedge=int(binsize/10)
-            genotype_svs_svtypes_bins={svtype:{} for svtype in sv.TYPES}
-            for genotype_sv in task.genotype_svs:
-                genotype_sv.genotype_match_sv=None
-                genotype_sv.genotype_match_dist=math.inf
-
-                if not genotype_sv.svtype in genotype_svs_svtypes_bins:
-                    #TODO: Warn about unsupported SVTYPE
-                    continue
-
-                bins=[int(genotype_sv.pos/binsize)*binsize]
-                if genotype_sv.pos%binsize < binedge:
-                    bins.append((int(genotype_sv.pos/binsize)-1)*binsize)
-                if genotype_sv.pos%binsize > binsize-binedge:
-                    bins.append((int(genotype_sv.pos/binsize)+1)*binsize)
-
-                for bin in bins:
-                    if not bin in genotype_svs_svtypes_bins[genotype_sv.svtype]:
-                         genotype_svs_svtypes_bins[genotype_sv.svtype][bin]=[]
-                    genotype_svs_svtypes_bins[genotype_sv.svtype][bin].append(genotype_sv)
-
-            for cand in svcandidates:
-                bin=int(cand.pos/binsize)*binsize
-                if not bin in genotype_svs_svtypes_bins[cand.svtype]:
-                    continue
-                if cand.svtype=="BND":
-                    for genotype_sv in genotype_svs_svtypes_bins[cand.svtype][bin]:
-                        dist=abs(genotype_sv.pos - cand.pos)
-                        #if minlen>0 and dist < genotype_sv.genotype_match_dist and dist <= config.cluster_merge_bnd * 2:
-                        if dist < genotype_sv.genotype_match_dist and dist <= config.cluster_merge_bnd:
-                            if cand.bnd_info.mate_contig==genotype_sv.bnd_info.mate_contig:
-                                genotype_sv.genotype_match_sv=cand
-                                genotype_sv.genotype_match_dist=dist
-                else:
-                    for genotype_sv in genotype_svs_svtypes_bins[cand.svtype][bin]:
-                        dist=abs(genotype_sv.pos - cand.pos) + abs(abs(genotype_sv.svlen) - abs(cand.svlen))
-                        minlen=float(min(abs(genotype_sv.svlen),abs(cand.svlen)))
-                        if minlen>0 and dist < genotype_sv.genotype_match_dist and dist <= config.combine_match * math.sqrt(minlen) and dist <= config.combine_match_max:
-                            genotype_sv.genotype_match_sv=cand
-                            genotype_sv.genotype_match_dist=dist
-
-            postprocessing.coverage(task.genotype_svs,task.lead_provider,config)
-
-            #Determine genotypes for unmatched input SVs
-            for svcall in task.genotype_svs:
-                coverage_list=[svcall.coverage_start,svcall.coverage_center,svcall.coverage_end]
-                coverage_list=[c for c in coverage_list if c!=None]
-                if len(coverage_list)==0:
-                    return
-                coverage=round(sum(coverage_list)/len(coverage_list))
-                svcall.genotypes={}
-                if coverage>0:
-                    svcall.genotypes[0]=(0,0,0,coverage,0,None)
-                else:
-                    svcall.genotypes[0]=config.genotype_none
-
-            result={}
-            result["task_id"]=task.id
-            result["processed_read_count"]=read_count
-            result["svcalls"]=task.genotype_svs
-            pipe.send(["return_genotype_vcf",result])
-            del task
-            gc.collect()
-
-        elif command=="combine":
-            task=arg
-            result={}
-
-            result["svcalls"],candidates_processed=task.combine(config)
-
-            result["task_id"]=task.id
-            result["processed_read_count"]=candidates_processed
-            pipe.send(["return_combine",result])
-            del task
-            gc.collect()
-
-        elif command=="finalize":
-            return
+def execute_task(task: Task):
+    logging.getLogger('sniffles.parallel').info(f'Working on {task}')
+    return task.execute()

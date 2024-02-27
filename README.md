@@ -27,6 +27,16 @@ If you previously installed Sniffles1 using conda and want to upgrade to Sniffle
 * Python >= 3.7
 * pysam
 
+### Optional requirements
+
+* edlib
+
+  If edlib is installed alignments are enabled by default during multi-sample SV/combine calling. This can be further tweaked (or disabled) with the `--combine-pctseq` argument. 
+
+* psutil
+
+  psutil can be used to facilitaty population calling with a large number of input files. 
+
 #### Tested on:
 * python==3.9.5
 * pysam==0.16.0.1
