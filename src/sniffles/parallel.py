@@ -17,6 +17,7 @@ import threading
 from argparse import Namespace
 from dataclasses import dataclass
 from typing import Optional, Union, Callable
+import tempfile
 
 import pysam
 
@@ -163,15 +164,15 @@ class CallTask(Task):
         result = CallResult(self, svcalls, read_count)
 
         if config.snf is not None:  # and len(svcandidates):
-            snf_filename = f"{config.snf}.tmp_{self.id}.snf"
+            fd, snf_filename = tempfile.mkstemp()
 
-            with open(snf_filename, "wb") as handle:
+            with open(fd,"wb") as handle:
                 snf_out = snf.SNFile(config, handle)
                 for cand in svcandidates:
                     snf_out.store(cand)
                 snf_out.annotate_block_coverages(self.lead_provider)
                 snf_out.write_and_index()
-                handle.close()
+
             result.snf_filename = snf_filename
             result.snf_index = snf_out.get_index()
             result.snf_total_length = snf_out.get_total_length()
