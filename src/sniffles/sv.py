@@ -71,6 +71,9 @@ class SVCall:
     sample_internal_id: int = None
     bnd_info: SVCallBNDInfo = None
 
+    raw_vcf_line: Optional[str] = None
+    raw_vcf_line_index: Optional[int] = None
+
     _counter = 0
 
     def set_info(self, k, v):

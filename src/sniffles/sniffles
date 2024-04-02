@@ -131,6 +131,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     log.info("==============================")
 
     monitor = ResourceMonitor(config)
+    rkwargs = {}  # result kwargs
 
     logging.getLogger('sniffles.resources').info(f'Logging memory usage to {monitor.filename}')
 
@@ -173,7 +174,6 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
         genotype_lineindex_order = []
         genotype_lineindex_svs = {}
         genotype_contig_svs = {}
-        genotype_lineindex_svcalls_returned = {}
         for svcall in vcf_in.read_svs_iter():
             if svcall.contig not in genotype_contig_svs:
                 genotype_contig_svs[svcall.contig] = []
@@ -181,6 +181,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             genotype_lineindex_order.append(svcall.raw_vcf_line_index)
             genotype_lineindex_svs[svcall.raw_vcf_line_index] = svcall
             genotype_contig_svs[svcall.contig].append(svcall)
+        rkwargs['genotype_lineindex_order'] = genotype_lineindex_order
         log.info(f"Opening for reading: {config.genotype_vcf} (read {len(genotype_lineindex_svs)} SVs to be genotyped)")
 
     #
@@ -401,6 +402,8 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
 
     if config.mode != "genotype_vcf" and config.vcf is not None:
         vcf_out.write_header(contig_lengths)
+    elif config.mode == "genotype_vcf":
+        vcf_out.rewrite_header_genotype(vcf_in.header_str)
 
     #
     # Start workers
@@ -441,7 +444,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     finished_tasks.sort(key=lambda task: task.id)
 
     for t in finished_tasks:
-        t.result.emit(vcf_out=vcf_out, snf_out=snf_out)
+        t.result.emit(vcf_out=vcf_out, snf_out=snf_out, **rkwargs)
 
     if snf_out:
         snf_candidate_count = snf_out.write_results(config, contigs)
@@ -450,13 +453,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
 
     if DEV_MONITOR_MEM:
         logging.debug(f"[DEV: Total memory usage={dbg_get_total_memory_usage_MB():.2f}MB]")
-    #
-    # if config.mode == "genotype_vcf":
-    #     vcf_out.rewrite_header_genotype(vcf_in.header_str)
-    #
-    #     for lineindex in genotype_lineindex_order:
-    #         if lineindex in genotype_lineindex_svcalls_returned:
-    #             vcf_out.rewrite_genotype(genotype_lineindex_svcalls_returned[lineindex])
+
 
     if config.vcf is not None:
         vcf_out.close()

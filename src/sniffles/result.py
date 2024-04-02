@@ -39,9 +39,6 @@ class Result:
         """
         Emit this result to a file. Returns the number of records written.
         """
-        """
-        Emit this result to the given file
-        """
         vcf_out = kwargs.get('vcf_out')
         if vcf_out:
             calls = self.svcalls
@@ -76,6 +73,18 @@ class GenotypeResult(Result):
     """
     Result of a genotyping run
     """
+
+    def emit(self, **kwargs) -> int:
+        if vcf_out := kwargs.pop('vcf_out', None):
+            genotype_lineindex_order = kwargs['genotype_lineindex_order']
+            genotype_lineindex_svcalls_returned = {}
+
+            for svcall in self.svcalls:
+                genotype_lineindex_svcalls_returned[svcall.raw_vcf_line_index] = svcall
+
+            for lineindex in genotype_lineindex_order:
+                if lineindex in genotype_lineindex_svcalls_returned:
+                    vcf_out.rewrite_genotype(genotype_lineindex_svcalls_returned[lineindex])
 
 
 class CombineResult(Result):
