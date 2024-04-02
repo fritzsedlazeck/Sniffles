@@ -512,7 +512,7 @@ if __name__ == "__main__":
 
     try:
         Sniffles2_Main(processes)
-    except util.Sniffles2Exit:
+    except (util.Sniffles2Exit, SystemExit):
         if len(processes):
             # Allow time for child process error messages to propagate
             print("Sniffles2Main: Shutting down workers")
