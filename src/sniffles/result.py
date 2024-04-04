@@ -1,9 +1,8 @@
 import logging
 import os
 import pickle
-import sys
 
-from sniffles.config import SnifflesConfig
+from sniffles.snf import SNFile
 from sniffles.sv import SVCall
 from sniffles.vcf import VCF
 
@@ -35,12 +34,11 @@ class Result:
     def store_calls(self, svcalls):
         self.svcalls = svcalls
 
-    def emit(self, **kwargs) -> int:
+    def emit(self, vcf_out: VCF = None, **kwargs) -> int:
         """
         Emit this result to a file. Returns the number of records written.
         """
-        vcf_out = kwargs.get('vcf_out')
-        if vcf_out:
+        if vcf_out is not None:
             calls = self.svcalls
             if calls:
                 for call in calls:
@@ -74,8 +72,8 @@ class GenotypeResult(Result):
     Result of a genotyping run
     """
 
-    def emit(self, **kwargs) -> int:
-        if vcf_out := kwargs.pop('vcf_out', None):
+    def emit(self, vcf_out: VCF = None, snf_out: SNFile = None, **kwargs) -> int:
+        if vcf_out is not None:
             genotype_lineindex_order = kwargs['genotype_lineindex_order']
             genotype_lineindex_svcalls_returned = {}
 
@@ -85,6 +83,8 @@ class GenotypeResult(Result):
             for lineindex in genotype_lineindex_order:
                 if lineindex in genotype_lineindex_svcalls_returned:
                     vcf_out.rewrite_genotype(genotype_lineindex_svcalls_returned[lineindex])
+
+        return len(self.svcalls)
 
 
 class CombineResult(Result):

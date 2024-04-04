@@ -26,6 +26,7 @@ class ResourceMonitor:
     _parent: float
     _unknown: float
     _workers: dict[int, MemoryUsage]
+    _filename = None
 
     WORKER_MEMORY_LIMIT = 1024 * 1024 * 2  # in KiB
 

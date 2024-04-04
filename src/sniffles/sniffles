@@ -133,7 +133,8 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     monitor = ResourceMonitor(config)
     rkwargs = {}  # result kwargs
 
-    logging.getLogger('sniffles.resources').info(f'Logging memory usage to {monitor.filename}')
+    if monitor.filename is not None:
+        logging.getLogger('sniffles.resources').info(f'Logging memory usage to {monitor.filename}')
 
 
     #
