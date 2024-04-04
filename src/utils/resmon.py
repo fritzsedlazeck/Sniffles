@@ -1,3 +1,13 @@
+#!/usr/bin/env python3
+#
+# Sniffles2
+# A fast structural variant caller for long-read sequencing data
+#
+# Created:     14.01.2024
+# Author:      Hermann Romanek
+# Maintainer:  Hermann Romanek
+# Contact:     sniffles@romanek.at
+#
 """
 Resource monitoring utilities (currently memory) for Sniffles
 """
