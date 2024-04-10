@@ -14,8 +14,6 @@ from typing import Optional
 
 from sniffles.utils.resmon import ResourceMonitor
 
-DEV_MONITOR_MEM = False
-
 import sys
 
 if not sys.version_info >= (3, 10):
@@ -35,7 +33,7 @@ from sniffles import parallel
 from sniffles import util
 
 # TODO: Dev/Debugging only - Remove for prod
-DEV_MONITOR_MEM = True
+DEV_MONITOR_MEM = False
 
 if DEV_MONITOR_MEM:
     try:
@@ -511,7 +509,8 @@ if __name__ == "__main__":
 
     try:
         Sniffles2_Main(processes)
-    except (util.Sniffles2Exit, SystemExit):
+    except (util.Sniffles2Exit, SystemExit) as exit_code:
+        # print(f'Sniffles exit with code {exit_code}')
         if len(processes):
             # Allow time for child process error messages to propagate
             print("Sniffles2Main: Shutting down workers")
@@ -527,6 +526,7 @@ if __name__ == "__main__":
                 proc.process.join()
             except:
                 pass
-        exit(1)
+        int_exit_code = exit_code.args[0]
+        exit(int_exit_code)
     except:
         logging.getLogger('sniffles.main').exception(f'Unhandled error while running sniffles.')
