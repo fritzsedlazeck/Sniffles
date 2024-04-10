@@ -12,7 +12,7 @@ import logging
 import logging.config
 from typing import Optional
 
-from utils.resmon import ResourceMonitor
+from sniffles.utils.resmon import ResourceMonitor
 
 DEV_MONITOR_MEM = False
 
