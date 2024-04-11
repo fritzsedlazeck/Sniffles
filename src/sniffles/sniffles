@@ -510,7 +510,6 @@ if __name__ == "__main__":
     try:
         Sniffles2_Main(processes)
     except (util.Sniffles2Exit, SystemExit) as exit_code:
-        # print(f'Sniffles exit with code {exit_code}')
         if len(processes):
             # Allow time for child process error messages to propagate
             print("Sniffles2Main: Shutting down workers")
@@ -526,7 +525,7 @@ if __name__ == "__main__":
                 proc.process.join()
             except:
                 pass
-        int_exit_code = exit_code.args[0]
-        exit(int_exit_code)
+        exit(exit_code.code)
     except:
         logging.getLogger('sniffles.main').exception(f'Unhandled error while running sniffles.')
+        exit(1)

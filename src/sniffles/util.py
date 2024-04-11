@@ -15,7 +15,7 @@ import time
 
 
 class Sniffles2Exit(Exception):
-    pass
+    code: int = 1
 
 
 def stdev(nums):
