@@ -48,9 +48,10 @@ class ResourceMonitor:
 
         try:
             from psutil import Process
-        except ImportError as ex:
+        except ImportError:
             logging.getLogger('sniffles.dependencies').warning(f'Dependency psutil not available - resource monitoring is disabled.')
             self._process = None
+            self._workers = {}
         else:
             self._process = Process(self._pid)
 
