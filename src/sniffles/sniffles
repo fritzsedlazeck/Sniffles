@@ -187,6 +187,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     #
     # Open output files
     #
+    vcf_out = None
     if config.vcf is not None:
 
         vcf_output_info = []
