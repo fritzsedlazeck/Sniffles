@@ -448,7 +448,7 @@ class ShutdownTask:
         raise SnifflesWorker.Shutdown
 
 
-class SnifflesWorker(threading.Thread):
+class SnifflesWorker:
     """
     Handle for a worker process. Since we're forking, this class will be available in
     both the parent and the worker processes.
@@ -456,7 +456,7 @@ class SnifflesWorker(threading.Thread):
     id: int  # sequential ID of this worker, starting with 0 for the first
     externals: list = None
     recycle: bool = False
-    _running = False
+    running = True
     pid: int = None
 
     class Shutdown(Exception):
@@ -481,16 +481,13 @@ class SnifflesWorker(threading.Thread):
 
         self._logger = logging.getLogger('sniffles.worker')
 
-        super().__init__(target=self.run_parent)
-
     def __str__(self):
         return f'Worker {self.id} @ process {self.pid}'
 
     def start(self) -> None:
         self._logger.info(f'Starting worker {self.id}')
-        self._running = True
+        self.running = True
         self.process.start()
-        return super().start()
 
     def maybe_recycle(self):
         """
@@ -510,58 +507,60 @@ class SnifflesWorker(threading.Thread):
             )
             self.process.start()
 
-    def run_parent(self):
+    def run_parent(self) -> bool:
         """
         Worker thread, running in parent process
         """
         try:
-            while self._running:
-                if self.task is None:
-                    # we are not working on something...
-                    if len(self.tasks) > 0:
-                        # ...but there is more work to be done
-                        self.maybe_recycle()
+            if self.task is None:
+                # we are not working on something...
+                if len(self.tasks) > 0:
+                    # ...but there is more work to be done
+                    self.maybe_recycle()
 
-                        try:
-                            self.task = self.tasks.pop(0)
-                        except IndexError:
-                            # another worker may have taken the last task
-                            self._logger.debug(f'No more tasks to do for {self.id}')
-                        else:
-                            self.pipe_main.send(self.task)
-                            self._logger.info(f'Dispatched task #{self.task.id} to worker {self.id} ({len(self.tasks)}  tasks left)')
+                    try:
+                        self.task = self.tasks.pop(0)
+                    except IndexError:
+                        # another worker may have taken the last task
+                        self._logger.debug(f'No more tasks to do for {self.id}')
                     else:
-                        # ...and no more work available, so we shut down this worker
-                        self._logger.info(f'Worker {self.id} shutting down...')
-                        self.pipe_main.send(ShutdownTask())
-                        self._running = False
+                        self.pipe_main.send(self.task)
+                        self._logger.info(f'Dispatched task #{self.task.id} to worker {self.id} ({len(self.tasks)}  tasks left)')
                 else:
-                    if self.pipe_main.poll(0.01):
-                        self._logger.debug(f'Worker {self.id} got result for task {self.task.id}...')
-                        result: Result = self.pipe_main.recv()
+                    # ...and no more work available, so we shut down this worker
+                    self._logger.info(f'Worker {self.id} shutting down...')
+                    self.pipe_main.send(ShutdownTask())
+                    self.running = False
+            else:
+                if self.pipe_main.poll(0.01):
+                    self._logger.debug(f'Worker {self.id} got result for task {self.task.id}...')
+                    result: Result = self.pipe_main.recv()
 
-                        if result.error:
-                            self._logger.error(f'Worker {self.id} received error: {result}')
-                        else:
-                            self._logger.info(f'Worker {self.id} got result for task #{result.task_id}')
+                    if result.error:
+                        self._logger.error(f'Worker {self.id} received error: {result}')
+                    else:
+                        self._logger.info(f'Worker {self.id} got result for task #{result.task_id}')
 
-                        self.task.add_result(result)
-                        self.finished_tasks.append(self.task)
-                        self.task = None
-
-            self.process.join(10)
+                    self.task.add_result(result)
+                    self.finished_tasks.append(self.task)
+                    self.task = None
         except:
             self._logger.exception(f'Unhandled error in worker {self.id}. This may result in an orphened worker process.')
             try:
                 self.process.kill()
             except:
                 ...
-        else:
-            if self.process.exitcode is None:
-                self._logger.warning(f'Worker {self.id} refused to shut down gracefully, killing it.')
-                self.process.kill()
-                self.process.join(2)
-            self._logger.info(f'Worker {self.id} done (code {self.process.exitcode}).')
+
+        return self.running
+
+    def finalize(self):
+        self.process.join(10)
+
+        if self.process.exitcode is None:
+            self._logger.warning(f'Worker {self.id} refused to shut down gracefully, killing it.')
+            self.process.kill()
+            self.process.join(2)
+        self._logger.info(f'Worker {self.id} done (code {self.process.exitcode}).')
 
     def run_worker(self):
         """
@@ -569,7 +568,7 @@ class SnifflesWorker(threading.Thread):
         """
         self.pid = os.getpid()
 
-        while self._running:
+        while self.running:
             try:
                 self._logger.debug(f'Worker {self.id} ({self.pid}) waiting for tasks...')
 
@@ -587,7 +586,7 @@ class SnifflesWorker(threading.Thread):
                 del task
                 gc.collect()
             except self.Shutdown:
-                self._running = False
+                self.running = False
             except Exception as e:
                 self._logger.exception(f'Error in worker process')
                 self.pipe_worker.send(ErrorResult(e))
