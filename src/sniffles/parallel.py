@@ -457,6 +457,7 @@ class SnifflesWorker(threading.Thread):
     externals: list = None
     recycle: bool = False
     _running = False
+    pid: int = None
 
     class Shutdown(Exception):
         """
@@ -474,12 +475,16 @@ class SnifflesWorker(threading.Thread):
         self.pipe_main, self.pipe_worker = multiprocessing.Pipe()
 
         self.process = multiprocessing.Process(
-            target=self.run_worker
+            target=self.run_worker,
+            daemon=True
         )
 
         self._logger = logging.getLogger('sniffles.worker')
 
         super().__init__(target=self.run_parent)
+
+    def __str__(self):
+        return f'Worker {self.id} @ process {self.pid}'
 
     def start(self) -> None:
         self._logger.info(f'Starting worker {self.id}')
@@ -500,7 +505,8 @@ class SnifflesWorker(threading.Thread):
             self.process.join(2)
             # Start new one
             self.process = multiprocessing.Process(
-                target=self.run_worker
+                target=self.run_worker,
+                daemon=True
             )
             self.process.start()
 
@@ -551,7 +557,11 @@ class SnifflesWorker(threading.Thread):
             except:
                 ...
         else:
-            self._logger.info(f'Worker {self.id} done')
+            if self.process.exitcode is None:
+                self._logger.warning(f'Worker {self.id} refused to shut down gracefully, killing it.')
+                self.process.kill()
+                self.process.join(2)
+            self._logger.info(f'Worker {self.id} done (code {self.process.exitcode}).')
 
     def run_worker(self):
         """
