@@ -3,9 +3,10 @@
 # Sniffles2
 # A fast structural variant caller for long-read sequencing data
 #
-# Created: 15.08.2021
-# Author:  Moritz Smolka
-# Contact: moritz.g.smolka@gmail.com
+# Created:     15.08.2021
+# Author:      Moritz Smolka
+# Maintainer:  Hermann Romanek
+# Contact:     sniffles@romanek.at
 #
 import logging
 
@@ -336,12 +337,36 @@ class VCF:
         # parts[4]=f"ALT_{len(parts[4])}"
         self.write_raw("\t".join(parts))
 
-    def rewrite_header_genotype(self, orig_header):
-        header_lines = orig_header.split("\n")
-        header_lines.insert(1, '##genotypeFileDate="' + self.config.start_date + '"')
-        header_lines.insert(1, '##genotypeCommand="' + self.config.command + '"')
-        header_lines.insert(1, f"##genotypeSource={self.config.version}_{self.config.build}")
-        self.write_raw("\n".join(header_lines), endl="")
+    def rewrite_header_genotype(self,orig_header):
+        header_lines=orig_header.split("\n")
+        header_lines.insert(1,'##genotypeFileDate="'+self.config.start_date+'"')
+        header_lines.insert(1,'##genotypeCommand="'+self.config.command+'"')
+        header_lines.insert(1,f"##genotypeSource={self.config.version}_{self.config.build}")
+
+        # Fix missing genotype headers errors when reading input vcf in genotype mode.
+        # This error will happen when input vcf does not have GT,GQ,DR,DV headers.
+        # Some tools such as turvari will throw errors when processing the output vcf.
+        has_gt_headers = {
+            "GT":False,
+            "GQ":False,
+            "DR":False,
+            "DV":False,
+        }
+        for header_line in header_lines:
+            for gt in has_gt_headers.keys():
+                if "##FORMAT=<ID="+gt+"," in header_line:
+                    has_gt_headers[gt] = True
+        
+        if not has_gt_headers["GT"]:
+            header_lines.insert(len(header_lines)-2,'##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">')
+        if not has_gt_headers["GQ"]:
+            header_lines.insert(len(header_lines)-2,'##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">')
+        if not has_gt_headers["DR"]:
+            header_lines.insert(len(header_lines)-2,'##FORMAT=<ID=DR,Number=1,Type=Integer,Description="Number of reference reads">')
+        if not has_gt_headers["DV"]:
+            header_lines.insert(len(header_lines)-2,'##FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of variant reads">')
+
+        self.write_raw("\n".join(header_lines),endl="")
 
     def close(self):
         self.handle.close()

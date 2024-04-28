@@ -3,9 +3,10 @@
 # Sniffles2
 # A fast structural variant caller for long-read sequencing data
 #
-# Created: 15.08.2021
-# Author:  Moritz Smolka
-# Contact: moritz.g.smolka@gmail.com
+# Created:     15.08.2021
+# Author:      Moritz Smolka
+# Maintainer:  Hermann Romanek
+# Contact:     sniffles@romanek.at
 #
 import logging
 from dataclasses import dataclass
@@ -70,6 +71,9 @@ class SVCall:
 
     sample_internal_id: int = None
     bnd_info: SVCallBNDInfo = None
+
+    raw_vcf_line: Optional[str] = None
+    raw_vcf_line_index: Optional[int] = None
 
     _counter = 0
 

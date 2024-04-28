@@ -3,9 +3,10 @@
 # Sniffles2
 # A fast structural variant caller for long-read sequencing data
 #
-# Created: 29.08.2021
-# Author:  Moritz Smolka
-# Contact: moritz.g.smolka@gmail.com
+# Created:     29.08.2021
+# Author:      Moritz Smolka
+# Maintainer:  Hermann Romanek
+# Contact:     sniffles@romanek.at
 #
 
 from dataclasses import dataclass

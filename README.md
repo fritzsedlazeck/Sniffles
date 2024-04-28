@@ -17,15 +17,15 @@ You can install Sniffles2 using pip or conda using:
 
 or
 
-`conda install sniffles=2.0 `
+`conda install sniffles=2.3`
 
 If you previously installed Sniffles1 using conda and want to upgrade to Sniffles2, you can use:
 
-`conda update sniffles=2.0`
+`conda update sniffles=2.3`
 
 ## Requirements
-* Python >= 3.7
-* pysam
+* Python >= 3.10
+* pysam >= 0.21.0
 
 ### Optional requirements
 
@@ -33,17 +33,22 @@ If you previously installed Sniffles1 using conda and want to upgrade to Sniffle
 
   If edlib is installed alignments are enabled by default during multi-sample SV/combine calling. This can be further tweaked (or disabled) with the `--combine-pctseq` argument. 
 
+* psutil
+
+  psutil can be used to facilitaty population calling with a large number of input files. 
 
 #### Tested on:
-* python==3.9.5
-* pysam==0.16.0.1
+* python==3.10.12
+* pysam==0.21.0
 
 ## Citation
 Please cite our paper at:
+Sniffles v2: 
+https://www.nature.com/articles/s41587-023-02024-y
 
+and 
+Sniffles v1:
 https://www.nature.com/articles/s41592-018-0001-7
-
-A new preprint for the new methods and improvements introduced with Sniffles2 is here: https://www.biorxiv.org/content/10.1101/2022.04.04.487055v1
 
 ## Use-Cases / Modes
 
@@ -78,3 +83,10 @@ Example command, to determine the genotype of each SV in *input_known_svs.vcf* f
 * .bam or .cram files containing long read alignments (i.e. from minimap2 or ngmlr) are supported as input
 * .vcf.gz (bgzipped+tabix indexed) output is supported
 * Simultaneous output of both .vcf and .snf file (for multi-sample calling) is supported
+
+## Companion apps
+* We have developed a plotting tools for Sniffles2: [https://github.com/farhangus/sniffle2_plot](https://github.com/farhangus/sniffle2_plot)
+* We also provide VCF and scripts used for the manuscript [https://github.com/smolkmo/Sniffles2-Supplement](https://github.com/smolkmo/Sniffles2-Supplement) 
+
+## Supplementary tables
+[https://github.com/smolkmo/Sniffles2-Supplement/blob/main/Supplemetary%20tables.xlsx](https://github.com/smolkmo/Sniffles2-Supplement/blob/main/Supplemetary%20tables.xlsx)

@@ -3,9 +3,10 @@
 # Sniffles2
 # A fast structural variant caller for long-read sequencing data
 #
-# Created: 18.10.2021
-# Author:  Moritz Smolka
-# Contact: moritz.g.smolka@gmail.com
+# Created:     18.10.2021
+# Author:      Moritz Smolka
+# Maintainer:  Hermann Romanek
+# Contact:     sniffles@romanek.at
 #
 
 import os
@@ -18,7 +19,7 @@ from typing import Union, Optional
 from sniffles import util
 
 VERSION = "Sniffles2"
-BUILD = "2.3.0-rc2"
+BUILD = "2.3.2"
 SNF_VERSION = "S2_rc4"
 
 
@@ -38,7 +39,7 @@ def tobool(v):
 
 
 class SnifflesConfig(argparse.Namespace):
-    header = f"Sniffles2: A fast structural variant (SV) caller for long-read sequencing data\n Version {BUILD}\n Contact: moritz.g.smolka@gmail.com"
+    header = f"Sniffles2: A fast structural variant (SV) caller for long-read sequencing data\n Version {BUILD}\n Contact: sniffles@romanek.at"
     example = """ Usage example A - Call SVs for a single sample:
        sniffles --input sorted_indexed_alignments.bam --vcf output.vcf
 
