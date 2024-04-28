@@ -415,9 +415,6 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     if config.vcf is not None and config.sort:
         task_id_calls = {}
 
-    for proc in processes:
-        proc.start()
-
     log.info("")
     if config.mode == "call_sample" or config.mode == "genotype_vcf":
         if config.input_is_cram:
@@ -434,10 +431,17 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     #
     analysis_start_time = time.time()
 
+    for p in processes:
+        p.start()
+
     finished_tasks: list[parallel.Task] = []
-    for proc in processes:
-        proc.join()
-        finished_tasks.extend(proc.finished_tasks)
+
+    while any([p.run_parent() for p in processes if p.running]):
+        time.sleep(0.1)
+
+    for p in processes:
+        p.finalize()
+        finished_tasks.extend(p.finished_tasks)
 
     log.info(f"Took {time.time() - analysis_start_time:.2f}s.")
     log.info("")
