@@ -19,7 +19,7 @@ from typing import Union, Optional
 from sniffles import util
 
 VERSION = "Sniffles2"
-BUILD = "2.3.2"
+BUILD = "2.3.3"
 SNF_VERSION = "S2_rc4"
 
 
@@ -109,7 +109,7 @@ class SnifflesConfig(argparse.Namespace):
         main_args.add_argument("--tandem-repeats", metavar="IN.bed", type=str, help="(Optional) Input .bed file containing tandem repeat annotations for the reference genome.", default=None)
         main_args.add_argument("--phase", help="Determine phase for SV calls (requires the input alignments to be phased)", default=False, action="store_true")
         main_args.add_argument("-t", "--threads", metavar="N", type=int, help="Number of parallel threads to use (speed-up for multi-core CPUs)", default=4)
-        main_args.add_argument("-c", "--contig", default=None, type=str, help="(Optional) Only process the specified contigs. May be given more than once. Currently only applies to merging.", action="append")
+        main_args.add_argument("-c", "--contig", default=None, type=str, help="(Optional) Only process the specified contigs. May be given more than once.", action="append")
 
     minsupport: Union[str, int]
     minsvlen: int

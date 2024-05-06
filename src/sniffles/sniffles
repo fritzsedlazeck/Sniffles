@@ -273,6 +273,10 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             else:
                 task_count = max(1, math.ceil(contig.mapped / float(task_max_reads)))
             contig_str = str(contig.contig)
+
+            if config.contig and contig_str not in config.contig:
+                continue
+
             contigs.append(contig_str)
             contig_length = bam_in.get_reference_length(contig_str)
             contig_lengths.append((contig_str, contig_length))
