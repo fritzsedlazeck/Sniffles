@@ -19,7 +19,7 @@ from typing import Union, Optional
 from sniffles import util
 
 VERSION = "Sniffles2"
-BUILD = "2.3.2"
+BUILD = "2.3.3"
 SNF_VERSION = "S2_rc4"
 
 
