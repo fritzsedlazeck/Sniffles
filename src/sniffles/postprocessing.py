@@ -289,7 +289,7 @@ def qc_sv_post_annotate(svcall, config):
     sv_is_mosaic = af <= config.mosaic_af_max
 
     if (len(svcall.genotypes) == 0 or (svcall.genotypes[0][0] != "." and svcall.genotypes[0][0] + svcall.genotypes[0][1] < 2)) and (svcall.coverage_center != None and svcall.coverage_center < config.qc_coverage):
-        svcall.filter = "COV_MIN"
+        svcall.filter = "COV_MIN_GT"
         return False
 
     qc_nm = config.qc_nm
@@ -366,8 +366,12 @@ def genotype_sv(svcall, config, phase):
 
     coverage_list = [c for c in coverage_list if c != None and c != 0]
     if len(coverage_list) == 0:
-        return
-    coverage += round(sum(coverage_list) / len(coverage_list))
+        # For clean DEL cuts we don't have anything inside the call, so coverage_list will be empty -> use up/downstream to continue
+        if not (svcall.svtype == "DEL" and svcall.coverage_upstream is not None and svcall.coverage_upstream > 0 and svcall.coverage_downstream is not None and svcall.coverage_downstream > 0):
+            return
+
+    if len(coverage_list) > 0:
+        coverage += round(sum(coverage_list) / len(coverage_list))
 
     if support > coverage:
         coverage = support

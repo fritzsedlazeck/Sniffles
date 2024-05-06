@@ -104,6 +104,7 @@ class VCF:
         self.write_header_line('FILTER=<ID=STDEV_POS,Description="SV Breakpoint standard deviation filter">')
         self.write_header_line('FILTER=<ID=STDEV_LEN,Description="SV length standard deviation filter">')
         self.write_header_line('FILTER=<ID=COV_MIN,Description="Minimum coverage filter">')
+        self.write_header_line('FILTER=<ID=COV_MIN_GT,Description="Minimum coverage filter (missing genotype)">')
         self.write_header_line('FILTER=<ID=COV_CHANGE,Description="Coverage change filter">')
         self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC,Description="Coverage fractional change filter">')
         self.write_header_line('FILTER=<ID=MOSAIC_AF,Description="Mosaic maximum allele frequency filter">')
