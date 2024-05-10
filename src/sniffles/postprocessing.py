@@ -9,11 +9,6 @@
 # Contact:     sniffles@romanek.at
 #
 
-from dataclasses import dataclass
-
-import collections
-
-from sniffles import sv
 from sniffles import util
 from sniffles import consensus
 
@@ -205,17 +200,17 @@ def qc_sv(svcall, config):
 
     if svcall.svtype == "BND":
         if config.qc_bnd_filter_strand and len(set(l.strand for l in svcall.postprocess.cluster.leads)) < 2:
-            svcall.filter = "STRAND"
+            svcall.filter = "STRAND_BND"
             return False
     elif ((config.mosaic and sv_is_mosaic) and config.mosaic_qc_strand) or (not (config.mosaic and sv_is_mosaic) and config.qc_strand):
         is_long_ins = (svcall.svtype == "INS" and svcall.svlen >= config.long_ins_length)
         if not is_long_ins and len(set(l.strand for l in svcall.postprocess.cluster.leads)) < 2:
-            svcall.filter = "STRAND"
+            svcall.filter = "STRAND_MOSAIC"
             return False
 
     if config.mosaic and sv_is_mosaic:
         if svcall.svtype == "INV" or svcall.svtype == "DUP" and svcall.svlen < config.mosaic_qc_invdup_min_length:
-            svcall.filter = "SVLEN_MIN"
+            svcall.filter = "SVLEN_MIN_MOSAIC"
             return False
 
     # if (svcall.coverage_upstream != None and svcall.coverage_upstream < config.qc_coverage) or (svcall.coverage_downstream != None and svcall.coverage_downstream < config.qc_coverage):
@@ -265,19 +260,19 @@ def qc_sv(svcall, config):
             d = 1.0
 
         if abs(u - s) / max(u, s) > qc_coverage_max_change_frac:
-            svcall.filter = "COV_CHANGE_FRAC"
+            svcall.filter = "COV_CHANGE_FRAC_US"
             return False
 
         if abs(s - c) / max(s, c) > qc_coverage_max_change_frac:
-            svcall.filter = "COV_CHANGE_FRAC"
+            svcall.filter = "COV_CHANGE_FRAC_SC"
             return False
 
         if abs(c - e) / max(c, e) > qc_coverage_max_change_frac:
-            svcall.filter = "COV_CHANGE_FRAC"
+            svcall.filter = "COV_CHANGE_FRAC_CE"
             return False
 
         if abs(e - d) / max(e, d) > qc_coverage_max_change_frac:
-            svcall.filter = "COV_CHANGE_FRAC"
+            svcall.filter = "COV_CHANGE_FRAC_ED"
             return False
 
     return True
@@ -306,7 +301,7 @@ def qc_sv_post_annotate(svcall, config):
             svcall.filter = "MOSAIC_AF"
             return False
         elif not sv_is_mosaic and not config.mosaic_include_germline:
-            svcall.filter = "MOSAIC_AF"
+            svcall.filter = "NOT_MOSAIC"
             return False
 
     return True
@@ -351,6 +346,7 @@ def genotype_sv(svcall, config, phase):
     else:
         if svcall.svtype == "DUP":
             if False and svcall.coverage_start != None and svcall.coverage_end != None:
+                # TODO: will never run, has False in and statement
                 if svcall.coverage_start > svcall.coverage_end:
                     coverage_list = [svcall.coverage_end]
                 else:

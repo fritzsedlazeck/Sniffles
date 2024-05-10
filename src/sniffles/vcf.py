@@ -106,11 +106,17 @@ class VCF:
         self.write_header_line('FILTER=<ID=COV_MIN,Description="Minimum coverage filter">')
         self.write_header_line('FILTER=<ID=COV_MIN_GT,Description="Minimum coverage filter (missing genotype)">')
         self.write_header_line('FILTER=<ID=COV_CHANGE,Description="Coverage change filter">')
-        self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC,Description="Coverage fractional change filter">')
-        self.write_header_line('FILTER=<ID=MOSAIC_AF,Description="Mosaic maximum allele frequency filter">')
+        self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_US,Description="Coverage fractional change filter: upstream-start">')
+        self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_SC,Description="Coverage fractional change filter: start-center">')
+        self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_CE,Description="Coverage fractional change filter: center-end">')
+        self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_ED,Description="Coverage fractional change filter: end-downstream">')
+        self.write_header_line('FILTER=<ID=MOSAIC_AF,Description="Mosaic variant allele frequency filter">')
+        self.write_header_line('FILTER=<ID=NOT_MOSAIC_AF,Description="Variant allele frequency filter for non-mosaic">')
         self.write_header_line('FILTER=<ID=ALN_NM,Description="Length adjusted mismatch filter">')
-        self.write_header_line('FILTER=<ID=STRAND,Description="Strand support filter">')
+        self.write_header_line('FILTER=<ID=STRAND_BND,Description="Strand support filter for BNDs">')
+        self.write_header_line('FILTER=<ID=STRAND_MOSAIC,Description="Strand support filter for mosaic SVs">')
         self.write_header_line('FILTER=<ID=SVLEN_MIN,Description="SV length filter">')
+        self.write_header_line('FILTER=<ID=SVLEN_MIN_MOSAIC,Description="SV length filter for mosaic SVs">')
         self.write_header_line('INFO=<ID=PRECISE,Number=0,Type=Flag,Description="Structural variation with precise breakpoints">')
         self.write_header_line('INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description="Structural variation with imprecise breakpoints">')
         self.write_header_line('INFO=<ID=MOSAIC,Number=0,Type=Flag,Description="Structural variation classified as putative mosaic">')
@@ -133,7 +139,7 @@ class VCF:
         self.write_header_line('INFO=<ID=NM,Number=.,Type=Float,Description="Mean number of query alignment length adjusted mismatches of supporting reads">')
         self.write_header_line('INFO=<ID=PHASE,Number=.,Type=String,Description="Phasing information derived from supporting reads, represented as list of: HAPLOTYPE,PHASESET,HAPLOTYPE_SUPPORT,PHASESET_SUPPORT,HAPLOTYPE_FILTER,PHASESET_FILTER">')
 
-        samples_header = "\t".join(sample_id for internal_id, sample_id in self.config.sample_ids_vcf)
+        samples_header = "\t".join(sample_id for _, sample_id in self.config.sample_ids_vcf)
         self.write_raw(f"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{samples_header}")
 
     def write_raw(self, text, endl="\n"):
@@ -158,7 +164,7 @@ class VCF:
         ac = 0  # Allele count
         supvec = []
         sample_genotypes = []
-        for internal_id, sample_id in self.config.sample_ids_vcf:
+        for internal_id, _ in self.config.sample_ids_vcf:
             if internal_id in call.genotypes and call.genotypes[internal_id] is not None:
                 gt_curr = call.genotypes[internal_id]
                 sample_genotypes.append(format_genotype(gt_curr))
@@ -258,7 +264,7 @@ class VCF:
                     if line_strip[0] == "#":
                         self.header_str += line_strip + "\n"
                     continue
-                CHROM, POS, ID, REF, ALT, QUAL, FILTER, INFO = line.split("\t")[:8]
+                CHROM, POS, _, REF, ALT, QUAL, FILTER, INFO = line.split("\t")[:8]
                 info_dict = {}
                 for info_item in INFO.split(";"):
                     if "=" in info_item:
@@ -271,7 +277,7 @@ class VCF:
                                  id=line_index,
                                  ref=REF,
                                  alt=ALT,
-                                 qual=QUAL,
+                                 qual=int(QUAL),
                                  filter=FILTER,
                                  info=info_dict,
                                  svtype=None,
