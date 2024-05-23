@@ -11,7 +11,8 @@
 
 from sniffles import util
 from sniffles import consensus
-
+from sniffles.config import SnifflesConfig
+from sniffles.sv import SVCall
 import math
 
 
@@ -171,9 +172,9 @@ def qc_support_const(svcall, config):
     return svcall.support >= config.minsupport
 
 
-def qc_sv(svcall, config):
+def qc_sv(svcall: SVCall, config: SnifflesConfig):
     af = svcall.get_info("AF")
-    af = af if af != None else 0
+    af = af if af is not None else 0
     sv_is_mosaic = af <= config.mosaic_af_max
 
     if config.qc_stdev:
@@ -204,12 +205,12 @@ def qc_sv(svcall, config):
             return False
     elif ((config.mosaic and sv_is_mosaic) and config.mosaic_qc_strand) or (not (config.mosaic and sv_is_mosaic) and config.qc_strand):
         is_long_ins = (svcall.svtype == "INS" and svcall.svlen >= config.long_ins_length)
-        if not is_long_ins and len(set(l.strand for l in svcall.postprocess.cluster.leads)) < 2:
+        if not is_long_ins and len(set(l.strand for l in svcall.postprocess.cluster.leads)) < 2 and svcall.support >= 10:
             svcall.filter = "STRAND_MOSAIC"
             return False
 
     if config.mosaic and sv_is_mosaic:
-        if svcall.svtype == "INV" or svcall.svtype == "DUP" and svcall.svlen < config.mosaic_qc_invdup_min_length:
+        if (svcall.svtype == "INV" or svcall.svtype == "DUP") and svcall.svlen < config.mosaic_qc_invdup_min_length:
             svcall.filter = "SVLEN_MIN_MOSAIC"
             return False
 
@@ -220,14 +221,14 @@ def qc_sv(svcall, config):
 
     if svcall.svtype == "DEL" and config.long_del_length != -1 and abs(svcall.svlen) >= config.long_del_length and not config.mosaic:
         if svcall.coverage_center != None and svcall.coverage_upstream != None and svcall.coverage_downstream != None and svcall.coverage_center > (svcall.coverage_upstream + svcall.coverage_downstream) / 2.0 * config.long_del_coverage:
-            svcall.filter = "COV_CHANGE"
+            svcall.filter = "COV_CHANGE_DEL"
             return False
     elif svcall.svtype == "INS" and ((svcall.coverage_upstream != None and svcall.coverage_upstream < config.qc_coverage) or (svcall.coverage_downstream != None and svcall.coverage_downstream < config.qc_coverage)):
-        svcall.filter = "COV_CHANGE"
+        svcall.filter = "COV_CHANGE_INS"
         return False
     elif svcall.svtype == "DUP" and config.long_dup_length != -1 and abs(svcall.svlen) >= config.long_dup_length and not config.mosaic:
         if svcall.coverage_center != None and svcall.coverage_upstream != None and svcall.coverage_downstream != None and svcall.coverage_center < (svcall.coverage_upstream + svcall.coverage_downstream) / 2.0 * config.long_dup_coverage:
-            svcall.filter = "COV_CHANGE"
+            svcall.filter = "COV_CHANGE_DUP"
             return False
 
     qc_coverage_max_change_frac = config.qc_coverage_max_change_frac

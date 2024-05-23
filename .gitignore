@@ -6,3 +6,9 @@ __pycache__
 .rsync-ignore
 .idea/
 .idea/*
+venv/
+venv/*
+deploybcm.sh
+resultadoRsync.txt
+.github/
+.github/*
