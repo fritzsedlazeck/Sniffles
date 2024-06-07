@@ -106,6 +106,7 @@ class VCF:
         self.write_header_line('FILTER=<ID=COV_MIN,Description="Minimum coverage filter">')
         self.write_header_line('FILTER=<ID=COV_MIN_GT,Description="Minimum coverage filter (missing genotype)">')
         self.write_header_line('FILTER=<ID=COV_CHANGE,Description="Coverage change filter">')
+        self.write_header_line('FILTER=<ID=COV_CHANGE_INS,Description="Coverage change filter for INS">')
         self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_US,Description="Coverage fractional change filter: upstream-start">')
         self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_SC,Description="Coverage fractional change filter: start-center">')
         self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_CE,Description="Coverage fractional change filter: center-end">')

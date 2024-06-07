@@ -71,7 +71,7 @@ def coverage(calls, lead_provider, config):
     return coverage_fulfill(requests_for_coverage, calls, lead_provider, config)
 
 
-def coverage_build_requests(calls, lead_provider, config):
+def coverage_build_requests(calls, lead_provider, config: SnifflesConfig):
     requests_for_coverage = {}
     for svcall in calls:
         start = svcall.pos
@@ -195,6 +195,11 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
                 svcall.filter = "STDEV_LEN"
                 return False
 
+    if config.mosaic and sv_is_mosaic:
+        if svcall.support < config.mosaic_min_reads:
+            svcall.filter = "SUPPORT_MIN"
+            return False
+
     if abs(svcall.svlen) < config.minsvlen:
         svcall.filter = "SVLEN_MIN"
         return False
@@ -205,7 +210,7 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
             return False
     elif ((config.mosaic and sv_is_mosaic) and config.mosaic_qc_strand) or (not (config.mosaic and sv_is_mosaic) and config.qc_strand):
         is_long_ins = (svcall.svtype == "INS" and svcall.svlen >= config.long_ins_length)
-        if not is_long_ins and len(set(l.strand for l in svcall.postprocess.cluster.leads)) < 2 and svcall.support >= 10:
+        if not is_long_ins and len(set(l.strand for l in svcall.postprocess.cluster.leads)) < 2 and svcall.support >= config.mosaic_use_strand_thresholds:
             svcall.filter = "STRAND_MOSAIC"
             return False
 
@@ -302,7 +307,7 @@ def qc_sv_post_annotate(svcall, config):
             svcall.filter = "MOSAIC_AF"
             return False
         elif not sv_is_mosaic and not config.mosaic_include_germline:
-            svcall.filter = "NOT_MOSAIC"
+            svcall.filter = "NOT_MOSAIC_AF"
             return False
 
     return True
