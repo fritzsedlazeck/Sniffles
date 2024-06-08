@@ -75,7 +75,7 @@ def coverage(calls, lead_provider, config):
     return coverage_fulfill(requests_for_coverage, calls, lead_provider, config)
 
 
-def coverage_build_requests(calls, lead_provider, config):
+def coverage_build_requests(calls, lead_provider, config):  # TODO: change to calculate inside coverage for INV/DEL/DUP, outside (like it is now) for INS/BND?
     requests_for_coverage = {}
     for svcall in calls:
         start = svcall.pos
@@ -143,7 +143,7 @@ def rescale_support(svcall, config):
     if svcall.svtype != "INS" or svcall.svlen < config.long_ins_length:
         return svcall.support
     else:
-        base = svcall.support + svcall.get_info("SUPPORT_LONG")
+        base = svcall.support
         scale_factor = config.long_ins_rescale_mult * (float(svcall.svlen) / config.long_ins_length)
         return round(base * (config.long_ins_rescale_base + scale_factor))
 
@@ -344,7 +344,7 @@ def genotype_sv(svcall, config, phase):
 
     # Count inline events only once per read, but split events as individual alignments, as in coverage calculation
     leads = svcall.postprocess.cluster.leads
-    support = rescale_support(svcall, config)
+    support = rescale_support(svcall, config)  # TODO: long insertions skew this way higher than the number of reads we have
 
     if svcall.svtype == "INS":
         coverage_list = [svcall.coverage_center]
@@ -359,6 +359,7 @@ def genotype_sv(svcall, config, phase):
                 coverage_list = [svcall.coverage_start, svcall.coverage_end]
             coverage += round(support * 0.75)
         elif svcall.svtype == "INV":
+            # check event length, for whole chromosome event do something different
             coverage_list = [svcall.coverage_upstream, svcall.coverage_downstream]
             coverage += round(support * 0.5)
         else:
