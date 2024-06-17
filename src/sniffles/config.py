@@ -198,6 +198,9 @@ class SnifflesConfig(argparse.Namespace):
 
     mosaic_include_germline: bool
     mosaic_qc_nm: bool
+    # TODO some better rules here
+    mosaic_min_reads: int = 3
+    mosaic_use_strand_thresholds: int = 10
 
     def add_mosaic_args(self, parser):
         mosaic_args = parser.add_argument_group("Mosaic calling mode parameters")
