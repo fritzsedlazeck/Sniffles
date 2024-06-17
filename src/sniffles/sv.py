@@ -345,12 +345,14 @@ def call_from(cluster, config, keep_qc_fails, task):
     # Count inline events only once per read, but split events as individual alignments, as in coverage calculation
     # inline_qnames=set(k.read_qname for k in leads if k.source=="INLINE")
     # support=len(inline_qnames)+sum(1 for k in leads if k.source!="INLINE")
+    support_set = set(k.read_qname for k in leads)
     if svtype == "INS" and svlen >= config.long_ins_length:
         support_long_set = set(lead.read_qname for lead in cluster.leads_long)
-        support = len(set(k.read_qname for k in leads) | support_long_set)
         support_long = len(support_long_set)
+        support_set |= support_long_set
+        support = len(support_set)
     else:
-        support = len(set(k.read_qname for k in leads))
+        support = len(support_set)
         support_long = 0
     ref_start = util.center(v.ref_start for v in leads)
     stdev_pos = util.stdev(util.trim((v.ref_start for v in leads)))
@@ -378,7 +380,7 @@ def call_from(cluster, config, keep_qc_fails, task):
     svpi = SVCallPostprocessingInfo(cluster=cluster)
 
     if config.output_rnames or config.snf is not None:
-        rnames = list(set(k.read_qname for k in leads))
+        rnames = list(support_set)
     else:
         rnames = None
 
