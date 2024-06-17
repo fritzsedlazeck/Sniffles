@@ -16,6 +16,7 @@ import multiprocessing
 import os
 import threading
 from argparse import Namespace
+from collections import deque
 from dataclasses import dataclass
 from typing import Optional, Union, Callable
 
@@ -68,9 +69,10 @@ class Task:
     def add_result(self, result: Result) -> None:
         self.result = result
 
-    def execute(self) -> Optional[Result]:
+    def execute(self, worker: 'SnifflesWorker' = None) -> Optional[Result]:
         """
         Execute this Task, returning a Result object
+        :param worker is the worker executing this task
         """
         raise NotImplemented
 
@@ -145,7 +147,7 @@ class CallTask(Task):
     """
     """
 
-    def execute(self) -> CallResult:
+    def execute(self, worker: 'SnifflesWorker' = None) -> CallResult:
         config = self.config
 
         if config.snf is not None or config.no_qc:
@@ -187,7 +189,7 @@ class CallTask(Task):
 
 
 class GenotypeTask(Task):
-    def execute(self) -> Optional[GenotypeResult]:
+    def execute(self, worker: 'SnifflesWorker' = None) -> Optional[GenotypeResult]:
         config = self.config
 
         qc = False
@@ -261,11 +263,11 @@ class CombineTask(Task):
     """
     Task to merge/combine multiple SNF files into one.
     """
-    MIN_BLOCKS_PER_THREAD = 100
-    emit_first_block = True
+    BLOCKS_PER_TASK = 10000  # target number of blocks to process in one task
+
     result_class = CombineResult
 
-    block_indices: list[int] = None
+    block_indices: list[int] = None  # List of block starts to process on this task
 
     def __init__(self, *args, **kwargs):
         self.result_class = kwargs.pop('result_class', None) or self.result_class
@@ -276,7 +278,14 @@ class CombineTask(Task):
         """
         Generate a set of blocks
         """
-        self.block_indices = list(range(self.start, self.end + self.config.snf_block_size, self.config.snf_block_size))
+        if self.regions:
+            block_indices = set()
+            for r in self.regions:
+                start = r.start // self.config.snf_block_size * self.config.snf_block_size
+                block_indices |= set(range(start, r.end + self.config.snf_block_size, self.config.snf_block_size))
+            self.block_indices = list(sorted(block_indices))
+        else:
+            self.block_indices = list(range(self.start, self.end + self.config.snf_block_size, self.config.snf_block_size))
 
     def __str__(self):
         if len(self.block_indices) > 0:
@@ -292,7 +301,6 @@ class CombineTask(Task):
         if new_id is not None:
             obj.id = new_id
         obj.block_indices = self.block_indices[first_block:first_block + block_count]
-        obj.emit_first_block = emit_first
         obj.start = obj.block_indices[0]
         obj.end = obj.block_indices[-1] + obj.config.snf_block_size
         return obj
@@ -305,34 +313,31 @@ class CombineTask(Task):
         - Tasks other than the first one have to process their first block for kept groups, and
           should not emit calls for this block (as these will be emitted by the previous task)
         """
-        if self.config.threads > 1:
-            if (nBlocks := len(self.block_indices)) >= self.MIN_BLOCKS_PER_THREAD * 2 and not self.config.dev_disable_interblock_threads:
-                parallel_tasks = min(self.config.threads, int(nBlocks / self.MIN_BLOCKS_PER_THREAD))
-                blocks_per_task = int(nBlocks / parallel_tasks)
-                blocks_for_first_task = nBlocks - blocks_per_task * (parallel_tasks - 1)
-                if parallel_tasks > 1:
-                    return [self.clone(0, blocks_for_first_task)] + [
-                        self.clone(
-                            blocks_for_first_task + i * blocks_per_task - 1,  # Start one block earlier...
-                            blocks_per_task,
-                            emit_first=False,  # ...but dont emit it
-                            new_id=self.id + i + 1
-                        ) for i in range(parallel_tasks - 1)
-                    ]
+        total_blocks = len(self.block_indices) * len(self.config.sample_ids_vcf)
+        if total_blocks <= self.BLOCKS_PER_TASK:
+            return [self]
 
-        return [self]
+        blocks_per_task = len(self.config.sample_ids_vcf) // (total_blocks // self.BLOCKS_PER_TASK)
 
-    def execute(self):
+        return [
+            self.clone(
+                fb,
+                blocks_per_task,
+                new_id=self.id + i + 1
+            ) for i, fb in enumerate(range(0, len(self.block_indices), blocks_per_task))
+        ]
+
+    def execute(self, worker: 'SnifflesWorker' = None):
         samples_headers_snf = {}
         for snf_info in self.config.snf_input_info:
-            snf_in = snf.LazySNFile(self.config, open(snf_info["filename"], "rb"), filename=snf_info["filename"])
+            snf_in = snf.SNFile(self.config, open(snf_info["filename"], "rb"), filename=snf_info["filename"])
             snf_in.read_header()
             samples_headers_snf[snf_info["internal_id"]] = snf_in
 
             if self.config.combine_close_handles:
                 snf_in.close()
 
-        svcalls = []
+        result = self.result_class(self, [], 0)
 
         # block_groups_keep_threshold=5000
         # TODO: Parameterize
@@ -347,10 +352,15 @@ class CombineTask(Task):
         #
         candidates_processed = 0
         groups_keep = {svtype: list() for svtype in sv.TYPES}
+        calls = []
 
         for cur, block_index in enumerate(self.block_indices):  # iterate over all blocks
             self.logger.info(f'Processing block {cur + 1}/{len(self.block_indices)} (active calls: {sv.SVCall._counter} groups: {sv.SVGroup._counter})')
             samples_blocks = {}
+            if calls:
+                result.store_calls(calls)
+                calls = []
+
             for sample_internal_id, sample_snf in samples_headers_snf.items():
                 blocks = sample_snf.read_blocks(self.contig, block_index)
                 samples_blocks[sample_internal_id] = blocks
@@ -419,12 +429,7 @@ class CombineTask(Task):
                             else:
                                 groups_call.append(group)
 
-                        if cur > 0 or self.emit_first_block:
-                            if cur == 1 and not self.emit_first_block and len(self.block_indices) > 1:
-                                # If we're not emitting the first block
-                                svcalls.extend(call for call in sv.call_groups(groups_call, self.config, self) if not call.pos < self.block_indices[1])
-                            else:
-                                svcalls.extend(sv.call_groups(groups_call, self.config, self))
+                        calls.extend(sv.call_groups(groups_call, self.config, self))
 
                         size = 0
                         svcands = []
@@ -432,12 +437,12 @@ class CombineTask(Task):
                 groups_keep[svtype] = keep
 
         for svtype in groups_keep:
-            svcalls.extend(sv.call_groups(groups_keep[svtype], self.config, self))
+            calls.extend(sv.call_groups(groups_keep[svtype], self.config, self))
 
-        if self.config.sort:
-            svcalls.sort(key=lambda call: call.pos)
+        result.store_calls(calls)
 
-        return self.result_class(self, svcalls, candidates_processed)
+        result.finalize()
+        return result
 
 
 class ShutdownTask:
@@ -446,7 +451,7 @@ class ShutdownTask:
     def __str__(self):
         return 'Shutdown Request'
 
-    def execute(self) -> Result:
+    def execute(self, *args, **kwargs) -> Result:
         raise SnifflesWorker.Shutdown
 
 
@@ -466,7 +471,7 @@ class SnifflesWorker:
         Indicates this worker process should shut down
         """
 
-    def __init__(self, process_id: int, config: Namespace, tasks: list[Task], recycle_hint: Union[bool, Callable] = None):
+    def __init__(self, process_id: int, config: Namespace, tasks: deque[Task], recycle_hint: Union[bool, Callable] = None):
         self.id = process_id
         self.config = config
         self.tasks = tasks
@@ -521,7 +526,7 @@ class SnifflesWorker:
                     self.maybe_recycle()
 
                     try:
-                        self.task = self.tasks.pop(0)
+                        self.task = self.tasks.popleft()
                     except IndexError:
                         # another worker may have taken the last task
                         self._logger.debug(f'No more tasks to do for {self.id}')
@@ -578,7 +583,7 @@ class SnifflesWorker:
 
                 self._logger.debug(f'Worker {self.id} got task {task.id}')
 
-                result = task.execute()
+                result = task.execute(self)
 
                 self._logger.debug(f'Worker {self.id} finished executing {task.id}, sending back result...')
 
@@ -597,3 +602,35 @@ class SnifflesWorker:
 def execute_task(task: Task):
     logging.getLogger('sniffles.parallel').info(f'Working on {task}')
     return task.execute()
+
+
+class SnifflesParentWorker(SnifflesWorker):
+    """
+    A worker class without multiprocessing, i.e. running in the main process. Used for profiling.
+    """
+    id: int = 0
+
+    def __init__(self, config: Namespace, tasks: list[Task], **kwargs):  # noqa
+        self.tasks = tasks
+        self.task = None
+        self.config = config
+        self.finished_tasks: list[Task] = []
+        self._log = logging.getLogger('sniffles.pworker')
+        self._log.info(f'Using parent worker')
+
+    def start(self) -> None:
+        ...
+
+    def run_parent(self) -> bool:
+        count = len(self.tasks)
+        for i, task in enumerate(self.tasks):
+            self._log.info(f'Executing {task} ({i+1}/{count})')
+            result = task.execute(self)
+            task.add_result(result)
+            self.finished_tasks.append(task)
+        self._log.info(f'All tasks done.')
+
+        return False
+
+    def finalize(self):
+        ...

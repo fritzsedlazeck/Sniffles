@@ -234,15 +234,10 @@ class SNFile:
         return coverage
 
 
-class LazySNFile(SNFile):
+class RemoteIndexSNFile(SNFile):
     """
-    An SNFile, but its header data may be unloaded from memory and lazily loaded back in.
-
-    Important: Do not keep references to index or header outside, otherwise this class will
-               massively increase memory usage instead of limiting it.
+    An SNFile, but its header data will be provided by a remote source.
     """
-    _MAX_ACTIVE = 50  # maximum number of objects that will retain their data in memory
-    _ACTIVE: OrderedDict['LazySNFile'] = OrderedDict()
 
     @property
     def index(self) -> dict:

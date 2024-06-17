@@ -78,9 +78,9 @@ class SnifflesConfig(argparse.Namespace):
     @property
     def sort(self):
         """
-        Output is always sorted
+        Output is sorted unless explicitly asked for otherwise, and only if the output is not bgzipped
         """
-        return not self.no_sort
+        return self.vcf_output_bgz or not self.no_sort
 
     input: str
     vcf: str
@@ -388,3 +388,5 @@ class SnifflesConfig(argparse.Namespace):
             self.qc_nm_measure = self.qc_nm_measure or self.mosaic_qc_nm
             # config.qc_nm_mult=config.mosaic_qc_nm_mult
             # config.qc_strand=config.mosaic_qc_strand
+
+        SnifflesConfig.GLOBAL = self

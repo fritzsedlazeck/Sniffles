@@ -35,7 +35,7 @@ def unpack_phase(phase, svid="") -> tuple:
         hp_i, ps = phase
     except TypeError:
         if phase is None:
-            log.debug(f"Single 'None'-valued phase: {phase}|{svid}")
+            # log.debug(f"Single 'None'-valued phase: {phase}|{svid}")
             hp_i, ps = None, None
         else:
             log.debug(f"Single not 'None'-valued phase: {phase}|{svid}")

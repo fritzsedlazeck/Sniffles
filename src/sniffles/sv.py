@@ -485,6 +485,9 @@ def call_groups(svgroups: list[SVGroup], config, task):
 
 
 def classify_splits(read, leads, config, main_contig):
+    """
+    Determines the SV type of a split read (read with supplementary alignments)
+    """
     minsvlen_screen = config.minsvlen_screen
     maxsvlen_other = minsvlen_screen * config.dev_split_max_query_distance_mult
     min_split_len_bnd = config.bnd_min_split_length

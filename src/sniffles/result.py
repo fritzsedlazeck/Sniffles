@@ -12,6 +12,7 @@ import logging
 import os
 import pickle
 
+from sniffles.config import SnifflesConfig
 from sniffles.snf import SNFile
 from sniffles.sv import SVCall
 from sniffles.vcf import VCF
@@ -41,7 +42,10 @@ class Result:
         self.svcount = len(svcalls)
         self.store_calls(svcalls)
 
-    def store_calls(self, svcalls):
+    def store_calls(self, svcalls: list[SVCall]) -> None:
+        """
+        Store the given calls to this result
+        """
         self.svcalls = svcalls
 
     def emit(self, vcf_out: VCF = None, **kwargs) -> int:
@@ -101,6 +105,20 @@ class CombineResult(Result):
     """
     Result of a combine run for one task, simple variant with calls in memory. Must be pickleable.
     """
+    def store_calls(self, svcalls: list[SVCall]) -> None:
+        from sniffles.config import SnifflesConfig
+        if SnifflesConfig.GLOBAL.sort:
+            svcalls = sorted(svcalls, key=lambda call: call.pos)
+
+        try:
+            self.svcalls.extend(svcalls)
+        except AttributeError:
+            self.svcalls = list(svcalls)
+
+    def finalize(self):
+        if SnifflesConfig.GLOBAL.sort:
+            self.svcalls.sort(key=lambda call: call.pos)
+
     def __str__(self):
         return f'CombineResult #{self.task_id}'
 
@@ -109,23 +127,68 @@ class CombineResultTmpFile(CombineResult):
     """
     Result of a combine run, with calls in a temporary file instead of memory
     """
+    _highest_position_call: int = -1  # maximum position of last emitted call, for sorting
+    unsorted: bool = False
+
     @property
     def tmpfile_name(self) -> str:
-        return f'result-{self.run_id}-{self.task_id}.part'
-
-    def store_calls(self, svcalls):
-        with open(self.tmpfile_name, 'wb') as f:
-            f.write(pickle.dumps(svcalls))
+        return f'result-{self.run_id}-{self.task_id:04}.part.vcf'
 
     @property
-    def svcalls(self) -> list[SVCall]:
-        with open(self.tmpfile_name, 'rb') as f:
-            return pickle.loads(f.read())
+    def tmpfile_unsorted(self) -> str:
+        """
+        Name of this task/results temporary file for unsorted calls
+        """
+        return f'result-{self.run_id}-{self.task_id:04}-unsorted.part.vcf'
 
-    def emit(self, **kwargs) -> int:
-        res = super().emit(**kwargs)
+    def store_calls(self, svcalls):
+        from sniffles.config import SnifflesConfig
+        offset = 0
+
+        if SnifflesConfig.GLOBAL.sort and svcalls:
+            svcalls = list(sorted(svcalls, key=lambda call: call.pos))
+
+            while svcalls[offset].pos < self._highest_position_call:
+                log.debug(f'Unsorted call detected: {self._highest_position_call} > {svcalls[0]}')
+                offset += 1
+
+            if offset > 0:  # unsorted calls
+                self.unsorted = True
+                with open(self.tmpfile_unsorted, 'a') as f:
+                    vcf = VCF(SnifflesConfig.GLOBAL, f)
+                    for call in svcalls[:offset]:
+                        vcf.write_call(call)
+
+            self._highest_position_call = svcalls[-1].pos
+
+        log.debug(f'Storing {len(svcalls)} calls for task {self.task_id} to {self.tmpfile_name}')
+
+        with open(self.tmpfile_name, 'a') as f:
+            vcf = VCF(SnifflesConfig.GLOBAL, f)
+            for call in svcalls[offset:]:
+                vcf.write_call(call)
+
+    def finalize(self):
+        ...
+
+    def _emit_sorted(self) -> int:
+        # contig, position, _ = line.split('\t', 2)
+        # position = int(position)
+        # while position > self._unsorted_calls[-1].pos:
+        #     vcf_out.write_call(self._unsorted_calls.pop())
+        #     n += 1
+        return 0
+
+    def emit(self, vcf_out: VCF = None, **kwargs) -> int:
+        n = 0
+        with open(self.tmpfile_name, 'r') as f:
+            for line in f:
+                vcf_out.handle.write(line)
+                n += 1
+
+        vcf_out.call_count += n
         self.cleanup()
-        return res
+        return n
 
     def cleanup(self):
         os.unlink(self.tmpfile_name)
