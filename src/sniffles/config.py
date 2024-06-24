@@ -19,7 +19,7 @@ from typing import Union, Optional
 from sniffles import util
 
 VERSION = "Sniffles2"
-BUILD = "2.3.3"
+BUILD = "2.4-dev"
 SNF_VERSION = "S2_rc4"
 
 
@@ -129,6 +129,7 @@ class SnifflesConfig(argparse.Namespace):
         filter_args.add_argument("--qc-coverage", help="Minimum surrounding region coverage of SV calls", metavar="N", type=int, default=1)
         filter_args.add_argument("--long-ins-length", help="Insertion SVs longer than this value are considered as hard to detect based on the aligner and read length and subjected to more sensitive filtering.", metavar="2500", type=int, default=2500)
         filter_args.add_argument("--long-del-length", help="Deletion SVs longer than this value are subjected to central coverage drop-based filtering (Not applicable for --mosaic)", metavar="50000", type=int, default=50000)
+        filter_args.add_argument("--long-inv-length", help="Inversion SVs longer than this value are not subjected to central coverage drop-based filtering", metavar="10000", type=int, default=10000)
         filter_args.add_argument("--long-del-coverage", help="Long deletions with central coverage (in relation to upstream/downstream coverage) higher than this value will be filtered (Not applicable for --mosaic)", metavar="0.66", type=float, default=0.66)
         filter_args.add_argument("--long-dup-length", help="Duplication SVs longer than this value are subjected to central coverage increase-based filtering (Not applicable for --mosaic)", metavar="50000", type=int, default=50000)
         filter_args.add_argument("--qc-bnd-filter-strand", help="Filter breakends that do not have support for both strands", type=tobool, default=True)

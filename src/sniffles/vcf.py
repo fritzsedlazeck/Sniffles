@@ -115,6 +115,7 @@ class VCF:
         self.write_header_line('FILTER=<ID=NOT_MOSAIC_AF,Description="Variant allele frequency filter for non-mosaic">')
         self.write_header_line('FILTER=<ID=ALN_NM,Description="Length adjusted mismatch filter">')
         self.write_header_line('FILTER=<ID=STRAND_BND,Description="Strand support filter for BNDs">')
+        self.write_header_line('FILTER=<ID=STRAND,Description="Strand support filter for germline SVs">')
         self.write_header_line('FILTER=<ID=STRAND_MOSAIC,Description="Strand support filter for mosaic SVs">')
         self.write_header_line('FILTER=<ID=SVLEN_MIN,Description="SV length filter">')
         self.write_header_line('FILTER=<ID=SVLEN_MIN_MOSAIC,Description="SV length filter for mosaic SVs">')
