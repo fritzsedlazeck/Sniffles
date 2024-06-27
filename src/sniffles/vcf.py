@@ -30,20 +30,25 @@ def format_info(k, v):
 
 
 def format_genotype(gt):
+    """
+    hp_i is the index of the haplotype in config.phase_identifiers:
+    HP:1 => index 0 => phased genotype in the form of 1|0
+    HP:2 => index 1 => phased genotype in the form of 0|1
+    """
     if len(gt) == 6:
-        a, b, qual, dr, dv, ps = gt
-        if ps is not None and (a, b) == (0, 1):
+        a, b, qual, dr, dv, hp_i = gt
+        if hp_i is not None and (a, b) == (0, 1):
             gt_sep = "|"
-            if ps == 1:
+            if hp_i == 0:
                 a, b = b, a
         else:
             gt_sep = "/"
         return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}"
     else:
-        a, b, qual, dr, dv, ps, id = gt
-        if ps is not None and (a, b) == (0, 1):
+        a, b, qual, dr, dv, hp_i, id = gt
+        if hp_i is not None and (a, b) == (0, 1):
             gt_sep = "|"
-            if ps == 1:
+            if hp_i == 0:
                 a, b = b, a
         else:
             gt_sep = "/"
