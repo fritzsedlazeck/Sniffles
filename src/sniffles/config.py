@@ -13,10 +13,12 @@ import os
 import sys
 import datetime
 import argparse
+from collections import defaultdict
 
 from typing import Union, Optional
 
 from sniffles import util
+from sniffles.region import Region
 
 VERSION = "Sniffles2"
 BUILD = "2.4-dev"
@@ -110,6 +112,7 @@ class SnifflesConfig(argparse.Namespace):
         main_args.add_argument("--phase", help="Determine phase for SV calls (requires the input alignments to be phased)", default=False, action="store_true")
         main_args.add_argument("-t", "--threads", metavar="N", type=int, help="Number of parallel threads to use (speed-up for multi-core CPUs)", default=4)
         main_args.add_argument("-c", "--contig", default=None, type=str, help="(Optional) Only process the specified contigs. May be given more than once.", action="append")
+        main_args.add_argument("--regions", metavar="REGIONS.bed", type=str, help="(Optional) Only process the specified regions.", default=None)
 
     minsupport: Union[str, int]
     minsvlen: int
@@ -291,6 +294,23 @@ class SnifflesConfig(argparse.Namespace):
             region_contig, region_startend = self.dev_call_region.replace(",", "").split(":")
             start, end = region_startend.split("-")
             self.dev_call_region = dict(contig=region_contig, start=int(start), end=int(end))
+
+        if self.contig and self.regions:
+            util.fatal_error('Please provide either --contig or --regions, not both.')
+
+        if self.regions is not None:
+            regions = defaultdict(list)
+            with open(self.regions, 'r') as f:
+                for line in f.readlines():
+                    if line.startswith('#') or line.strip() == '':
+                        continue
+                    else:
+                        r = Region.from_bed_line(line)
+                        if r is not None:
+                            regions[r.contig].append(r)
+            self.regions_by_contig = regions
+        else:
+            self.regions_by_contig = {}
 
         # "--minsvlen" parameter is for final output filtering
         # for intermediate steps, a lower threshold is used to account for sequencing, mapping imprecision

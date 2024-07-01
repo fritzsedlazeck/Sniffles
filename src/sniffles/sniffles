@@ -277,6 +277,9 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             if config.contig and contig_str not in config.contig:
                 continue
 
+            if config.regions_by_contig and contig_str not in config.regions_by_contig:
+                continue
+
             contigs.append(contig_str)
             contig_length = bam_in.get_reference_length(contig_str)
             contig_lengths.append((contig_str, contig_length))
@@ -304,6 +307,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
                     genotype_svs=genotype_svs,
                     sv_id=0,
                     config=config,
+                    regions=config.regions_by_contig.get(contig_str),
                 )
                 tasks_list.append(task)
                 if contig_str not in contig_tasks_intervals:

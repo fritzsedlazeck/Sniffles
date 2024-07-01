@@ -23,6 +23,7 @@ import pickle
 
 from sniffles import util
 from sniffles import sv
+from sniffles.region import Region
 
 
 @dataclass
@@ -536,38 +537,33 @@ class LeadProvider:
             lead_count = 1
         self.leadcounts[ld.svtype] += 1
 
-    def build_leadtab(self, contig, start, end, bam):
-        if self.config.dev_cache:
-            loaded_externals = self.dev_load_leadtab(contig, start, end)
-            if loaded_externals != False:
-                return loaded_externals
+    def build_leadtab(self, regions: list[Region], bam):
 
-        assert (self.contig == None)
-        assert (self.start == None)
-        assert (self.end == None)
-        self.contig = contig
-        self.start = start
-        self.end = end
-        self.covrtab_min_bin = int(self.start / self.config.coverage_binsize) * self.config.coverage_binsize
+        assert (self.contig is None)
+        assert (self.start is None)
+        assert (self.end is None)
 
         externals = []
         ld_binsize = self.config.cluster_binsize
 
-        for ld in self.iter_region(bam, contig, start, end):
-            ld_contig, ld_ref_start = ld.contig, ld.ref_start
+        for region in regions:
+            self.contig = region.contig
+            self.start = region.start if self.start is None else min(region.start, self.start)
+            self.end = region.end if self.end is None else max(region.start, self.end)
+            self.covrtab_min_bin = int(self.start / self.config.coverage_binsize) * self.config.coverage_binsize
 
-            if contig == ld_contig and ld_ref_start >= start and ld_ref_start < end:
-                pos_leadtab = int(ld_ref_start / ld_binsize) * ld_binsize
-                self.record_lead(ld, pos_leadtab)
-            else:
-                externals.append(ld)
+            for ld in self.iter_region(bam, region):
+                ld_contig, ld_ref_start = ld.contig, ld.ref_start
 
-        if self.config.dev_cache:
-            self.dev_store_leadtab(contig, start, end, externals)
+                if region.contig == ld_contig and region.start <= ld_ref_start < region.end:
+                    pos_leadtab = int(ld_ref_start / ld_binsize) * ld_binsize
+                    self.record_lead(ld, pos_leadtab)
+                else:
+                    externals.append(ld)
 
         return externals
 
-    def iter_region(self, bam, contig, start=None, end=None):
+    def iter_region(self, bam, region: Region):
         leads_all = []
         binsize = self.config.cluster_binsize
         coverage_binsize = self.config.coverage_binsize
@@ -583,14 +579,14 @@ class LeadProvider:
         nm_count = 0
         trace_read = self.config.dev_trace_read
 
-        for read in bam.fetch(contig, start, end, until_eof=False):
-            if trace_read != False:
+        for read in bam.fetch(region.contig, region.start, region.end, until_eof=False):
+            if trace_read is not False:
                 if trace_read == read.query_name:
-                    print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{contig}:{start}-{end}] [{read.query_name}] has been fetched and is entering pre-filtering")
+                    print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{region}] [{read.query_name}] has been fetched and is entering pre-filtering")
 
             # if self.read_count % 1000000 == 0:
             #    gc.collect()
-            if read.reference_start < start or read.reference_start >= end:
+            if read.reference_start < region.start or read.reference_start >= region.end:
                 continue
 
             self.read_id += 1
@@ -610,7 +606,7 @@ class LeadProvider:
                     if read.has_tag("NM"):
                         nm_raw = read.get_tag("NM")
                         nm_ratio = read.get_tag("NM") / float(read.query_alignment_length + 1)
-                        ins_sum, del_sum = get_cigar_indels(curr_read_id, read, contig, self.config, use_clips, read_nm=nm)
+                        ins_sum, del_sum = get_cigar_indels(curr_read_id, read, region.contig, self.config, use_clips, read_nm=nm)
                         nm_adj = (nm_raw - (ins_sum + del_sum))
                         nm_adj_ratio = nm_adj / float(read.query_alignment_length + 1)
                         nm = nm_adj_ratio
@@ -620,36 +616,36 @@ class LeadProvider:
                 if phase:
                     curr_read_id = (self.read_id, str(read.get_tag("HP")) if read.has_tag("HP") else "NULL", str(read.get_tag("PS")) if read.has_tag("PS") else "NULL")
 
-            if trace_read != False:
+            if trace_read is not False:
                 if trace_read == read.query_name:
-                    print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{contig}:{start}-{end}] [{read.query_name}] passed pre-filtering (whole-read), begin to extract leads")
+                    print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{region}] [{read.query_name}] passed pre-filtering (whole-read), begin to extract leads")
 
             # Extract small indels
-            for lead in read_iterindels(curr_read_id, read, contig, self.config, use_clips, read_nm=nm):
-                if trace_read != False:
+            for lead in read_iterindels(curr_read_id, read, region.contig, self.config, use_clips, read_nm=nm):
+                if trace_read is not False:
                     if trace_read == read.query_name:
-                        print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_iterindels] [{contig}:{start}-{end}] [{read.query_name}] new lead: {lead}")
+                        print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_iterindels] [{region}] [{read.query_name}] new lead: {lead}")
                 yield lead
 
             # Extract read splits
             if has_sa:
                 if read.is_supplementary:
-                    if trace_read != False:
+                    if trace_read is not False:
                         if trace_read == read.query_name:
-                            print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits_bnd] [{contig}:{start}-{end}] [{read.query_name}] is entering read_itersplits_bnd")
-                    for lead in read_itersplits_bnd(curr_read_id, read, contig, self.config, read_nm=nm):
-                        if trace_read != False:
+                            print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits_bnd] [{region}] [{read.query_name}] is entering read_itersplits_bnd")
+                    for lead in read_itersplits_bnd(curr_read_id, read, region.contig, self.config, read_nm=nm):
+                        if trace_read is not False:
                             if trace_read == read.query_name:
-                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits_bnd] [{contig}:{start}-{end}] [{read.query_name}] new lead: {lead}")
+                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits_bnd] [{region}] [{read.query_name}] new lead: {lead}")
                         yield lead
                 else:
-                    if trace_read != False:
+                    if trace_read is not False:
                         if trace_read == read.query_name:
-                            print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{contig}:{start}-{end}] [{read.query_name}] is entering read_itersplits")
-                    for lead in read_itersplits(curr_read_id, read, contig, self.config, read_nm=nm):
-                        if trace_read != False:
+                            print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{region}] [{read.query_name}] is entering read_itersplits")
+                    for lead in read_itersplits(curr_read_id, read, region.contig, self.config, read_nm=nm):
+                        if trace_read is not False:
                             if trace_read == read.query_name:
-                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{contig}:{start}-{end}] [{read.query_name}] new lead: {lead}")
+                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{region}] [{read.query_name}] new lead: {lead}")
                         yield lead
 
             # Record in coverage table

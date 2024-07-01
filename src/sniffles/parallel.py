@@ -26,6 +26,7 @@ from sniffles import leadprov
 from sniffles import postprocessing
 from sniffles import snf
 from sniffles import sv
+from sniffles.region import Region
 from sniffles.result import Result, ErrorResult, CallResult, GenotypeResult, CombineResult
 
 
@@ -45,6 +46,7 @@ class Task:
     bam: object = None
     tandem_repeats: list = None
     genotype_svs: list = None
+    regions: list[Region] = None
     _logger = None
     result: Result = None
 
@@ -82,7 +84,7 @@ class Task:
         else:
             self.bam = pysam.AlignmentFile(config.input, config.input_mode, require_index=True)
         self.lead_provider = leadprov.LeadProvider(config, self.id * config.task_read_id_offset_mult)
-        externals = self.lead_provider.build_leadtab(self.contig, self.start, self.end, self.bam)
+        externals = self.lead_provider.build_leadtab(self.regions if self.regions else [Region(self.contig, self.start, self.end)], self.bam)
         return externals, self.lead_provider.read_count
 
     def call_candidates(self, keep_qc_fails, config):
@@ -201,7 +203,7 @@ class GenotypeTask(Task):
             genotype_sv.genotype_match_dist = math.inf
 
             if genotype_sv.svtype not in genotype_svs_svtypes_bins:
-                # TODO: Warn about unsupported SVTYPE
+                logging.getLogger('sniffles').warning(f'Unsupported SVTYPE: {genotype_sv.svtype}')
                 continue
 
             bins = [int(genotype_sv.pos / binsize) * binsize]
