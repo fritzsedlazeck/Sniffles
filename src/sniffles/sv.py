@@ -9,8 +9,16 @@
 # Contact:     sniffles@romanek.at
 #
 import logging
+from dataclasses import dataclass
+from typing import Optional, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field
 from typing import Optional, Callable
+
+import numpy as np
+
+if TYPE_CHECKING:
+    from sniffles.cluster import Cluster
+
 
 try:
     from edlib import align
@@ -33,7 +41,7 @@ class SVCallBNDInfo:
 
 @dataclass
 class SVCallPostprocessingInfo:
-    cluster: list
+    cluster: 'Cluster'
 
 
 class ForwardDifferenceWelford:

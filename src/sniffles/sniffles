@@ -12,7 +12,7 @@ import logging
 import logging.config
 import multiprocessing
 from collections import deque
-from typing import Optional
+from typing import Optional, Literal
 
 from sniffles.utils.resmon import ResourceMonitor
 
@@ -34,7 +34,6 @@ from sniffles import snf
 from sniffles import parallel
 from sniffles import util
 
-# TODO: Dev/Debugging only - Remove for prod
 DEV_MONITOR_MEM = False
 
 if DEV_MONITOR_MEM:
@@ -42,6 +41,7 @@ if DEV_MONITOR_MEM:
         import psutil
     except ImportError:
         logging.getLogger('sniffles.memory').warning('psutil not available.')
+        psutil = None
 
         def dbg_get_total_memory_usage_MB():
             pass
@@ -60,10 +60,6 @@ if DEV_MONITOR_MEM:
             return total / (1000.0 * 1000.0)
 
 
-# """
-# END:TODO
-
-
 def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     #
     # Determine Sniffles2 run mode
@@ -72,7 +68,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
 
     if config.dev_debug:
         try:
-            import pydevd_pycharm
+            import pydevd_pycharm  # noqa
         except ImportError:
             logging.getLogger('sniffles.dev').info(f'pydevd not available!')
         else:
@@ -149,6 +145,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     log.info("==============================")
 
     rkwargs = {}  # result kwargs
+    bam_in = None
 
     monitor = ResourceMonitor(config)
     if monitor and monitor.filename is not None:
@@ -181,8 +178,9 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     if config.mode == "genotype_vcf":
         path, ext = os.path.splitext(config.genotype_vcf)
         ext = ext.lower()
+        vcf_in_handle = None
         if ext == ".gz":
-            vcf_in_handle = pysam.BGZFile(config.genotype_vcf, "rb")
+            vcf_in_handle = pysam.VariantFile(config.genotype_vcf, "rb")
         elif ext == ".vcf":
             vcf_in_handle = open(config.genotype_vcf, "r")
         else:
@@ -230,10 +228,8 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
         if config.vcf_output_bgz:
             if not config.sort:
                 util.fatal_error_main(".gz (bgzip) output is only supported with sorting enabled")
-            vcf_handle = pysam.BGZFile(config.vcf, "w")
-        else:
-            vcf_handle = open(config.vcf, "w")
 
+        vcf_handle = open(config.vcf, "w")
         vcf_out = vcf.VCF(config, vcf_handle)
 
         if config.mode == "call_sample" or config.mode == "combine":
@@ -302,14 +298,11 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
                 task_count = max(1, math.ceil(contig.mapped / float(task_max_reads)))
             contig_str = str(contig.contig)
 
-            if config.contig and contig_str not in config.contig:
-                continue
-
-            if config.regions_by_contig and contig_str not in config.regions_by_contig:
+            contig_length = bam_in.get_reference_length(contig_str)
+            if not util.should_process_contig(contig_str, contig_length, config):
                 continue
 
             contigs.append(contig_str)
-            contig_length = bam_in.get_reference_length(contig_str)
             contig_lengths.append((contig_str, contig_length))
             task_length = math.floor(contig_length / float(task_count))
             contigs_with_tr_annotations += int(contig_str in contig_tandem_repeats)
@@ -532,10 +525,11 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             vcf_index_start_time = time.time()
             log.info(f"Generating index for {config.vcf}...")
             try:
-                pysam.tabix_index(config.vcf, preset="vcf", force=True)
-            except:
+                filename = pysam.tabix_index(config.vcf, preset="vcf", force=True)
+            except:  # noqa
                 log.exception(f'Error indexing VCF.')
             else:
+                os.rename(filename, config.vcf)
                 log.info(f"Indexing VCF output took {time.time() - vcf_index_start_time:.2f}s.")
 
     if (config.mode == "call_sample" or config.mode == "combine") and config.vcf is not None:

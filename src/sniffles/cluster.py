@@ -12,10 +12,9 @@
 from dataclasses import dataclass
 import statistics
 import math
-from typing import Optional
+from typing import Optional, Any, Generator
 
 from sniffles import sv
-from sniffles import leadprov
 
 
 @dataclass
@@ -178,7 +177,7 @@ def resplit_bnd(cluster, merge_threshold):
             yield new_cluster
 
 
-def resolve(svtype, leadtab_provider, config, tr):
+def resolve(svtype, leadtab_provider, config, tr) -> Generator[Cluster | Any, None, list[Any] | None]:
     leadtab = leadtab_provider.leadtab[svtype]
     seeds = sorted(leadtab_provider.leadtab[svtype])
 

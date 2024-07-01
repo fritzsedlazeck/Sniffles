@@ -111,23 +111,25 @@ class Task:
                             print(f"[DEV_TRACE_READ] [3/4] [Task.call_candidates] Read {config.dev_trace_read} -> Cluster {svcluster.id} -> preliminary SVCall {svcall_copy}")
                     candidates.append(svcall)
 
-        self.coverage_average_fwd, self.coverage_average_rev = postprocessing.coverage(candidates, self.lead_provider, config)
-        self.coverage_average_total = self.coverage_average_fwd + self.coverage_average_rev
+        self.coverage_average_total = postprocessing.coverage(candidates, self.lead_provider)
         return candidates
 
-    def finalize_candidates(self, candidates: list['SVCall'], keep_qc_fails, config):
+    def finalize_candidates(self, candidates: list['sv.SVCall'], keep_qc_fails, config):
         passed = []
         for svcall in candidates:
             svcall.qc = svcall.qc and postprocessing.qc_sv(svcall, config)
             if not keep_qc_fails and not svcall.qc:
                 continue
-            svcall.qc = svcall.qc and postprocessing.qc_sv_support(svcall, self.coverage_average_total, config)
+
+            if not config.mosaic:
+                svcall.qc = svcall.qc and postprocessing.qc_sv_support(svcall, self.coverage_average_total, config)
+
             if not keep_qc_fails and not svcall.qc:
                 continue
 
             postprocessing.annotate_sv(svcall, config)
 
-            svcall.qc = svcall.qc and postprocessing.qc_sv_post_annotate(svcall, config)
+            svcall.qc = svcall.qc and postprocessing.qc_sv_post_annotate(svcall, config, self.coverage_average_total)
 
             if config.dev_trace_read:
                 cluster_has_read = False
@@ -245,7 +247,7 @@ class GenotypeTask(Task):
                         genotype_sv.genotype_match_sv = cand
                         genotype_sv.genotype_match_dist = dist
 
-        postprocessing.coverage(self.genotype_svs, self.lead_provider, config)
+        postprocessing.coverage(self.genotype_svs, self.lead_provider)
 
         # Determine genotypes for unmatched input SVs
         for svcall in self.genotype_svs:
@@ -669,7 +671,7 @@ class SnifflesParentWorker(SnifflesWorker):
     """
     id: int = 0
 
-    def __init__(self, config: Namespace, tasks: list[Task], **kwargs):  # noqa
+    def __init__(self, config: Namespace, tasks: deque[Task], **kwargs):  # noqa
         self.tasks = tasks
         self.task = None
         self.config = config

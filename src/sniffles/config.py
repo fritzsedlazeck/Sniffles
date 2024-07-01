@@ -16,13 +16,13 @@ import argparse
 import tempfile
 from collections import defaultdict
 
-from typing import Union, Optional
+from typing import Union, Optional, Literal
 
 from sniffles import util
 from sniffles.region import Region
 
 VERSION = "Sniffles2"
-BUILD = "2.6.3"
+BUILD = "2.7.0b1"
 SNF_VERSION = "S2_rc4"
 
 
@@ -93,8 +93,10 @@ class SnifflesConfig(argparse.Namespace):
     phase: bool
     threads: int
     contig: Optional[str]
+    all_contigs: bool
     run_id: str
     tmp_dir: str
+    input_mode: Literal['rb', 'rc']
 
     @property
     def vcf_output_bgz(self) -> Optional[bool]:
@@ -104,6 +106,8 @@ class SnifflesConfig(argparse.Namespace):
         if self.vcf:
             path, ext = os.path.splitext(self.vcf)
             return ext == ".gz" or ext == ".bgz"
+        else:
+            return None
 
     @staticmethod
     def add_main_args(parser):
@@ -118,22 +122,30 @@ class SnifflesConfig(argparse.Namespace):
         main_args.add_argument("-c", "--contig", default=None, type=str, help="(Optional) Only process the specified contigs. May be given more than once.", action="append")
         main_args.add_argument("--regions", metavar="REGIONS.bed", type=str, help="(Optional) Only process the specified regions.", default=None)
         main_args.add_argument("--tmp-dir", type=str, help="(Optional) Directory where temporary files are written, must exist. If it doesn't, default path is used", default="")
+        main_args.add_argument("--all-contigs", help="(Optional) Process all contigs in the input file including small ones.", action="store_true", default=False)
 
     minsupport: Union[str, int]
+    minsupport_auto_mult: float
     minsvlen: int
     minsvlen_screen_ratio: float
-    max_unknown_pct: float
+    mapq: int
+    no_qc: bool
+    qc_stdev: bool
+    qc_stdev_abs_max: int
+    qc_strand: bool
+    qc_coverage: int
     long_ins_length: int
     long_del_length: int
     long_inv_length: int
     long_dup_length: int
+    max_unknown_pct: float
     large_coverage_sample_interval: int
     pass_only: bool
 
     @staticmethod
     def add_filter_args(parser):
         filter_args = parser.add_argument_group("SV Filtering parameters")
-        filter_args.add_argument("--minsupport", metavar="auto", type=str, help="Minimum number of supporting reads for a SV to be reported (default: automatically choose based on coverage)", default="auto")
+        filter_args.add_argument("--minsupport", metavar="auto", type=str, help="Minimum number of supporting reads for a SV to be reported (default: automatically choose based on coverage)", default="3")
         filter_args.add_argument("--minsupport-auto-mult", metavar="0.1/0.025", type=float, help="Coverage based minimum support multiplier for germline mode (only for auto minsupport) ", default=None)
         filter_args.add_argument("--minsvlen", metavar="N", type=int, help="Minimum SV length (in bp)", default=50)
         filter_args.add_argument("--minsvlen-screen-ratio", metavar="N", type=float, help="Minimum length for SV candidates (as fraction of --minsvlen)", default=0.9)
@@ -246,11 +258,20 @@ class SnifflesConfig(argparse.Namespace):
         postprocess_args.add_argument("--symbolic", help="Output all SVs as symbolic, including insertions and deletions, instead of reporting nucleotide sequences.", default=False, action="store_true")
         postprocess_args.add_argument("--allow-overwrite", help="Allow overwriting output files if already existing", default=False, action="store_true")
 
+    mosaic: bool
+    mosaic_af_max: float
+    mosaic_af_min: float
+    mosaic_qc_invdup_min_length: int
+    mosaic_qc_nm: bool
+    mosaic_qc_nm_mult: float
+    mosaic_qc_coverage_max_change_frac: float
+    mosaic_qc_strand: bool
     mosaic_include_germline: bool
     mosaic_qc_nm: bool
     # TODO some better rules here
     mosaic_min_reads: int = 3
     mosaic_use_strand_thresholds: int = 10
+    
 
     @staticmethod
     def add_mosaic_args(parser):
@@ -261,7 +282,7 @@ class SnifflesConfig(argparse.Namespace):
         mosaic_args.add_argument("--mosaic-qc-invdup-min-length", help="Minimum SV length for mosaic inversion and duplication SVs", metavar="N", default=500, type=int)
         mosaic_args.add_argument("--mosaic-qc-nm", default=True, action="store_true", help=argparse.SUPPRESS)
         mosaic_args.add_argument("--mosaic-qc-nm-mult", metavar="F", type=float, default=1.66, help=argparse.SUPPRESS)
-        mosaic_args.add_argument("--mosaic-qc-coverage-max-change-frac", help="Maximum relative coverage change across SV breakpoints", metavar="F", type=float, default=0.1)
+        mosaic_args.add_argument("--mosaic-qc-coverage-max-change-frac", help="Maximum relative coverage change across SV breakpoints", metavar="F", type=float, default=-1)
         mosaic_args.add_argument("--mosaic-qc-strand", help="Apply filtering based on strand support of SV calls", metavar="True", type=tobool, default=True)
         mosaic_args.add_argument("--mosaic-include-germline", help="Report germline SVs as well in mosaic mode", default=False, action="store_true")
 
@@ -271,6 +292,10 @@ class SnifflesConfig(argparse.Namespace):
     dev_population_snf: str
     dev_population_min_gt: float
     dev_debug: int
+    consensus_max_reads: int
+    consensus_max_reads_bin: int
+    qc_coverage_max_change_frac: float
+    exclude_flags: int | None
 
     @staticmethod
     def add_developer_args(parser):
@@ -317,6 +342,7 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-population-snf", metavar="population.snf", type=str, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-population-min-gt", default=0.75, type=float, help=argparse.SUPPRESS)  # min
         developer_args.add_argument("--dev-debug", default=0, type=int, help=argparse.SUPPRESS)  # Enable debug connection on the given port
+        developer_args.add_argument("--exclude-flags", "--excl-flags", "-F", default=None, type=int, help=argparse.SUPPRESS)
 
         # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 
@@ -409,8 +435,6 @@ class SnifflesConfig(argparse.Namespace):
         self.coverage_binsize_combine = self.cluster_binsize * self.cluster_binsize_combine_mult
 
         # INS Consensus parameters
-        # config.consensus_max_reads=20
-        # config.consensus_max_reads_bin=10
         self.consensus_min_reads = 4
         self.consensus_kmer_len = 6
         self.consensus_kmer_skip_base = 3

@@ -12,6 +12,10 @@
 import statistics
 import sys
 import time
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sniffles.config import SnifflesConfig
 
 
 class Sniffles2Exit(Exception):
@@ -140,6 +144,23 @@ def load_tandem_repeats(filename, padding):
         print(f"Info: Optional sorting of input tandem repeat annotations took {time.time() - sort_start:.2f}s.")
 
     return contigs_tr
+
+
+def should_process_contig(contig: str, length: int, config: 'SnifflesConfig') -> bool:
+    """
+    Check if the given contig should be processed based on the configuration.
+    """
+    if config.contig and contig not in config.contig:
+        return False
+
+    if config.regions_by_contig and contig not in config.regions_by_contig:
+        return False
+
+    # Exclude contigs shorter than 1Mbp if not explicitly requested by either -c or by being included in the input bed file
+    if not config.all_contigs and length < 1_000_000:
+        return (config.contig and contig in config.contig) or (contig in config.regions_by_contig)
+
+    return True
 
 
 center = median_modes

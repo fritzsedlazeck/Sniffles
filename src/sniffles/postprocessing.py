@@ -8,34 +8,16 @@
 # Maintainer:  Hermann Romanek
 # Contact:     sniffles@romanek.at
 #
-from enum import IntEnum
 import math
 import logging
 
 from sniffles import util
 from sniffles import consensus
 from sniffles.config import SnifflesConfig
+from sniffles.leadprov import LeadProvider
 from sniffles.sv import SVCall
 
 log = logging.getLogger('sniffles.postprocessing')
-
-class CoverageMode(IntEnum):
-    """A cheap(er) class to represent the coverage mode used when setting SVCall attributes."""
-    START = 1
-    CENTER = 2
-    END = 3
-    UPSTREAM = 4
-    DOWNSTREAM = 5
-
-    @property
-    def to_attr(self):
-        return {
-            CoverageMode.START: "coverage_start",
-            CoverageMode.CENTER: "coverage_center",
-            CoverageMode.END: "coverage_end",
-            CoverageMode.UPSTREAM: "coverage_upstream",
-            CoverageMode.DOWNSTREAM: "coverage_downstream",
-        }[self]
 
 
 def annotate_sv(svcall: SVCall, config):
@@ -82,158 +64,68 @@ def annotate_sv(svcall: SVCall, config):
                 svcall.alt = best_lead.seq
 
 
-def add_request(svcall_i: int, field: CoverageMode, pos, requests_for_coverage: dict[int, set[tuple[int, int]]], config):
+def coverage(calls: list[SVCall], lead_provider: 'LeadProvider') -> float:
     """
-    Add a request for one of the five coverage fields to the given SVCall
-    """
-    bin_index = int(pos / config.coverage_binsize) * config.coverage_binsize
-    if bin_index not in requests_for_coverage:
-        requests_for_coverage[bin_index] = set()
-    requests_for_coverage[bin_index].add( (svcall_i, field) )
+    Annotate the given SVCalls with coverage information based on the lead provider's coverage data.
+    Returns the average coverage across the contig.
 
-
-def coverage(calls, lead_provider, config):
-    requests_for_coverage_attrs, requests_for_coverage_sample_starts, requests_for_coverage_sample_ends = coverage_build_requests(calls, config)
-    return coverage_fulfill(calls, requests_for_coverage_attrs, requests_for_coverage_sample_starts, requests_for_coverage_sample_ends, lead_provider, config)
-
-
-def coverage_build_requests(calls, config: SnifflesConfig):
-    """
-    Updated: changed coverage calculation to be inside the SV for INV/DEL/DUP, outside (like it is now) for INS/BND?
-    BIN: ---
     INS/BND    |-------------V---------------|
               U---       S--- E---            D---
                             C---
     DUP/DEL    |------------===============------------|
     INV       U---          S---       E---            D---
-                                  C---
-    """
-    requests_for_coverage_attrs = {}
-    requests_for_coverage_sample_starts = {}
-    requests_for_coverage_sample_ends = {}
 
-    for sv_i, svcall in enumerate(calls):
+    """
+    cv = lead_provider.coverage
+    config = SnifflesConfig.GLOBAL
+
+    for svcall in calls:
         start = svcall.pos
         if svcall.svtype == "INS":
             end = start + 1
         else:
             end = svcall.pos + abs(svcall.svlen)
 
-        if svcall.svtype in ("DEL", 'INV', 'DUP') and abs(svcall.svlen) >= config.long_del_length:
-            # Sampling more intervals for large deletions
-            clean_start = start
-            if start < 0:
-                # Excusing a negative start, we'll find the first positive position we'd encounter striding our large coverage interval and start there instead
-                clean_start = start + ((-start // config.large_coverage_sample_interval) + 1) * config.large_coverage_sample_interval
-                log.warning(f"[sv] Encountered SV={svcall.id} with negative pos={start}. Setting to first viable positive pos={clean_start} for coverage postprocessing.")
-            first_bin = (clean_start // config.coverage_binsize) * config.coverage_binsize
-            last_bin_pos = clean_start + ((end - clean_start - 1) // config.large_coverage_sample_interval) * config.large_coverage_sample_interval
-            last_bin = (last_bin_pos // config.coverage_binsize) * config.coverage_binsize
-
-            if first_bin not in requests_for_coverage_sample_starts:
-                requests_for_coverage_sample_starts[first_bin] = set()
-            if last_bin not in requests_for_coverage_sample_ends:
-                requests_for_coverage_sample_ends[last_bin] = set()
-            requests_for_coverage_sample_starts[first_bin].add(sv_i)
-            requests_for_coverage_sample_ends[last_bin].add(sv_i)
-
-        if svcall.svtype in ["INS", "BND"]:
-            add_request(sv_i, CoverageMode.START, start - config.coverage_binsize, requests_for_coverage_attrs, config)
-            add_request(sv_i, CoverageMode.CENTER, int((start + end - config.coverage_binsize) / 2),
-                        requests_for_coverage_attrs, config)
-            add_request(sv_i, CoverageMode.END, end + config.coverage_binsize, requests_for_coverage_attrs, config)
-            add_request(sv_i, CoverageMode.UPSTREAM, start - config.coverage_binsize * config.coverage_updown_bins,
-                        requests_for_coverage_attrs, config)
-            add_request(sv_i, CoverageMode.DOWNSTREAM, end + config.coverage_binsize * config.coverage_updown_bins,
-                        requests_for_coverage_attrs, config)
+        if svcall.svtype in ("INS", "BND"):
+            try:
+                svcall.coverage_start = int(cv[start - config.coverage_binsize])
+            except IndexError:
+                logging.debug(f'Coverage index out of range: start {start - config.coverage_binsize} outside 0..{len(cv)} for {svcall}')
+            try:
+                svcall.coverage_center = int(cv[start])
+            except IndexError:
+                logging.debug(f'Coverage index out of range: center {start} outside 0..{len(cv)} for {svcall}')
+            try:
+                svcall.coverage_end = int(cv[end + config.coverage_binsize])
+            except IndexError:
+                logging.debug(f'Coverage index out of range: end {end + config.coverage_binsize} outside 0..{len(cv)} for {svcall}')
         else:
-            add_request(sv_i, CoverageMode.START, start, requests_for_coverage_attrs, config)
-            add_request(sv_i, CoverageMode.CENTER, int((start + end - config.coverage_binsize) / 2),
-                        requests_for_coverage_attrs, config)
-            add_request(sv_i, CoverageMode.END, end - config.coverage_binsize, requests_for_coverage_attrs, config)
-            add_request(sv_i, CoverageMode.UPSTREAM, start - config.coverage_binsize * config.coverage_updown_bins,
-                        requests_for_coverage_attrs, config)
-            add_request(sv_i, CoverageMode.DOWNSTREAM, end + config.coverage_binsize * config.coverage_updown_bins,
-                        requests_for_coverage_attrs, config)
+            try:
+                svcall.coverage_start = int(cv[start])
+            except IndexError:
+                logging.debug(f'Coverage index out of range: start {start} outside 0..{len(cv)} for {svcall}')
+            try:
+                svcall.coverage_center = int(cv[int((start + end) / 2)])
+            except IndexError:
+                logging.debug(f'Coverage index out of range: center {int((start + end) / 2)} outside 0..{len(cv)} for {svcall}')
+            try:
+                svcall.coverage_end = int(cv[end - config.coverage_binsize])
+            except IndexError:
+                logging.debug(f'Coverage index out of range: end {end - config.coverage_binsize} outside 0..{len(cv)} for {svcall}')
 
-    return requests_for_coverage_attrs, requests_for_coverage_sample_starts, requests_for_coverage_sample_ends
+        try:
+            svcall.coverage_upstream = int(cv[start - config.coverage_binsize * config.coverage_updown_bins])
+        except IndexError:
+            logging.debug(f'Coverage index out of range: upstream {start - config.coverage_binsize * config.coverage_updown_bins} outside 0..{len(cv)} for {svcall}')
+        try:
+            svcall.coverage_downstream = int(cv[end + config.coverage_binsize * config.coverage_updown_bins])
+        except IndexError:
+            logging.debug(f'Coverage index out of range: downstream {end + config.coverage_binsize * config.coverage_updown_bins} outside 0..{len(cv)} for {svcall}')
 
-
-def coverage_fulfill(calls, requests_for_coverage_attrs, requests_for_coverage_sample_starts, requests_for_coverage_sample_ends, lead_provider, config: SnifflesConfig):
-    if len(requests_for_coverage_attrs) == 0 and len(requests_for_coverage_sample_starts) == 0:
-        return -1, -1
-
-    start_bin = lead_provider.covrtab_min_bin
-    end_bin = int(lead_provider.end / config.coverage_binsize) * config.coverage_binsize
-    coverage_fwd = 0
-    coverage_rev = 0
-    coverage_fwd_total = 0
-    coverage_rev_total = 0
-    n = 0
-
-    # We can efficiently store and query for large coverage sampling intervals (LCSI) by
-    #  maintaining a set for each possible bin modulus which stores the indices of SVCalls
-    #  that are open to be sampled at all bins with the same modulus.
-    # The diagram below illustrates a series of bins and how this approach would work.
-    # Consider an LCSI every 4 bins (actual positions ignored for simplicity).
-    # Here SV_i starts at a position between bin 1 and 2 and ends at a position
-    #  between bin 8 and 9. As the coverage postprocessing forces sampling to start and
-    #  end on a coverage bin, sampling of SV_i will start at bin 1 and end at bin 8.
-    #  Bin 1 has a modulus of 1 with respect to the LCSI of 4, as does 5, 9 and so on.
-    # For all the possible moduli (in this case, [0, 4]) we can maintain a set of
-    # SVCall indices that are open to be sampled at the next bin with the same modulus.
-    #
-    #   id   0    1    2    3    4    5    6    7    8    9   10   11    12 ..
-    # id%4   0    1    2    3    0    1    2    3    4    1    2    3    0 ...
-    # Bins   o----o----o----o----o----o----o----o----o----o----o----o----o ...
-    # LCSI%0 X-------------------X-------------------X-------------------X ...
-    # SV_i        ===S-------------------------------X==E
-    #             ^ First Bin has modulus 1          ^ Last Bin
-    #               we'll sample all modulus 1 bins before last bin
-    # LCSI%1       X-------------------X-------------------X-------------->...
-    # SV_i LCSI    X                   X
-    bin_moduli = {}
-
-    for bin_pos in range(start_bin, end_bin + config.coverage_binsize, config.coverage_binsize):
-        bin_modulus = bin_pos % config.large_coverage_sample_interval
-        n += 1
-
-        coverage_fwd += lead_provider.covrtab_fwd.get(bin_pos, 0)  # TODO -- should this be reset
-        coverage_rev += lead_provider.covrtab_rev.get(bin_pos, 0)  # TODO -- should this be reset
-        coverage_total_curr = coverage_fwd + coverage_rev
-
-        # handle attr style coverage requests for this bin position
-        for sv_i, mode in requests_for_coverage_attrs.get(bin_pos, []):
-            setattr(calls[sv_i], mode.to_attr, coverage_total_curr)
-
-        # open
-        # if this bin position opens SVs, add each SVCall index to the set of SVs to be
-        # updated for any bin with the same modulo
-        if bin_pos in requests_for_coverage_sample_starts:
-            if bin_modulus not in bin_moduli:
-                bin_moduli[bin_modulus] = set()
-            bin_moduli[bin_modulus].update(requests_for_coverage_sample_starts[bin_pos])
-
-        # sample welfordly
-        for sv_i in bin_moduli.get(bin_modulus, []):
-            calls[sv_i].forward_difference_sampler.push(coverage_total_curr)
-
-        # close
-        # this is the last bin, do not process any more overlaps on the next iteration
-        if bin_pos in requests_for_coverage_sample_ends:
-            bin_moduli[bin_modulus].difference_update(requests_for_coverage_sample_ends[bin_pos])
-
-        coverage_fwd_total += coverage_fwd
-        coverage_rev_total += coverage_rev
-
-    average_coverage_fwd = coverage_fwd_total / float(n) if n > 0 else 0
-    average_coverage_rev = coverage_rev_total / float(n) if n > 0 else 0
-    return average_coverage_fwd, average_coverage_rev
+    return lead_provider.coverage.mean()
 
 
-def qc_sv_support(svcall, coverage_global, config):
-    if config.mosaic:
-        return True
+def qc_sv_support(svcall, coverage_global, config) -> bool:
     if config.minsupport == "auto":
         if not qc_support_auto(svcall, coverage_global, config):
             svcall.filter = "SUPPORT_MIN"
@@ -245,7 +137,10 @@ def qc_sv_support(svcall, coverage_global, config):
     return True
 
 
-def rescale_support(svcall, config: SnifflesConfig):
+def rescale_support(svcall, config: SnifflesConfig) -> int:
+    """
+    Rescale support for long insertions.
+    """
     if svcall.svtype != "INS" or svcall.svlen < config.long_ins_length:
         return svcall.support
     else:
@@ -256,9 +151,7 @@ def rescale_support(svcall, config: SnifflesConfig):
 
 def qc_support_auto(svcall, coverage_global, config):
     support = rescale_support(svcall, config)
-    # if svcall.svtype=="INS":
-    #    coverage_list=[svcall.coverage_center]
-    # else:
+
     coverage_list = [each_coverage for each_coverage in [svcall.coverage_upstream, svcall.coverage_downstream] if
                      each_coverage != 0]
     if len(coverage_list) == 0:
@@ -275,7 +168,6 @@ def qc_support_auto(svcall, coverage_global, config):
                 coverage_global * coverage_global_weight)
     min_support = round(config.minsupport_auto_base + config.minsupport_auto_mult * coverage)
     return support >= min_support
-    # return True
 
 
 def qc_support_const(svcall, config):
@@ -284,10 +176,6 @@ def qc_support_const(svcall, config):
 
 
 def qc_sv(svcall: SVCall, config: SnifflesConfig):
-    af = svcall.get_info("VAF")
-    af = af if af is not None else 0
-    sv_is_mosaic = af <= config.mosaic_af_max
-
     if config.qc_stdev:
         stdev_pos = svcall.get_info("STDEV_POS")
         if stdev_pos > config.qc_stdev_abs_max:
@@ -306,11 +194,6 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
                 svcall.filter = "STDEV_LEN"
                 return False
 
-    if config.mosaic and sv_is_mosaic:
-        if svcall.support < config.mosaic_min_reads:
-            svcall.filter = "SUPPORT_MIN"
-            return False
-
     if abs(svcall.svlen) < config.minsvlen:
         svcall.filter = "SVLEN_MIN"
         return False
@@ -318,29 +201,6 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
     if svcall.svtype == "BND":
         if config.qc_bnd_filter_strand and len(set(lead.strand for lead in svcall.postprocess.cluster.leads)) < 2:
             svcall.filter = "STRAND_BND"
-            return False
-    elif not (config.mosaic and sv_is_mosaic) and config.qc_strand:
-        is_long_ins = (svcall.svtype == "INS" and svcall.svlen >= config.long_ins_length)
-        if not is_long_ins and len(set(leads.strand for leads in svcall.postprocess.cluster.leads)) < 2:
-            svcall.filter = "STRAND"
-            return False
-    elif (config.mosaic and sv_is_mosaic) and config.mosaic_qc_strand:
-        is_long_ins = (svcall.svtype == "INS" and svcall.svlen >= config.long_ins_length)
-        if (not is_long_ins and len(set(leads.strand for leads in svcall.postprocess.cluster.leads)) < 2
-                and svcall.support >= config.mosaic_use_strand_thresholds):
-            svcall.filter = "STRAND_MOSAIC"
-            return False
-
-    if config.mosaic and sv_is_mosaic:
-        if (svcall.svtype == "INV" or svcall.svtype == "DUP") and svcall.svlen < config.mosaic_qc_invdup_min_length:
-            svcall.filter = "SVLEN_MIN_MOSAIC"
-            return False
-
-    if svcall.coverage_center < config.qc_coverage and svcall.svtype not in ["DEL", "INS"]:
-        if (svcall.svtype == "INV" and svcall.svlen) > config.long_inv_length and not (config.mosaic and sv_is_mosaic):
-            pass
-        else:
-            svcall.filter = "COV_MIN"
             return False
 
     upstream_downstream_max_coverage_diff = 0.7  # 70%
@@ -411,8 +271,8 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
         return False
 
     qc_coverage_max_change_frac = config.qc_coverage_max_change_frac
-    if config.mosaic and sv_is_mosaic:
-        qc_coverage_max_change_frac = config.mosaic_qc_coverage_max_change_frac
+    # if config.mosaic and sv_is_mosaic:
+    #     qc_coverage_max_change_frac = config.mosaic_qc_coverage_max_change_frac
     if qc_coverage_max_change_frac != -1.0:
         if svcall.coverage_upstream != 0:
             u = float(svcall.coverage_upstream)
@@ -458,7 +318,7 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
     return True
 
 
-def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig):
+def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average_total: float):
     af = svcall.get_info("VAF")
     af = af if af is not None else 0
     sv_is_mosaic = af <= config.mosaic_af_max
@@ -469,6 +329,10 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig):
         svcall.filter = "COV_MIN_GT"
         return False
 
+    if config.mosaic and not sv_is_mosaic:
+        if not qc_sv_support(svcall, coverage_average_total, config):
+            return False
+
     qc_nm = config.qc_nm
     qc_nm_threshold = config.qc_nm_threshold * config.qc_nm_mult
     if config.mosaic and sv_is_mosaic:
@@ -477,6 +341,40 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig):
     if qc_nm and svcall.nm > qc_nm_threshold and (len(svcall.genotypes) == 0 or svcall.genotypes[0][1] == 0):
         svcall.filter = "ALN_NM"
         return False
+
+    if not config.mosaic and sv_is_mosaic:
+        svcall.filter = "MOSAIC_VAF"
+        return False
+
+    if config.mosaic and sv_is_mosaic:
+        if svcall.support < config.mosaic_min_reads:
+            svcall.filter = "SUPPORT_MIN"
+            return False
+
+    if svcall.svtype != "BND":
+        if not (config.mosaic and sv_is_mosaic) and config.qc_strand:
+            is_long_ins = (svcall.svtype == "INS" and svcall.svlen >= config.long_ins_length)
+            if not is_long_ins and len(set(leads.strand for leads in svcall.postprocess.cluster.leads)) < 2:
+                svcall.filter = "STRAND"
+                return False
+        elif (config.mosaic and sv_is_mosaic) and config.mosaic_qc_strand:
+            is_long_ins = (svcall.svtype == "INS" and svcall.svlen >= config.long_ins_length)
+            if (not is_long_ins and len(set(leads.strand for leads in svcall.postprocess.cluster.leads)) < 2
+                    and svcall.support >= config.mosaic_use_strand_thresholds):
+                svcall.filter = "STRAND_MOSAIC"
+                return False
+
+    if config.mosaic and sv_is_mosaic:
+        if (svcall.svtype == "INV" or svcall.svtype == "DUP") and svcall.svlen < config.mosaic_qc_invdup_min_length:
+            svcall.filter = "SVLEN_MIN_MOSAIC"
+            return False
+
+    if svcall.coverage_center < config.qc_coverage and svcall.svtype not in ["DEL", "INS"]:
+        if (svcall.svtype == "INV" and svcall.svlen) > config.long_inv_length and not (config.mosaic and sv_is_mosaic):
+            pass
+        else:
+            svcall.filter = "COV_MIN"
+            return False
 
     if config.mosaic:
         if sv_is_mosaic and (af < config.mosaic_af_min or af > config.mosaic_af_max):

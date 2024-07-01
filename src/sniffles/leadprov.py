@@ -9,16 +9,15 @@
 # Contact:     sniffles@romanek.at
 #
 from dataclasses import dataclass
-import re
 import itertools
-from typing import Optional
+from typing import Optional, Iterator
 
+import numpy as np
 import pysam
 
 # for: --dev-cache
 import os
 import sys
-import pickle
 # end: for: --dev-cache
 
 from sniffles import util
@@ -65,199 +64,63 @@ def CIGAR_analyze(cigar):
                 h = True
             if not h:
                 if c in "SH":
-                    if clip_start == None and readspan + refspan > 0:
+                    if clip_start is None and readspan + refspan > 0:
                         clip_start = clip
                     clip += oplen
                 else:
                     raise f"Unknown CIGAR operation: '{c}'"
             buf = ""
-    if clip_start == None:
+    if clip_start is None:
         clip_start = clip
     return clip_start, clip - clip_start, refspan, readspan
 
 
-def CIGAR_analyze_regex(cigar):
-    # TODO: Obsolete
-    opsums = {"M": 0, "I": 0, "D": 0, "=": 0, "X": 0, "N": 0, "H": 0, "S": 0}
-    iter = re.split(r"(\d+)", cigar)
-    for i in range(1, len(iter) - 1, 2):
-        op = iter[i + 1]
-        if op != "H" and op != "S":
-            readstart_fwd = opsums["H"] + opsums["S"]
-        opsums[iter[i + 1]] += int(iter[i])
-    readstart_rev = opsums["H"] + opsums["S"] - readstart_fwd
-    refspan = opsums["M"] + opsums["D"] + opsums["="] + opsums["X"] + opsums["N"]
-    readspan = opsums["M"] + opsums["I"] + opsums["="] + opsums["X"]
-    return readstart_fwd, readstart_rev, refspan, readspan
+# Tuples are (add_read, add_ref, event, Δ coverage)
+OPTAB = {
+    pysam.CMATCH:     (1, 1, 0, 1),
+    pysam.CEQUAL:     (1, 1, 0, 1),
+    pysam.CDIFF:      (1, 1, 0, 1),
+    pysam.CINS:       (1, 0, 1, 0),
+    pysam.CDEL:       (0, 1, 1, 0),
+    pysam.CREF_SKIP:  (0, 1, 0, 0),
+    pysam.CSOFT_CLIP: (1, 0, 1, 0),
+    pysam.CHARD_CLIP: (0, 0, 0, 0),
+    pysam.CPAD:       (0, 0, 0, 0),
+}
 
 
-def CIGAR_tolist(cigar):
-    # TODO: Obsolete (see CIGAR_tolist_analyze)
-    """
-    CIGAR string : str -> List of CIGAR operation & length tuples : [(op1:char, op1_length:int),...]
-    """
-    buf = ""
-    ops = []
-    for c in cigar:
-        if c.isnumeric():
-            buf += c
-        else:
-            ops.append((c, int(buf)))
-            buf = ""
-    return ops
-
-
-def CIGAR_listrefspan(ops):
-    # TODO: Obsolete (see CIGAR_analyze)
-    # TODO(Potential): Detect&utilize minimap2 condensed supplementary alignment cigar for speed
-    return sum(oplen for op, oplen in ops if op == "M" or op == "D" or op == "=" or op == "X" or op == "N")
-
-
-def CIGAR_listreadspan(ops):
-    # TODO: Obsolete (see CIGAR_analyze)
-    return sum(oplen for op, oplen in ops if op == "M" or op == "I" or op == "=" or op == "X")
-
-
-def CIGAR_listreadstart_fwd(ops):
-    # TODO: Obsolete (see CIGAR_analyze)
-    """
-    Position in query read where CIGAR alignment starts (i.e. taking into account start clipping)
-    """
-    op, oplen = ops[0]
-    op2, op2len = ops[1]
-    if op == "H" or op == "S":
-        assert (op2 != "H" and op2 != "S")
-        return oplen
-    else:
-        return 0
-
-
-def CIGAR_listreadstart_rev(ops):
-    # TODO: Obsolete (see CIGAR_analyze)
-    """
-    Position in query read where CIGAR alignment starts (i.e. taking into account start clipping)
-    """
-    op, oplen = ops[-1]
-    op2, op2len = ops[-2]
-    if op == "H" or op == "S":
-        assert (op2 != "H" and op2 != "S")
-        return oplen
-    else:
-        return 0
-
-
-OPTAB = {pysam.CMATCH: (1, 1, 0),
-         pysam.CEQUAL: (1, 1, 0),
-         pysam.CDIFF: (1, 1, 0),
-         pysam.CINS: (1, 0, 1),
-         pysam.CDEL: (0, 1, 1),
-         pysam.CREF_SKIP: (0, 1, 0),
-         pysam.CSOFT_CLIP: (1, 0, 1),
-         pysam.CHARD_CLIP: (0, 0, 0),
-         pysam.CPAD: (0, 0, 0)}
-#      pysam.CBACK:      (0,0,0)}
-
-OPLIST = [(0, 0, 0) for i in range(max(int(k) for k in OPTAB.keys()) + 1)]
+OPLIST = [(0, 0, 0, 0) for i in range(max(int(k) for k in OPTAB.keys()) + 1)]
 for k, v in OPTAB.items():
     OPLIST[int(k)] = v
 
 
-def read_iterindels(read_id, read, contig, config, use_clips, read_nm):
-    minsvlen = config.minsvlen_screen
-    longinslen = config.long_ins_length / 2.0
-    seq_cache_maxlen = config.dev_seq_cache_maxlen
-    qname = read.query_name
-    mapq = read.mapping_quality
-    strand = "-" if read.is_reverse else "+"
-    CINS = pysam.CINS
-    CDEL = pysam.CDEL
-    CSOFT_CLIP = pysam.CSOFT_CLIP
+def get_cigar_indels(read) -> tuple[int, int]:
+    """
+    Counts the number of inserted and deleted bases in a read.
+    """
+    cins = pysam.CINS
+    cdel = pysam.CDEL
 
-    pos_read = 0
-    pos_ref = read.reference_start
-
-    for op, oplength in read.cigartuples:
-        add_read, add_ref, event = OPLIST[op]
-        if event and oplength >= minsvlen:
-            if op == CINS:
-                yield Lead(read_id,
-                           qname,
-                           contig,
-                           pos_ref,
-                           pos_ref,
-                           pos_read,
-                           pos_read + oplength,
-                           strand,
-                           mapq,
-                           read_nm,
-                           "INLINE",
-                           "INS",
-                           oplength,
-                           seq=read.query_sequence[pos_read:pos_read + oplength] if oplength <= seq_cache_maxlen else None)
-            elif op == CDEL:
-                yield Lead(read_id,
-                           qname,
-                           contig,
-                           pos_ref + oplength,
-                           pos_ref,
-                           pos_read,
-                           pos_read,
-                           strand,
-                           mapq,
-                           read_nm,
-                           "INLINE",
-                           "DEL",
-                           -oplength)
-            elif use_clips and op == CSOFT_CLIP and oplength >= longinslen:
-                yield Lead(read_id,
-                           qname,
-                           contig,
-                           pos_ref,
-                           pos_ref,
-                           pos_read,
-                           pos_read + oplength,
-                           strand,
-                           mapq,
-                           read_nm,
-                           "INLINE",
-                           "INS",
-                           None,
-                           seq=None)
-        pos_read += add_read * oplength
-        pos_ref += add_ref * oplength
-
-
-def get_cigar_indels(read_id, read, contig, config, use_clips, read_nm):
-    minsvlen = config.minsvlen_screen
-    longinslen = config.long_ins_length / 2.0
-    seq_cache_maxlen = config.dev_seq_cache_maxlen
-    qname = read.query_name
-    mapq = read.mapping_quality
-    strand = "-" if read.is_reverse else "+"
-    CINS = pysam.CINS
-    CDEL = pysam.CDEL
-    CSOFT_CLIP = pysam.CSOFT_CLIP
-
-    INS_SUM = 0
-    DEL_SUM = 0
+    ins_sum = 0
+    del_sum = 0
 
     pos_read = 0
     pos_ref = read.reference_start
     for op, oplength in read.cigartuples:
-        add_read, add_ref, event = OPLIST[op]
+        add_read, add_ref, event, _ = OPLIST[op]
         if event:
-            if op == CINS:
-                INS_SUM += oplength
-            elif op == CDEL:
-                DEL_SUM += oplength
+            if op == cins:
+                ins_sum += oplength
+            elif op == cdel:
+                del_sum += oplength
         pos_read += add_read * oplength
         pos_ref += add_ref * oplength
 
-    return INS_SUM, DEL_SUM
+    return ins_sum, del_sum
 
 
 def read_itersplits_bnd(read_id, read, contig, config, read_nm):
-    assert (read.is_supplementary)
+    assert read.is_supplementary
     # SA:refname,pos,strand,CIGAR,MAPQ,NM
     all_leads = []
     supps = [part.split(",") for part in read.get_tag("SA").split(";") if len(part) > 0]
@@ -429,14 +292,6 @@ def read_itersplits(read_id, read, contig, config, read_nm):
                               "SPLIT_SUP",
                               "?"))
 
-        # QC on: 08Sep21; O.K.
-        # cigarl=CIGAR_tolist(cigar)
-        # assert(CIGAR_listrefspan(cigarl)==refspan)
-        # assert(CIGAR_listreadspan(cigarl)==readspan)
-        # assert(CIGAR_listreadstart_fwd(cigarl)==readstart_fwd)
-        # assert(CIGAR_listreadstart_rev(cigarl)==readstart_rev)
-        # End QC
-
     if trace_read:
         print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] all_leads: {all_leads}")
 
@@ -489,7 +344,7 @@ def read_itersplits(read_id, read, contig, config, read_nm):
                            read_qname=lead.read_qname,
                            contig=lead.contig,
                            ref_start=svstart,
-                           ref_end=svstart + svlen if svlen != None and svtype != "INS" else svstart,
+                           ref_end=svstart + svlen if svlen is not None and svtype != "INS" else svstart,
                            qry_start=lead.qry_start,
                            qry_end=lead.qry_end,
                            strand=lead.strand,
@@ -502,6 +357,8 @@ def read_itersplits(read_id, read, contig, config, read_nm):
 
 
 class LeadProvider:
+    coverage: np.ndarray
+
     def __init__(self, config, read_id_offset):
         self.config = config
 
@@ -515,8 +372,6 @@ class LeadProvider:
         self.covrtab_fwd = {}
         self.covrtab_rev = {}
         self.covrtab_min_bin = None
-        # self.covrtab_read_start={}
-        # self.covrtab_read_end={}
 
         self.read_id = read_id_offset
         self.read_count = 0
@@ -538,7 +393,6 @@ class LeadProvider:
         self.leadcounts[ld.svtype] += 1
 
     def build_leadtab(self, regions: list[Region], bam):
-
         assert (self.contig is None)
         assert (self.start is None)
         assert (self.end is None)
@@ -564,20 +418,16 @@ class LeadProvider:
         return externals
 
     def iter_region(self, bam, region: Region):
-        leads_all = []
-        binsize = self.config.cluster_binsize
-        coverage_binsize = self.config.coverage_binsize
-        coverage_shift_bins = self.config.coverage_shift_bins
-        coverage_shift_min_aln_len = self.config.coverage_shift_bins_min_aln_length
-        long_ins_threshold = self.config.long_ins_length * 0.5
         qc_nm = self.config.qc_nm_measure
         phase = self.config.phase
         advanced_tags = qc_nm or phase
         mapq_min = self.config.mapq
         alen_min = self.config.min_alignment_length
+        exclude_flags = self.config.exclude_flags
         nm_sum = 0
         nm_count = 0
         trace_read = self.config.dev_trace_read
+        self.coverage = np.zeros(bam.get_reference_length(region.contig), dtype=np.uint16)
 
         read_mq20 = 0
         for read in bam.fetch(region.contig, region.start, region.end, until_eof=False):
@@ -585,17 +435,19 @@ class LeadProvider:
                 if trace_read == read.query_name:
                     print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{region}] [{read.query_name}] has been fetched and is entering pre-filtering")
 
-            # if self.read_count % 1000000 == 0:
-            #    gc.collect()
+            alen = read.query_alignment_length
+            if read.mapping_quality < mapq_min or read.is_secondary or alen < alen_min:
+                continue
+
+            if exclude_flags is not None:
+                if read.flag & exclude_flags:
+                    continue
+
             if read.reference_start < region.start or read.reference_start >= region.end:
                 continue
 
             self.read_id += 1
             self.read_count += 1
-
-            alen = read.query_alignment_length
-            if read.mapping_quality < mapq_min or read.is_secondary or alen < alen_min:
-                continue
 
             has_sa = read.has_tag("SA")
             use_clips = self.config.detect_large_ins and not read.is_supplementary and not has_sa
@@ -606,8 +458,7 @@ class LeadProvider:
                 if qc_nm:
                     if read.has_tag("NM"):
                         nm_raw = read.get_tag("NM")
-                        nm_ratio = read.get_tag("NM") / float(read.query_alignment_length + 1)
-                        ins_sum, del_sum = get_cigar_indels(curr_read_id, read, region.contig, self.config, use_clips, read_nm=nm)
+                        ins_sum, del_sum = get_cigar_indels(read)
                         nm_adj = (nm_raw - (ins_sum + del_sum))
                         nm_adj_ratio = nm_adj / float(read.query_alignment_length + 1)
                         nm = nm_adj_ratio
@@ -621,8 +472,8 @@ class LeadProvider:
                 if trace_read == read.query_name:
                     print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{region}] [{read.query_name}] passed pre-filtering (whole-read), begin to extract leads")
 
-            # Extract small indels
-            for lead in read_iterindels(curr_read_id, read, region.contig, self.config, use_clips, read_nm=nm):
+            # Extract small indels and record coverage for this read
+            for lead in self.read_iterindels(curr_read_id, read, region.contig, use_clips, read_nm=nm):
                 if trace_read is not False:
                     if trace_read == read.query_name:
                         print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_iterindels] [{region}] [{read.query_name}] new lead: {lead}")
@@ -650,27 +501,80 @@ class LeadProvider:
                         yield lead
                 read_mq20 += 1 if read.mapping_quality >= 20 else 0
 
-            # Record in coverage table
-            read_end = read.reference_start + read.reference_length
-            assert (read_end == read.reference_end)
-            # assert(read_end>=read.reference_start)
-            if read.is_reverse:
-                target_tab = self.covrtab_rev
-            else:
-                target_tab = self.covrtab_fwd
-            covr_start_bin = (int(read.reference_start / coverage_binsize) + coverage_shift_bins * (alen >= coverage_shift_min_aln_len)) * coverage_binsize
-            covr_end_bin = (int(read_end / coverage_binsize) - coverage_shift_bins * (alen >= coverage_shift_min_aln_len)) * coverage_binsize
-
-            if covr_end_bin > covr_start_bin:
-                self.covrtab_min_bin = min(self.covrtab_min_bin, covr_start_bin)
-                target_tab[covr_start_bin] = target_tab[covr_start_bin] + 1 if covr_start_bin in target_tab else 1
-
-                if read_end <= self.end:
-                    target_tab[covr_end_bin] = target_tab[covr_end_bin] - 1 if covr_end_bin in target_tab else -1
-
         self.config.average_regional_nm = nm_sum / float(max(1, nm_count))
         self.config.qc_nm_threshold = self.config.average_regional_nm
         # print(f"Contig {contig} avg. regional NM={self.config.average_regional_nm}, threshold={self.config.qc_nm_threshold}")
+
+    def read_iterindels(self, read_id: int, read, contig, use_clips, read_nm) -> Iterator[Lead]:
+        """
+        Extracts Leads from insertions/deletions.
+        """
+        config = self.config
+        coverage = self.coverage
+        minsvlen = config.minsvlen_screen
+        longinslen = config.long_ins_length / 2.0
+        seq_cache_maxlen = config.dev_seq_cache_maxlen
+        qname = read.query_name
+        mapq = read.mapping_quality
+        strand = "-" if read.is_reverse else "+"
+        CINS = pysam.CINS  # noqa lowercase
+        CDEL = pysam.CDEL  # noqa lowercase
+        CSOFT_CLIP = pysam.CSOFT_CLIP  # noqa lowercase
+
+        pos_read = 0
+        pos_ref = read.reference_start
+
+        for op, oplength in read.cigartuples:
+            add_read, add_ref, event, dcov = OPLIST[op]
+            if event and oplength >= minsvlen:
+                if op == CINS:
+                    yield Lead(read_id,
+                               qname,
+                               contig,
+                               pos_ref,
+                               pos_ref,
+                               pos_read,
+                               pos_read + oplength,
+                               strand,
+                               mapq,
+                               read_nm,
+                               "INLINE",
+                               "INS",
+                               oplength,
+                               seq=read.query_sequence[pos_read:pos_read + oplength] if oplength <= seq_cache_maxlen else None)
+                elif op == CDEL:
+                    yield Lead(read_id,
+                               qname,
+                               contig,
+                               pos_ref + oplength,
+                               pos_ref,
+                               pos_read,
+                               pos_read,
+                               strand,
+                               mapq,
+                               read_nm,
+                               "INLINE",
+                               "DEL",
+                               -oplength)
+                elif use_clips and op == CSOFT_CLIP and oplength >= longinslen:
+                    yield Lead(read_id,
+                               qname,
+                               contig,
+                               pos_ref,
+                               pos_ref,
+                               pos_read,
+                               pos_read + oplength,
+                               strand,
+                               mapq,
+                               read_nm,
+                               "INLINE",
+                               "INS",
+                               None,
+                               seq=None)
+            pos_read += add_read * oplength
+            pos_ref_start = pos_ref
+            pos_ref += add_ref * oplength
+            coverage[pos_ref_start:pos_ref] += dcov
 
     def dev_leadtab_filename(self, contig, start, end):
         scriptloc = os.path.dirname(os.path.realpath(sys.argv[0]))

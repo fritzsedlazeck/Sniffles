@@ -28,6 +28,7 @@ If you previously installed Sniffles1 using conda and want to upgrade to Sniffle
 * pysam >=0.21.0
 * edlib >=1.3.9
 * psutil>=5.9.4
+* numpy>=2.2.0
 
 #### Tested on:
 * python==3.10.12

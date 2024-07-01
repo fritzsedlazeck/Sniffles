@@ -194,12 +194,8 @@ class VCF:
         self.write_raw(f"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{samples_header}")
 
     def write_raw(self, text, endl="\n"):
-        if self.config.vcf_output_bgz:
-            self.handle.write(text.encode())
-            self.handle.write(endl.encode())
-        else:
-            self.handle.write(text)
-            self.handle.write(endl)
+        self.handle.write(text)
+        self.handle.write(endl)
 
     def write_header_line(self, text):
         self.write_raw("##" + text)
