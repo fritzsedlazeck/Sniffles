@@ -63,11 +63,11 @@ class SVCall:
     fwd: int = None
     rev: int = None
 
-    coverage_upstream: int = None
-    coverage_downstream: int = None
-    coverage_start: int = None
-    coverage_center: int = None
-    coverage_end: int = None
+    coverage_upstream: int = 0
+    coverage_downstream: int = 0
+    coverage_start: int = 0
+    coverage_center: int = 0
+    coverage_end: int = 0
 
     sample_internal_id: int = None
     bnd_info: SVCallBNDInfo = None
@@ -367,7 +367,7 @@ def call_from(cluster, config, keep_qc_fails, task):
     support_fwd = sum(lead.strand == "+" for lead in leads)
     support_rev = len(leads) - support_fwd
 
-    filter = "PASS"
+    filter_sv = "PASS"
 
     if config.qc_nm_measure:
         nm_mean = util.mean(v.nm for v in leads)
@@ -390,7 +390,7 @@ def call_from(cluster, config, keep_qc_fails, task):
                     ref="N",
                     alt=f"<{svtype}>",
                     qual=qual,
-                    filter=filter,
+                    filter=filter_sv,
                     info=dict(),
                     svtype=svtype,
                     svlen=svlen,
@@ -418,7 +418,6 @@ def call_from(cluster, config, keep_qc_fails, task):
     # svcall.set_info("CLUSTER_ID",cluster.id)
 
     task.sv_id += 1
-
     yield svcall
 
 

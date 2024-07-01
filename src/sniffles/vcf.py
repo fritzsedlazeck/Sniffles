@@ -30,24 +30,32 @@ def format_info(k, v):
 
 
 def format_genotype(gt):
+    """
+    hp_i is the index of the haplotype in config.phase_identifiers:
+    HP:1 => index 0 => phased genotype in the form of 1|0
+    HP:2 => index 1 => phased genotype in the form of 0|1
+    """
     if len(gt) == 6:
-        a, b, qual, dr, dv, ps = gt
-        if ps is not None and (a, b) == (0, 1):
+        a, b, qual, dr, dv, phase = gt
+        hp_i, ps = phase
+        if hp_i is not None and (a, b) == (0, 1):
             gt_sep = "|"
-            if ps == 1:
+            if hp_i == 0:
                 a, b = b, a
         else:
             gt_sep = "/"
-        return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}"
+        return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}" if ps is None else f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{ps}"
     else:
-        a, b, qual, dr, dv, ps, id = gt
-        if ps is not None and (a, b) == (0, 1):
+        a, b, qual, dr, dv, phase, svid = gt
+        hp_i, ps = phase
+        if hp_i is not None and (a, b) == (0, 1):
             gt_sep = "|"
-            if ps == 1:
+            if hp_i == 0:
                 a, b = b, a
         else:
             gt_sep = "/"
-        return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{id}"
+        return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{svid}" if ps is None \
+            else f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{ps}:{svid}"
 
 
 class VCF:
@@ -61,20 +69,25 @@ class VCF:
 
         self.default_genotype = config.genotype_none
 
+        # Add phasing if needed
+        self.genotype_format = config.genotype_format
+        if config.phase:
+            self.genotype_format += ":PS"
+            # it has it added already as None
         if config.mode == "combine":
-            self.genotype_format = config.genotype_format + ":ID"
+            self.genotype_format += ":ID"
             self.default_genotype += tuple(["NULL"])
-        else:
-            self.genotype_format = config.genotype_format
 
         self.reference_handle = None
+        self.header_str = ""
 
     def open_reference(self):
         if self.config.reference is None:
             return
 
         if not os.path.exists(self.config.reference + ".fai") and not os.path.exists(self.config.reference + ".gzi"):
-            print(f"Info: Fasta index for {self.config.reference} not found. Generating with pysam.faidx (this may take a while)")
+            print(f"Info: Fasta index for {self.config.reference} not found. Generating with pysam.faidx "
+                  f"(this may take a while)")
             pysam.faidx(self.config.reference)
         self.reference_handle = pysam.FastaFile(self.config.reference)
 
@@ -96,6 +109,7 @@ class VCF:
         self.write_header_line('FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">')
         self.write_header_line('FORMAT=<ID=DR,Number=1,Type=Integer,Description="Number of reference reads">')
         self.write_header_line('FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of variant reads">')
+        self.write_header_line('FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase-block, zero if none or not phased">')
         self.write_header_line('FORMAT=<ID=ID,Number=1,Type=String,Description="Individual sample SV ID for multi-sample output">')
 
         self.write_header_line('FILTER=<ID=PASS,Description="All filters passed">')
@@ -115,6 +129,7 @@ class VCF:
         self.write_header_line('FILTER=<ID=NOT_MOSAIC_AF,Description="Variant allele frequency filter for non-mosaic">')
         self.write_header_line('FILTER=<ID=ALN_NM,Description="Length adjusted mismatch filter">')
         self.write_header_line('FILTER=<ID=STRAND_BND,Description="Strand support filter for BNDs">')
+        self.write_header_line('FILTER=<ID=STRAND,Description="Strand support filter for germline SVs">')
         self.write_header_line('FILTER=<ID=STRAND_MOSAIC,Description="Strand support filter for mosaic SVs">')
         self.write_header_line('FILTER=<ID=SVLEN_MIN,Description="SV length filter">')
         self.write_header_line('FILTER=<ID=SVLEN_MIN_MOSAIC,Description="SV length filter for mosaic SVs">')
@@ -192,7 +207,8 @@ class VCF:
             "END": end,
             "SUPPORT": call.support,
             "RNAMES": call.rnames if self.config.output_rnames else None,
-            "COVERAGE": f"{call.coverage_upstream},{call.coverage_start},{call.coverage_center},{call.coverage_end},{call.coverage_downstream}",
+            "COVERAGE": f"{call.coverage_upstream},{call.coverage_start},{call.coverage_center},{call.coverage_end},"
+                        f"{call.coverage_downstream}",
             "STRAND": ("+" if call.fwd > 0 else "") + ("-" if call.rev > 0 else ""),
             "NM": call.nm
         }
@@ -207,7 +223,7 @@ class VCF:
         sv_is_mosaic = af <= self.config.mosaic_af_max
         if sv_is_mosaic and self.config.mosaic:
             infos_ordered.append("MOSAIC")
-        infos_ordered.extend(format_info(k, infos[k]) for k in self.info_order if infos[k] != None)
+        infos_ordered.extend(format_info(k, infos[k]) for k in self.info_order if infos[k] is not None)
         info_str = ";".join(infos_ordered)
 
         # Output call specific additional information
@@ -220,9 +236,11 @@ class VCF:
         #    call.id=f"Sniffles2.{call.svtype}.{self.call_count+1:06}"
 
         # Resolve DEL sequence
-        if not self.config.symbolic and call.svtype == "DEL" and self.reference_handle is not None and abs(call.svlen) <= self.config.max_del_seq_len:
+        if (not self.config.symbolic and call.svtype == "DEL" and self.reference_handle is not None
+                and abs(call.svlen) <= self.config.max_del_seq_len):
             try:
-                call.ref = self.reference_handle.fetch(call.contig, call.pos - 1, call.pos - call.svlen)  # VCF requires inclusion of the last reference base before the SV
+                # VCF requires inclusion of the last reference base before the SV
+                call.ref = self.reference_handle.fetch(call.contig, call.pos - 1, call.pos - call.svlen)
                 call.alt = call.ref[0]
             except KeyError:
                 call.ref = "N"
@@ -249,7 +267,9 @@ class VCF:
 
         call.qual = max(0, min(60, call.qual))
 
-        self.write_raw("\t".join(str(v) for v in [call.contig, pos, self.config.id_prefix + call.id, call.ref, call.alt, call.qual, call.filter, info_str, self.genotype_format] + sample_genotypes))
+        self.write_raw("\t".join(str(v) for v in [call.contig, pos, self.config.id_prefix + call.id, call.ref,
+                                                  call.alt, call.qual, call.filter, info_str, self.genotype_format] +
+                                 sample_genotypes))
         self.call_count += 1
 
     def read_svs_iter(self):
@@ -316,7 +336,8 @@ class VCF:
                     bnd_parts = call.alt.replace("]", "[").split("[")
                     if len(bnd_parts) > 2:
                         mate_contig, mate_ref_start = bnd_parts[1].split(":")
-                        call.bnd_info = sv.SVCallBNDInfo(mate_contig=mate_contig, mate_ref_start=int(mate_ref_start), is_first=(call.alt[0] == "N"), is_reverse=("]" in call.alt))
+                        call.bnd_info = sv.SVCallBNDInfo(mate_contig=mate_contig, mate_ref_start=int(mate_ref_start),
+                                                         is_first=(call.alt[0] == "N"), is_reverse=("]" in call.alt))
                     else:
                         raise ValueError("BND ALT not formatted according to VCF 4.2 specifications")
 
