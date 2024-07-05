@@ -488,5 +488,5 @@ def phase_sv(svcall, config):
         ps_filter = "PASS"
 
     svcall.set_info("PHASE", f"{hp},{ps},{hp_support},{ps_support},{hp_filter},{ps_filter}")
-    return (config.phase_identifiers.index(hp) if hp in config.phase_identifiers else None if hp_filter == "PASS" else \
-        None, ps if "PASS" == ps_filter else None)
+    return (config.phase_identifiers.index(hp) if hp in config.phase_identifiers else None if hp_filter == "PASS" else
+            None, ps if "PASS" == ps_filter else None)

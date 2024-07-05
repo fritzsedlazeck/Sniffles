@@ -353,8 +353,8 @@ class SnifflesConfig(argparse.Namespace):
 
         # Genotyping
         self.genotype_format = "GT:GQ:DR:DV"
-        self.genotype_none = (".", ".", 0, 0, 0, None)
-        self.genotype_null = (0, 0, 0, 0, 0, None)
+        self.genotype_none = (".", ".", 0, 0, 0, (None, None))
+        self.genotype_null = (0, 0, 0, 0, 0, (None, None))
         self.genotype_min_z_score = 5
         if self.genotype_ploidy != 2:
             util.fatal_error("Currently only --genotype-ploidy 2 is supported")

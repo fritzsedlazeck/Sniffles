@@ -249,7 +249,7 @@ class GenotypeTask(Task):
             coverage = round(sum(coverage_list) / len(coverage_list))
             svcall.genotypes = {}
             if coverage > 0:
-                svcall.genotypes[0] = (0, 0, 0, coverage, 0, None)
+                svcall.genotypes[0] = (0, 0, 0, coverage, 0, (None, None))
             else:
                 svcall.genotypes[0] = config.genotype_none
 

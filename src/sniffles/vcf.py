@@ -15,6 +15,7 @@ import os
 
 from sniffles import sv
 from sniffles import util
+from sniffles.config import SnifflesConfig
 
 
 log = logging.getLogger(__name__)
@@ -29,6 +30,19 @@ def format_info(k, v):
         return f"{k}={v}"
 
 
+def unpack_phase(phase) -> tuple:
+    try:
+        hp_i, ps = phase
+    except TypeError:
+        if phase is None:
+            log.warning(f"Single 'None'-valued phase: {phase}")
+            hp_i, ps = None, None
+        else:
+            log.warning(f"Single not 'None'-valued phase: {phase}")
+            hp_i, ps = phase, phase
+    return hp_i, ps
+
+
 def format_genotype(gt):
     """
     hp_i is the index of the haplotype in config.phase_identifiers:
@@ -37,7 +51,7 @@ def format_genotype(gt):
     """
     if len(gt) == 6:
         a, b, qual, dr, dv, phase = gt
-        hp_i, ps = phase
+        hp_i, ps = unpack_phase(phase)
         if hp_i is not None and (a, b) == (0, 1):
             gt_sep = "|"
             if hp_i == 0:
@@ -47,7 +61,7 @@ def format_genotype(gt):
         return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}" if ps is None else f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{ps}"
     else:
         a, b, qual, dr, dv, phase, svid = gt
-        hp_i, ps = phase
+        hp_i, ps = unpack_phase(phase)
         if hp_i is not None and (a, b) == (0, 1):
             gt_sep = "|"
             if hp_i == 0:
@@ -59,7 +73,7 @@ def format_genotype(gt):
 
 
 class VCF:
-    def __init__(self, config, handle):
+    def __init__(self, config: SnifflesConfig, handle):
         self.config = config
         self.handle = handle
         self.call_count = 0

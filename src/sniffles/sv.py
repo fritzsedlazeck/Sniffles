@@ -212,7 +212,7 @@ class SVGroup:
                 rnames.extend(cand.rnames)
 
             if 0 not in cand.genotypes:
-                cand.genotypes[0] = (".", ".", 0, 0, cand.support, None)
+                cand.genotypes[0] = (".", ".", 0, 0, cand.support, (None, None))
             if cand.sample_internal_id in genotypes:
                 # Intra-sample merging
                 a, b, gt_qual, dr, dv, ps = cand.genotypes[0]
@@ -231,9 +231,9 @@ class SVGroup:
                 continue
             coverage = self.coverages_nonincluded[sample_internal_id]
             if coverage >= config.combine_null_min_coverage:
-                genotypes[sample_internal_id] = (0, 0, 0, coverage, 0, None, "NULL")
+                genotypes[sample_internal_id] = (0, 0, 0, coverage, 0, (None, None), "NULL")
             else:
-                genotypes[sample_internal_id] = (".", ".", 0, coverage, 0, None, "NULL")
+                genotypes[sample_internal_id] = (".", ".", 0, coverage, 0, (None, None), "NULL")
 
         if config.combine_consensus:
             genotypes_consensus = {}
