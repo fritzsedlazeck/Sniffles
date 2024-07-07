@@ -34,6 +34,7 @@ class TestVCFFormat(TestCase):
         config.id_prefix = 'Sniffles.'
         config.symbolic = False
         config.max_del_seq_len = 50000
+        config.genotype_format = "GT:GQ:DR:DV"
         return config
 
     def verify_common_fields(self, *args, **kwargs) -> Tuple[int, str, str]:
