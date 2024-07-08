@@ -489,6 +489,8 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
 
 
 if __name__ == "__main__":
+    import multiprocessing as mp
+    mp.set_start_method('fork')
     processes = []
 
     try:
