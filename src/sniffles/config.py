@@ -3,7 +3,7 @@
 # Sniffles2
 # A fast structural variant caller for long-read sequencing data
 #
-# Created:     18.10.2021
+# Created: 18.10.2021
 # Author:      Moritz Smolka
 # Maintainer:  Hermann Romanek
 # Contact:     sniffles@romanek.at
@@ -13,7 +13,6 @@ import os
 import sys
 import datetime
 import argparse
-from collections import defaultdict
 
 from typing import Union, Optional
 
@@ -21,7 +20,7 @@ from sniffles import util
 from sniffles.region import Region
 
 VERSION = "Sniffles2"
-BUILD = "2.4"
+BUILD = "2.4.1"
 SNF_VERSION = "S2_rc4"
 
 
