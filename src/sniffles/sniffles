@@ -10,6 +10,7 @@
 #
 import logging
 import logging.config
+import multiprocessing
 from typing import Optional
 
 from sniffles.utils.resmon import ResourceMonitor
@@ -70,6 +71,8 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
 
     input_ext = [f.split(".")[-1].lower() for f in config.input]
 
+    # needed for running on osx
+    multiprocessing.set_start_method("fork")
     if len(set(input_ext)) > 1:
         util.fatal_error_main(f"Please specify either: A single .bam/.cram file - OR - one or more .snf files - OR - a single .tsv file containing a list of .snf files and optional sample ids as input. (supplied were: {list(set(input_ext))})")
 
