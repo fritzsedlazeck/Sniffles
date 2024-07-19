@@ -81,6 +81,9 @@ class VCF:
         if config.qc_nm_measure:
             self.info_order.append("NM")
 
+        if config.dev_emit_sv_lengths:
+            self.info_order.append("SVLENGTHS")
+
         self.default_genotype = config.genotype_none
 
         # Add phasing if needed
@@ -151,6 +154,7 @@ class VCF:
         self.write_header_line('INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description="Structural variation with imprecise breakpoints">')
         self.write_header_line('INFO=<ID=MOSAIC,Number=0,Type=Flag,Description="Structural variation classified as putative mosaic">')
         self.write_header_line('INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of structural variation">')
+        self.write_header_line('INFO=<ID=SVLENGTHS,Number=.,Type=Integer,Description="Lengths of structural variation (all)">')
         self.write_header_line('INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variation">')
         self.write_header_line('INFO=<ID=CHR2,Number=1,Type=String,Description="Mate chromsome for BND SVs">')
         self.write_header_line('INFO=<ID=SUPPORT,Number=1,Type=Integer,Description="Number of reads supporting the structural variation">')
@@ -218,6 +222,7 @@ class VCF:
         infos = {
             "SVTYPE": call.svtype,
             "SVLEN": call.svlen,
+            "SVLENGTHS": ",".join(map(str, call.svlens)),
             "END": end,
             "SUPPORT": call.support,
             "RNAMES": call.rnames if self.config.output_rnames else None,
@@ -229,6 +234,7 @@ class VCF:
 
         if call.svtype == "BND":
             infos["SVLEN"] = None
+            infos["SVLENGTHS"] = None
             infos["END"] = None
 
         infos_ordered = ["PRECISE" if call.precise else "IMPRECISE"]

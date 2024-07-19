@@ -224,6 +224,8 @@ class SnifflesConfig(argparse.Namespace):
 
     def add_developer_args(self, parser):
         developer_args = parser.add_argument_group("Developer parameters")
+
+        developer_args.add_argument("--dev-emit-sv-lengths", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-cache", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-cache-dir", metavar="PATH", type=str, default=None, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-debug-svtyping", default=False, action="store_true", help=argparse.SUPPRESS)
