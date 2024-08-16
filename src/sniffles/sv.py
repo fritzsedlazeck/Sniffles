@@ -309,7 +309,7 @@ class SVGroup:
                         id=f"{first_cand.svtype}.{task.sv_id:X}M{task.id:X}",
                         ref="N",
                         alt=svcall_alt,
-                        qual=round(util.mean(int(cand.qual) for cand in self.candidates)),
+                        qual=util.mean_or_none_round(int(cand.qual) for cand in self.candidates if cand.qual is not None),
                         filter="PASS" if n_samples != 1 else first_cand.filter,
                         info=dict() if n_samples != 1 else first_cand.info,
                         svtype=first_cand.svtype,

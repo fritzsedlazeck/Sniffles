@@ -292,10 +292,10 @@ class VCF:
                     elif call.svtype == 'BND' and call.alt != '<BND>':
                         call.alt = (call.ref + call.alt[1:]) if call.alt.startswith('N') else call.alt[:-1] + call.ref
 
-        call.qual = max(0, min(60, call.qual))
+        call.qual = max(0, min(60, call.qual)) if call.qual is not None else None
 
         self.write_raw("\t".join(str(v) for v in [call.contig, pos, self.config.id_prefix + call.id, call.ref,
-                                                  call.alt, call.qual, call.filter, info_str, self.genotype_format] +
+                                                  call.alt, call.qual if call.qual is not None else '.', call.filter, info_str, self.genotype_format] +
                                  sample_genotypes))
         self.call_count += 1
 
@@ -325,7 +325,7 @@ class VCF:
                                  id=line_index,
                                  ref=REF,
                                  alt=ALT,
-                                 qual=int(QUAL),
+                                 qual=int(QUAL) if QUAL != '.' else None,
                                  filter=FILTER,
                                  info=info_dict,
                                  svtype=None,
