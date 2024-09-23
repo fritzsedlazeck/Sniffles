@@ -211,7 +211,12 @@ class VCF:
 
         if len(self.config.sample_ids_vcf) > 1:
             call.set_info("AC", ac)
-            call.set_info("SUPP_VEC", "".join(supvec))
+            call.set_info("SUPP_VEC", svec := "".join(supvec))
+
+            if int(svec) == 0:
+                log.debug(f'Dropped {call} due to all zero support vector.')
+                return
+
             if ac == 0:
                 call.filter = "GT"
 
