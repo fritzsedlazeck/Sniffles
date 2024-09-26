@@ -16,7 +16,7 @@ from sniffles.sv import SVCall
 import math
 
 
-def annotate_sv(svcall, config):
+def annotate_sv(svcall: SVCall, config):
     if config.phase:
         phase = phase_sv(svcall, config)
     else:
@@ -258,22 +258,66 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
             svcall.filter = "COV_MIN"
             return False
 
+    upstream_downstream_max_coverage_diff = 0.7  # 70%
+    upstream_downstream_diff = 0.5  # add to config
     if (svcall.svtype == "DEL" and config.long_del_length != -1 and abs(svcall.svlen) >= config.long_del_length and
             not config.mosaic):
-        scaled_long_del_coverage = config.long_del_coverage/2.0
+        scaled_long_del_coverage = config.long_del_coverage/2.0   # 0.66/2 = 0.33
         if svcall.coverage_center > (svcall.coverage_upstream + svcall.coverage_downstream) * scaled_long_del_coverage:
-            svcall.filter = "COV_CHANGE_DEL"
-            return False
-    elif svcall.svtype == "INS" and (svcall.coverage_upstream < config.qc_coverage or
-                                     svcall.coverage_downstream < config.qc_coverage):
-        svcall.filter = "COV_CHANGE_INS"
-        return False
+            # check if slopped coverage, that often happens over large spans
+            if svcall.coverage_upstream > svcall.coverage_center > svcall.coverage_downstream:
+                if svcall.coverage_downstream/svcall.coverage_upstream < upstream_downstream_max_coverage_diff:
+                    svcall.filter = "COV_CHANGE_DEL"
+                    return False
+            elif svcall.coverage_upstream < svcall.coverage_center < svcall.coverage_downstream:
+                if svcall.coverage_upstream/svcall.coverage_downstream < upstream_downstream_max_coverage_diff:
+                    svcall.filter = "COV_CHANGE_DEL"
+                    return False
+            else:
+                pass
+        if svcall.coverage_upstream > svcall.coverage_downstream:
+            if (upstream_downstream_diff > svcall.coverage_downstream/svcall.coverage_upstream or
+                    svcall.coverage_center > svcall.coverage_downstream):
+                svcall.filter = "COV_CHANGE_DEL"
+                return False
+        elif svcall.coverage_upstream < svcall.coverage_downstream:
+            if (upstream_downstream_diff > svcall.coverage_upstream/svcall.coverage_downstream or
+                    svcall.coverage_upstream < svcall.coverage_center):
+                svcall.filter = "COV_CHANGE_DEL"
+                return False
+        else:
+            pass
     elif (svcall.svtype == "DUP" and config.long_dup_length != -1 and abs(svcall.svlen) >= config.long_dup_length and
           not config.mosaic):
         scaled_long_dup_coverage = config.long_dup_coverage / 2.0
         if svcall.coverage_center < (svcall.coverage_upstream + svcall.coverage_downstream) * scaled_long_dup_coverage:
-            svcall.filter = "COV_CHANGE_DUP"
-            return False
+            # check if slopped coverage, that often happens over large spans
+            if svcall.coverage_upstream > svcall.coverage_center > svcall.coverage_downstream:
+                if svcall.coverage_downstream/svcall.coverage_upstream < upstream_downstream_max_coverage_diff:
+                    svcall.filter = "COV_CHANGE_DUP"
+                    return False
+            elif svcall.coverage_upstream < svcall.coverage_center < svcall.coverage_downstream:
+                if svcall.coverage_upstream/svcall.coverage_downstream < upstream_downstream_max_coverage_diff:
+                    svcall.filter = "COV_CHANGE_DUP"
+                    return False
+            else:
+                pass
+            if svcall.coverage_upstream > svcall.coverage_downstream:
+                if (upstream_downstream_diff > svcall.coverage_downstream / svcall.coverage_upstream or
+                        svcall.coverage_center < svcall.coverage_downstream):
+                    svcall.filter = "COV_CHANGE_DUP"
+                    return False
+            elif svcall.coverage_upstream < svcall.coverage_downstream:
+                if (upstream_downstream_diff > svcall.coverage_upstream / svcall.coverage_downstream or
+                        svcall.coverage_upstream > svcall.coverage_center):
+                    svcall.filter = "COV_CHANGE_DEL"
+                    return False
+            else:
+                pass
+    elif svcall.svtype == "INS" and (svcall.coverage_upstream < config.qc_coverage or
+                                     svcall.coverage_downstream < config.qc_coverage):
+        svcall.filter = "COV_CHANGE_INS"
+        return False
 
     qc_coverage_max_change_frac = config.qc_coverage_max_change_frac
     if config.mosaic and sv_is_mosaic:
@@ -377,7 +421,7 @@ def likelihood_ratio(q1, q2):
         return 0
 
 
-def genotype_sv(svcall, config, phase):
+def genotype_sv(svcall: SVCall, config, phase):
     normalization_target = 250
     hom_ref_p = config.genotype_error
     het_p = (1.0 / config.genotype_ploidy)  # - config.genotype_error

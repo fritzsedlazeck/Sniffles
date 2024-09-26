@@ -30,15 +30,15 @@ def format_info(k, v):
         return f"{k}={v}"
 
 
-def unpack_phase(phase) -> tuple:
+def unpack_phase(phase, svid="") -> tuple:
     try:
         hp_i, ps = phase
     except TypeError:
         if phase is None:
-            log.warning(f"Single 'None'-valued phase: {phase}")
+            log.debug(f"Single 'None'-valued phase: {phase}|{svid}")
             hp_i, ps = None, None
         else:
-            log.warning(f"Single not 'None'-valued phase: {phase}")
+            log.debug(f"Single not 'None'-valued phase: {phase}|{svid}")
             hp_i, ps = phase, phase
     return hp_i, ps
 
@@ -61,7 +61,7 @@ def format_genotype(gt):
         return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}" if ps is None else f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{ps}"
     else:
         a, b, qual, dr, dv, phase, svid = gt
-        hp_i, ps = unpack_phase(phase)
+        hp_i, ps = unpack_phase(phase, svid)
         if hp_i is not None and (a, b) == (0, 1):
             gt_sep = "|"
             if hp_i == 0:
@@ -133,7 +133,8 @@ class VCF:
         self.write_header_line('FILTER=<ID=STDEV_LEN,Description="SV length standard deviation filter">')
         self.write_header_line('FILTER=<ID=COV_MIN,Description="Minimum coverage filter">')
         self.write_header_line('FILTER=<ID=COV_MIN_GT,Description="Minimum coverage filter (missing genotype)">')
-        self.write_header_line('FILTER=<ID=COV_CHANGE,Description="Coverage change filter">')
+        self.write_header_line('FILTER=<ID=COV_CHANGE_DEL,Description="Coverage change filter for DEL">')
+        self.write_header_line('FILTER=<ID=COV_CHANGE_DUP,Description="Coverage change filter for DUP">')
         self.write_header_line('FILTER=<ID=COV_CHANGE_INS,Description="Coverage change filter for INS">')
         self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_US,Description="Coverage fractional change filter: upstream-start">')
         self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_SC,Description="Coverage fractional change filter: start-center">')

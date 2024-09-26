@@ -579,6 +579,7 @@ class LeadProvider:
         nm_count = 0
         trace_read = self.config.dev_trace_read
 
+        read_mq20 = 0
         for read in bam.fetch(region.contig, region.start, region.end, until_eof=False):
             if trace_read is not False:
                 if trace_read == read.query_name:
@@ -647,6 +648,7 @@ class LeadProvider:
                             if trace_read == read.query_name:
                                 print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{region}] [{read.query_name}] new lead: {lead}")
                         yield lead
+                read_mq20 += 1 if read.mapping_quality >= 20 else 0
 
             # Record in coverage table
             read_end = read.reference_start + read.reference_length
