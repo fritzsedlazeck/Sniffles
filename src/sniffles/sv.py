@@ -200,12 +200,17 @@ class SVGroup:
               (total_count / samples_count >= config.combine_low_confidence and
                total_count >= config.combine_low_confidence_abs))
 
-        if not qc and (not config.no_qc and n_samples == 1):
-            return None
+        if not qc:
+            if not config.no_qc and n_samples == 1:
+                pass
+            else:
+                return None
 
-        if not config.combine_output_filtered and not any(cand.qc and cand.filter == "PASS" for cand in self.candidates) \
-                and (not config.no_qc and n_samples == 1):
-            return None
+        if not config.combine_output_filtered and not any(cand.qc and cand.filter == "PASS" for cand in self.candidates):
+            if not config.no_qc and n_samples == 1:
+                pass
+            else:
+                return None
 
         rnames = [] if config.output_rnames else None
         genotypes = {}
@@ -247,13 +252,19 @@ class SVGroup:
                 genotypes_consensus[(a, b)]["qual"].append(gt_qual)
                 genotypes_consensus[(a, b)]["dr"].append(dr)
                 genotypes_consensus[(a, b)]["dv"].append(dv)
-            most_common_count = genotypes_consensus[sorted(genotypes_consensus, key=lambda k: genotypes_consensus[k]["count"], reverse=True)[0]]["count"]
+            most_common_count = genotypes_consensus[sorted(genotypes_consensus,
+                                                           key=lambda k: genotypes_consensus[k]["count"],
+                                                           reverse=True)[0]]["count"]
             most_common_gt = [gt for gt in genotypes_consensus if genotypes_consensus[gt]["count"] == most_common_count]
             cons_a, cons_b = max(most_common_gt)
             consensus_info = genotypes_consensus[(cons_a, cons_b)]
-            genotypes = {0: (cons_a, cons_b, int(sum(consensus_info["qual"]) / consensus_info["count"]), sum(consensus_info["dr"]), sum(consensus_info["dv"]))}
-            if cons_a != 1 and cons_b != 1 and (not config.no_qc and n_samples == 1):
-                return None
+            genotypes = {0: (cons_a, cons_b, int(sum(consensus_info["qual"]) / consensus_info["count"]),
+                             sum(consensus_info["dr"]), sum(consensus_info["dv"]))}
+            if cons_a != 1 and cons_b != 1:
+                if not config.no_qc and n_samples == 1:
+                    pass
+                else:
+                    return None
 
         if config.combine_pair_relabel:
             max_gt = (0, 0)
