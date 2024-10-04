@@ -263,7 +263,9 @@ class CombineTask(Task):
     """
     Task to merge/combine multiple SNF files into one.
     """
-    BLOCKS_PER_TASK = 10000  # target number of blocks to process in one task
+    # target number of blocks to process in one task. this is the total number of blocks over all input files,
+    # i.e. merging 100 files means 100 blocks wrt this value
+    TARGET_WORK_PER_TASK = 10000
 
     result_class = CombineResult
 
@@ -314,10 +316,10 @@ class CombineTask(Task):
           should not emit calls for this block (as these will be emitted by the previous task)
         """
         total_blocks = len(self.block_indices) * len(self.config.sample_ids_vcf)
-        if total_blocks <= self.BLOCKS_PER_TASK:
+        if total_blocks <= self.TARGET_WORK_PER_TASK or self.config.threads <= 1:
             return [self]
 
-        blocks_per_task = len(self.config.sample_ids_vcf) // (total_blocks // self.BLOCKS_PER_TASK)
+        blocks_per_task = (total_blocks // self.TARGET_WORK_PER_TASK)
 
         return [
             self.clone(
