@@ -26,8 +26,10 @@ def format_info(k, v):
         return f"{k}={v:.3f}"
     elif isinstance(v, list):
         return f"{k}={','.join(v)}"
-    else:
-        return f"{k}={v}"
+    elif v is None:
+        v = '.'
+
+    return f"{k}={v}"
 
 
 def unpack_phase(phase, svid="") -> tuple:
@@ -174,6 +176,10 @@ class VCF:
         self.write_header_line('INFO=<ID=VAF,Number=1,Type=Float,Description="Variant Allele Fraction">')
         self.write_header_line('INFO=<ID=NM,Number=.,Type=Float,Description="Mean number of query alignment length adjusted mismatches of supporting reads">')
         self.write_header_line('INFO=<ID=PHASE,Number=.,Type=String,Description="Phasing information derived from supporting reads, represented as list of: HAPLOTYPE,PHASESET,HAPLOTYPE_SUPPORT,PHASESET_SUPPORT,HAPLOTYPE_FILTER,PHASESET_FILTER">')
+
+        if self.config.combine_population:
+            self.write_header_line('INFO=<ID=POPULATION_VAF,Number=1,Type=Float,Description="Variant Allele Fraction in population">')
+            self.write_header_line('INFO=<ID=POPULATION_SIZE,Number=1,Type=Integer,Description="Size of genotyped population for this variant">')
 
         samples_header = "\t".join(sample_id for _, sample_id in self.config.sample_ids_vcf)
         self.write_raw(f"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{samples_header}")

@@ -12,12 +12,14 @@
 Genotyping
 """
 import math
+from dataclasses import dataclass
+from typing import Any
 
 from sniffles.postprocessing import rescale_support
 from sniffles.sv import SVCall
 
 
-class UnknownGenotype(Exception):
+class UnknownGenotypeError(Exception):
     """
     Unable to determine genotype
     """
@@ -39,6 +41,23 @@ def likelihood_ratio(q1, q2):
             return 0
     else:
         return 0
+
+
+class UnknownGenotype:
+    ...
+
+
+@dataclass
+class Genotype:
+    a: int
+    b: int
+    qual: int  # GQ, 0-60
+    dr: int
+    dv: int
+    phase: Any
+
+    UNKNOWN = UnknownGenotype()
+
 
 
 class Genotyper:
@@ -87,7 +106,7 @@ class Genotyper:
         if len(coverage_list) > 0:
             return round(sum(coverage_list) / len(coverage_list))
         else:
-            raise UnknownGenotype()
+            raise UnknownGenotypeError()
 
     def _filter_by_z_score(self, z_score: float) -> bool:
         """
@@ -106,7 +125,7 @@ class Genotyper:
         support = self._calculate_support()
         try:
             coverage = self._calculate_coverage(support)
-        except UnknownGenotype:
+        except UnknownGenotypeError:
             return
 
         if support > coverage:

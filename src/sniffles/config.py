@@ -182,6 +182,7 @@ class SnifflesConfig(argparse.Namespace):
     combine_pctseq: float
     combine_max_inmemory_results: int
     combine_support_threshold: int
+    combine_population: str
 
     @classmethod
     def add_multi_args(cls, parser):
@@ -203,6 +204,7 @@ class SnifflesConfig(argparse.Namespace):
         multi_args.add_argument("--combine-pctseq", default=0.7, type=float, help="Minimum alignment distance as percent of SV length to be merged. Set to 0 to disable alignments for merging.")
         multi_args.add_argument("--combine-max-inmemory-results", default=20, type=int, help=argparse.SUPPRESS)
         multi_args.add_argument("--combine-support-threshold", default=3, metavar="N", type=int, help="Minimum support for SVs to be considered for multi-sample calling.")
+        multi_args.add_argument("--combine-population", metavar="population.snf", type=str, help="Name of a population SNF to enable population annotation.")
         multi_args.add_argument("--re-qc", metavar="auto", default="auto", type=str, help="Re-QC SVs from SNF files. Set to 0 to disable re-qc of SNF files. Set to 1 to force re-qc. Default of 'auto' will try to fix known errors in SNF files.")
 
         # multi_args.add_argument("--combine-exhaustive", help="(DEV) Disable performance optimization in multi-calling", default=False, action="store_true")
@@ -212,6 +214,9 @@ class SnifflesConfig(argparse.Namespace):
     allow_overwrite: bool
 
     def add_postprocess_args(self, parser):
+        """
+        Postprocessing arguments
+        """
         postprocess_args = parser.add_argument_group("SV Postprocessing, QC and output parameters")
         postprocess_args.add_argument("--output-rnames", help="Output names of all supporting reads for each SV in the RNAMEs info field", default=False, action="store_true")
         postprocess_args.add_argument("--no-consensus", help="Disable consensus sequence generation for insertion SV calls (may improve performance)", default=False, action="store_true")
@@ -243,8 +248,13 @@ class SnifflesConfig(argparse.Namespace):
     qc_nm: bool
     combine_consensus: bool
     low_memory: bool
+    dev_population_snf: str
+    dev_population_min_gt: float
 
     def add_developer_args(self, parser):
+        """
+        Developer arguments
+        """
         developer_args = parser.add_argument_group("Developer parameters")
 
         developer_args.add_argument("--dev-emit-sv-lengths", default=False, action="store_true", help=argparse.SUPPRESS)
@@ -282,6 +292,8 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-monitor-filename", metavar="memory.csv", type=str, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-debug-log", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-progress-log", default=False, action="store_true", help=argparse.SUPPRESS)
+        developer_args.add_argument("--dev-population-snf", metavar="population.snf", type=str, help=argparse.SUPPRESS)
+        developer_args.add_argument("--dev-population-min-gt", default=0.75, type=float, help=argparse.SUPPRESS)  # min
 
         # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 

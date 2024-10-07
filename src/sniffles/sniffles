@@ -141,7 +141,6 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     if monitor and monitor.filename is not None:
         logging.getLogger('sniffles.resources').info(f'Logging memory usage to {monitor.filename}')
 
-
     #
     # call_sample/genotype_vcf: Open .bam file for single calling / .snf creation
     #
@@ -240,7 +239,16 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             util.fatal_error_main(f"Output file '{config.snf}' already exists! Use --allow-overwrite to ignore this check and overwrite.")
         else:
             snf_out = snf.SNFile(config, open(config.snf, "wb"))
-            snf_parts = []
+
+    psnf_out = None
+    if psnf_name := config.dev_population_snf:
+        log.info(f'Creating population SNF: {psnf_name}')
+
+        if os.path.exists(psnf_name) and not config.allow_overwrite:
+            util.fatal_error_main(f'Population SNF {psnf_name} already exists!')
+        from sniffles.snfp import PopulationSNF
+        psnf_out = PopulationSNF(config, open(psnf_name, 'wb'))
+        rkwargs['psnf_out'] = psnf_out
 
     #
     # Plan multiprocessing tasks
@@ -387,6 +395,10 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             for info in config.snf_input_info:
                 config.sample_ids_vcf.append((info["internal_id"], info["sample_id"]))
 
+        if snfp_filename := config.combine_population:
+            from sniffles.snfp import PopulationSNF
+            snfp = PopulationSNF.open(snfp_filename)
+
         # TODO: Assure header consistency across multiple .snfs
         if to_process := (config.contig or config.regions_by_contig):
             contig_lengths = [(name, length) for name, length in contig_lengths if name in to_process]
@@ -405,6 +417,10 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
                 )
                 if config.vcf_output_bgz:
                     util.fatal_error_main('BGZ files require sorting, and thus are currently not supported for the given number of input files.')
+
+        if config.dev_population_snf:
+            from sniffles.result import CombineResultTmpFilePopulationSNF
+            result_class = CombineResultTmpFilePopulationSNF
 
         for contig_str, contig_length in contig_lengths:
             task = parallel.CombineTask(
@@ -484,9 +500,13 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
         snf_out.close()
         log.info(f"Wrote {snf_candidate_count} SV candidates to {config.snf} (for multi-sample calling).")
 
+    if psnf_out:
+        c = psnf_out.write_results(config, contigs)
+        psnf_out.close()
+        log.info(f'Wrote {c} SVs to population SNF.')
+
     if DEV_MONITOR_MEM:
         logging.debug(f"[DEV: Total memory usage={dbg_get_total_memory_usage_MB():.2f}MB]")
-
 
     if config.vcf is not None:
         vcf_out.close()

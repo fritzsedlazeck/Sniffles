@@ -340,6 +340,12 @@ class SVGroup:
 
         task.sv_id += 1
 
+        if psnf := config.combine_population:
+            pop_af = psnf.get_population_AF(svcall)
+            af, sz = pop_af if pop_af is not None else (None, None)
+            svcall.set_info("POPULATION_VAF", af)
+            svcall.set_info("POPULATION_SIZE", sz)
+
         return svcall
 
 

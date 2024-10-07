@@ -24,11 +24,14 @@ from sniffles.config import SnifflesConfig
 log = logging.getLogger(__name__)
 
 
-class SNFile:
+class SNFileBase:
+    """
+    Base class for SNF-Files
+    """
     header_length: int
     _header: Optional[dict]
 
-    def __init__(self, config, handle, filename=None):
+    def __init__(self, config: SnifflesConfig, handle, filename=None):
         self.config = config
         self.handle = handle
         self.filename = filename
@@ -38,6 +41,12 @@ class SNFile:
         self.total_length = 0
         self._results = []
 
+    @classmethod
+    def open(cls, filename: str) -> 'SNFileBase':
+        obj = cls(SnifflesConfig.GLOBAL, open(filename, 'rb'), filename)
+        obj.read_header()
+        return obj
+
     @property
     def index(self) -> dict:
         return self._index
@@ -45,6 +54,13 @@ class SNFile:
     @property
     def header(self) -> dict:
         return self._header
+
+    @cached_property
+    def population(self) -> object | None:
+        """
+        Is this a population SNF?
+        """
+        return self.header.get('population', None)
 
     @cached_property
     def reqc(self) -> bool:
@@ -65,7 +81,7 @@ class SNFile:
     def is_open(self) -> bool:
         return self.handle is not False
 
-    def open(self):
+    def _open(self):
         if self.handle is not False:
             self.close()
         self.handle = open(self.filename, "rb")
@@ -79,52 +95,15 @@ class SNFile:
             svcand.rnames = None
         self.blocks[block_index][svcand.svtype].append(svcand)
 
-    def annotate_block_coverages(self, lead_provider, resolution=500):
-        config = self.config
-        start_bin = lead_provider.covrtab_min_bin
-        end_bin = int(lead_provider.end / config.coverage_binsize) * config.coverage_binsize
-        coverage_fwd = 0
-        coverage_rev = 0
-
-        coverage_sum = 0
-        bin_count = 0
-
-        coverage_binsize_combine = self.config.coverage_binsize_combine
-        snf_block_size = config.snf_block_size
-
-        for bin in range(start_bin, end_bin + config.coverage_binsize, config.coverage_binsize):
-            if bin in lead_provider.covrtab_fwd:
-                coverage_fwd += lead_provider.covrtab_fwd[bin]
-
-            if bin in lead_provider.covrtab_rev:
-                coverage_rev += lead_provider.covrtab_rev[bin]
-
-            coverage_sum += coverage_fwd + coverage_rev
-            bin_count += 1
-
-            if bin % coverage_binsize_combine == 0:
-                block_index = int(bin / snf_block_size) * snf_block_size
-
-                coverage_total_curr = math.ceil(coverage_sum / float(bin_count))
-                if coverage_total_curr > 0:
-                    if block_index not in self.blocks:
-                        self.blocks[block_index] = {svtype: [] for svtype in sv.TYPES}
-                        self.blocks[block_index]["_COVERAGE"] = {}
-
-                    self.blocks[block_index]["_COVERAGE"][bin] = coverage_total_curr
-
-                coverage_sum = 0
-                bin_count = 0
-
     def serialize_block(self, block_id):
         return pickle.dumps(self.blocks[block_id])
 
-    def unserialize_block(self, data):
+    def unserialize_block(self, data: bytes):
         return pickle.loads(data)
 
     def write_and_index(self):
         if not self.is_open():
-            self.open()
+            self._open()
         offset = 0
         for block_id in sorted(self.blocks):
             data = gzip.compress(self.serialize_block(block_id))
@@ -138,7 +117,7 @@ class SNFile:
 
     def read_header(self):
         if not self.is_open():
-            self.open()
+            self._open()
         try:
             header_text = self.handle.readline()
             self.header_length = len(header_text)
@@ -152,7 +131,7 @@ class SNFile:
 
     def read_blocks(self, contig, block_index):
         if not self.is_open():
-            self.open()
+            self._open()
         block_index = str(block_index)
         if contig not in self.index:
             if self.config.combine_close_handles:
@@ -203,6 +182,12 @@ class SNFile:
 
         return res
 
+    def _create_header(self, config: SnifflesConfig, main_index: dict, snf_candidate_count: int) -> dict:
+        """
+        Generate the header for this SNF file.
+        """
+        return {"config": config.__dict__, "index": main_index, "snf_candidate_count": snf_candidate_count}
+
     def write_results(self, config: SnifflesConfig, contigs: list[str]) -> int:
         """
         Writes all added results (regional temporary .snf files) to this file. Returns SNF candidate count
@@ -222,7 +207,7 @@ class SNFile:
             offset += part.snf_total_length
 
         config.contig_coverages = self._calculate_contig_coverages(contigs)
-        header = {"config": config.__dict__, "index": main_index, "snf_candidate_count": snf_candidate_count}
+        header = self._create_header(config, main_index, snf_candidate_count)
         header_json = json.dumps(header, default=lambda obj: "<Unstored_Object>") + "\n"
         self.handle.write(header_json.encode())
 
@@ -235,8 +220,7 @@ class SNFile:
 
         return snf_candidate_count
 
-
-    def close(self):
+    def close(self) -> None:
         if self.handle is not False:
             self.handle.close()
             self.handle = False
@@ -252,6 +236,45 @@ class SNFile:
         for b in self.get_all_blocks(contig).values():
             coverage.update(b['_COVERAGE'])
         return coverage
+
+
+class SNFile(SNFileBase):
+    def annotate_block_coverages(self, lead_provider, resolution=500):
+        config = self.config
+        start_bin = lead_provider.covrtab_min_bin
+        end_bin = int(lead_provider.end / config.coverage_binsize) * config.coverage_binsize
+        coverage_fwd = 0
+        coverage_rev = 0
+
+        coverage_sum = 0
+        bin_count = 0
+
+        coverage_binsize_combine = self.config.coverage_binsize_combine
+        snf_block_size = config.snf_block_size
+
+        for bin in range(start_bin, end_bin + config.coverage_binsize, config.coverage_binsize):
+            if bin in lead_provider.covrtab_fwd:
+                coverage_fwd += lead_provider.covrtab_fwd[bin]
+
+            if bin in lead_provider.covrtab_rev:
+                coverage_rev += lead_provider.covrtab_rev[bin]
+
+            coverage_sum += coverage_fwd + coverage_rev
+            bin_count += 1
+
+            if bin % coverage_binsize_combine == 0:
+                block_index = int(bin / snf_block_size) * snf_block_size
+
+                coverage_total_curr = math.ceil(coverage_sum / float(bin_count))
+                if coverage_total_curr > 0:
+                    if block_index not in self.blocks:
+                        self.blocks[block_index] = {svtype: [] for svtype in sv.TYPES}
+                        self.blocks[block_index]["_COVERAGE"] = {}
+
+                    self.blocks[block_index]["_COVERAGE"][bin] = coverage_total_curr
+
+                coverage_sum = 0
+                bin_count = 0
 
 
 class RemoteIndexSNFile(SNFile):
@@ -272,32 +295,3 @@ class RemoteIndexSNFile(SNFile):
             self.read_header()
 
         return super().header
-
-    def read_header(self):
-        """
-        Loads header data for this object, potentially displacing another files' data from memory
-        """
-        if self in self._ACTIVE:
-            self._ACTIVE.move_to_end(self)
-        else:
-            self._ACTIVE[self] = True
-
-        if len(self._ACTIVE) > self._MAX_ACTIVE:
-            oldest_snf, _ = self._ACTIVE.popitem(last=False)
-            oldest_snf.unload()
-
-        # SBFile.read_header assumes start of file, so if we have an active handle, reset it there
-        if self.handle:
-            self.handle.seek(0)
-
-        return super().read_header()
-
-    def unload(self):
-        """
-        Unloads data for this object (=remove reference to header and index and allow them to be collected by GC).
-        """
-        if self in self._ACTIVE:
-            self._ACTIVE.pop(self)
-
-        self._header = None
-        self._index = None
