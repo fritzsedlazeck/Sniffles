@@ -61,7 +61,7 @@ class Genotyper:
 
     def _calculate_af(self, support: int, coverage: int) -> float:
         """
-        Calculate allele frequency
+        Calculate allele fraction
         """
         return support / float(coverage)
 
