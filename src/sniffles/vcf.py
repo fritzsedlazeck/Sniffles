@@ -279,11 +279,11 @@ class VCF:
                     call.ref = self.reference_handle.fetch(call.contig, start := max(0, call.pos - 1), start + 1)
                 except (KeyError, ValueError):
                     ...
-
-                if call.svtype == "INS":
-                    call.alt = call.ref + call.alt
-                elif call.svtype == 'BND':
-                    call.alt = (call.ref + call.alt[1:]) if call.alt.startswith('N') else call.alt[:-1] + call.ref
+                else:
+                    if call.svtype == "INS" and call.alt != '<INS>':
+                        call.alt = call.ref + call.alt
+                    elif call.svtype == 'BND' and call.alt != '<BND>':
+                        call.alt = (call.ref + call.alt[1:]) if call.alt.startswith('N') else call.alt[:-1] + call.ref
 
         call.qual = max(0, min(60, call.qual))
 
