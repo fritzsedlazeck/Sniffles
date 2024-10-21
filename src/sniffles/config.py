@@ -251,6 +251,7 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--cluster-resplit-binsize", metavar="N", type=int, default=20, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-trace-read", default=False, metavar="read_id", type=str, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-split-max-query-distance-mult", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
+        developer_args.add_argument("--dev-no-qc", default=False, action="store_true", help=argparse.SUPPRESS) # noqc + mapq0 + minAlnLen0
         developer_args.add_argument("--dev-disable-interblock-threads", default=False, help=argparse.SUPPRESS, action="store_true")
         developer_args.add_argument("--dev-combine-medians", default=False, help=argparse.SUPPRESS, action="store_true")
         developer_args.add_argument("--dev-monitor-memory", metavar="N", type=int, default=0, help=argparse.SUPPRESS)
@@ -320,10 +321,13 @@ class SnifflesConfig(argparse.Namespace):
         if self.minsupport != "auto":
             self.minsupport = int(self.minsupport)
 
+        if self.dev_no_qc:
+            self.no_qc = True
+
         if not hasattr(self, 'mapq'):
-            self.mapq = 0 if self.no_qc else 20
+            self.mapq = 0 if self.dev_no_qc else 20
         if not hasattr(self, 'min_alignment_length'):
-            self.min_alignment_length = 0 if self.no_qc else 1000
+            self.min_alignment_length = 0 if self.dev_no_qc else 1000
 
         # --minsupport auto defaults
         self.minsupport_auto_base = 1.5
