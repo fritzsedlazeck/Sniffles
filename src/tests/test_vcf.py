@@ -176,3 +176,28 @@ class TestVCFFormat(TestCase):
         ))
 
         vcf.write_raw.assert_called()
+
+    def test_unresolved_ins(self):
+        """
+        Tests output of an SV where we were unable to resolve the sequence.
+          See https://github.com/fritzsedlazeck/Sniffles/issues/501
+        """
+        def verify(*args, **kwargs):
+            pos, ref, alt = self.verify_common_fields(*args, **kwargs)
+            self.assertEqual(2, pos)
+            self.assertEqual('T', ref)
+            self.assertEqual('<INS>', alt)
+
+        vcf = self.get_vcf('T'*50)
+        vcf.write_raw = Mock(side_effect=verify)
+
+        vcf.write_call(self.get_svcall(
+            svtype='INS',
+            ref='N',
+            alt='<INS>',
+            pos=2,
+            svlen=20,
+            end=22,
+        ))
+
+        vcf.write_raw.assert_called()
