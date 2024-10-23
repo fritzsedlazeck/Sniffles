@@ -15,6 +15,7 @@ import math
 import multiprocessing
 import os
 import threading
+import time
 from argparse import Namespace
 from collections import deque
 from dataclasses import dataclass
@@ -50,6 +51,9 @@ class Task:
     regions: list[Region] = None
     _logger = None
     result: Result = None
+
+    def __str__(self):
+        return f'Task #{self.id}'
 
     @property
     def logger(self) -> logging.Logger:
@@ -413,6 +417,7 @@ class CombineTask(Task):
                         for group in svgroups:
                             coverage_bin = int(
                                 group.pos_mean / self.config.coverage_binsize_combine) * self.config.coverage_binsize_combine
+                            # High Intensity loop
                             for non_included_sample in sample_internal_ids - group.included_samples:
                                 if samples_blocks[non_included_sample] is not None and coverage_bin in samples_blocks[non_included_sample][0]["_COVERAGE"]:
                                     coverage = samples_blocks[non_included_sample][0]["_COVERAGE"][coverage_bin]
@@ -467,6 +472,11 @@ class SnifflesWorker:
     recycle: bool = False
     running = True
     pid: int = None
+    # Event to shut down heartbeat threads
+    _shutdown: threading.Event
+    _heartbeat: float = 0  # last heartbeat received
+    HEARTBEAT_INTERVAL = 3  # in seconds
+    HEARTBEAT_TIMEOUT = 10  # in seconds
 
     class Shutdown(Exception):
         """
@@ -482,6 +492,7 @@ class SnifflesWorker:
         self.recycle = recycle_hint
 
         self.pipe_main, self.pipe_worker = multiprocessing.Pipe()
+        self.heartbeat_main, self.heartbeat_worker = multiprocessing.Pipe()
 
         self.process = multiprocessing.Process(
             target=self.run_worker,
@@ -497,6 +508,7 @@ class SnifflesWorker:
         self._logger.info(f'Starting worker {self.id}')
         self.running = True
         self.process.start()
+        self._heartbeat = time.monotonic()
 
     def maybe_recycle(self):
         """
@@ -515,6 +527,7 @@ class SnifflesWorker:
                 daemon=True
             )
             self.process.start()
+            self._heartbeat = time.monotonic()
 
     def run_parent(self) -> bool:
         """
@@ -553,6 +566,21 @@ class SnifflesWorker:
                     self.task.add_result(result)
                     self.finished_tasks.append(self.task)
                     self.task = None
+
+                if self.heartbeat_main.poll():
+                    hb = self.heartbeat_main.recv()
+                    self._heartbeat = time.monotonic()
+                    # self._logger.debug(f'Worker {self.id} got heartbeat #{hb}')
+
+                if self._heartbeat < time.monotonic() - self.HEARTBEAT_TIMEOUT:
+                    self._logger.warning(f'Worker {self.id} found dead!')
+                    if self.task:  # if we were working on a task, requeue it to have it picked up by another worker...
+                        self.tasks.appendleft(self.task)
+                    try:
+                        self.process.join(0.2)  # ...collect any process remains...
+                    except:  # noqa
+                        ...
+                    self.running = False  # ...and shut down
         except:
             self._logger.exception(f'Unhandled error in worker {self.id}. This may result in an orphened worker process.')
             try:
@@ -576,6 +604,10 @@ class SnifflesWorker:
         Entry point/main loop for the worker process
         """
         self.pid = os.getpid()
+        self._shutdown = threading.Event()
+
+        t = threading.Thread(target=self.run_worker_heartbeats, daemon=True)
+        t.start()
 
         while self.running:
             try:
@@ -583,11 +615,11 @@ class SnifflesWorker:
 
                 task = self.pipe_worker.recv()
 
-                self._logger.debug(f'Worker {self.id} got task {task.id}')
+                self._logger.debug(f'Worker {self.id} got task {task}')
 
                 result = task.execute(self)
 
-                self._logger.debug(f'Worker {self.id} finished executing {task.id}, sending back result...')
+                self._logger.debug(f'Worker {self.id} finished executing {task}, sending back result...')
 
                 if result is not None:
                     self.pipe_worker.send(result)
@@ -596,9 +628,19 @@ class SnifflesWorker:
                 gc.collect()
             except self.Shutdown:
                 self.running = False
+                self._shutdown.set()
             except Exception as e:
                 self._logger.exception(f'Error in worker process')
                 self.pipe_worker.send(ErrorResult(e))
+
+        t.join(1.0)
+
+    def run_worker_heartbeats(self):
+        hb = 0
+        while self.running:
+            hb += 1
+            self.heartbeat_worker.send(hb)
+            self._shutdown.wait(self.HEARTBEAT_INTERVAL)
 
 
 def execute_task(task: Task):

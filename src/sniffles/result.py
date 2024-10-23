@@ -129,6 +129,7 @@ class CombineResultTmpFile(CombineResult):
     """
     _highest_position_call: int = -1  # maximum position of last emitted call, for sorting
     unsorted: bool = False
+    _initialized: bool = False
 
     @property
     def tmpfile_name(self) -> str:
@@ -144,6 +145,11 @@ class CombineResultTmpFile(CombineResult):
     def store_calls(self, svcalls):
         from sniffles.config import SnifflesConfig
         offset = 0
+
+        if not self._initialized:
+            if os.path.exists(self.tmpfile_name):
+                self.cleanup()
+            self._initialized = True
 
         if SnifflesConfig.GLOBAL.sort and svcalls:
             svcalls = list(sorted(svcalls, key=lambda call: call.pos))
@@ -191,7 +197,10 @@ class CombineResultTmpFile(CombineResult):
         return n
 
     def cleanup(self):
-        os.unlink(self.tmpfile_name)
+        try:
+            os.unlink(self.tmpfile_name)
+        except FileNotFoundError:
+            ...
 
 
 class ErrorResult:
