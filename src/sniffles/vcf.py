@@ -30,15 +30,15 @@ def format_info(k, v):
         return f"{k}={v}"
 
 
-def unpack_phase(phase) -> tuple:
+def unpack_phase(phase, svid="") -> tuple:
     try:
         hp_i, ps = phase
     except TypeError:
         if phase is None:
-            log.warning(f"Single 'None'-valued phase: {phase}")
+            # log.debug(f"Single 'None'-valued phase: {phase}|{svid}")
             hp_i, ps = None, None
         else:
-            log.warning(f"Single not 'None'-valued phase: {phase}")
+            log.debug(f"Single not 'None'-valued phase: {phase}|{svid}")
             hp_i, ps = phase, phase
     return hp_i, ps
 
@@ -61,7 +61,7 @@ def format_genotype(gt):
         return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}" if ps is None else f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{ps}"
     else:
         a, b, qual, dr, dv, phase, svid = gt
-        hp_i, ps = unpack_phase(phase)
+        hp_i, ps = unpack_phase(phase, svid)
         if hp_i is not None and (a, b) == (0, 1):
             gt_sep = "|"
             if hp_i == 0:
@@ -136,7 +136,8 @@ class VCF:
         self.write_header_line('FILTER=<ID=STDEV_LEN,Description="SV length standard deviation filter">')
         self.write_header_line('FILTER=<ID=COV_MIN,Description="Minimum coverage filter">')
         self.write_header_line('FILTER=<ID=COV_MIN_GT,Description="Minimum coverage filter (missing genotype)">')
-        self.write_header_line('FILTER=<ID=COV_CHANGE,Description="Coverage change filter">')
+        self.write_header_line('FILTER=<ID=COV_CHANGE_DEL,Description="Coverage change filter for DEL">')
+        self.write_header_line('FILTER=<ID=COV_CHANGE_DUP,Description="Coverage change filter for DUP">')
         self.write_header_line('FILTER=<ID=COV_CHANGE_INS,Description="Coverage change filter for INS">')
         self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_US,Description="Coverage fractional change filter: upstream-start">')
         self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_SC,Description="Coverage fractional change filter: start-center">')
@@ -214,7 +215,12 @@ class VCF:
 
         if len(self.config.sample_ids_vcf) > 1:
             call.set_info("AC", ac)
-            call.set_info("SUPP_VEC", "".join(supvec))
+            call.set_info("SUPP_VEC", svec := "".join(supvec))
+
+            if int(svec) == 0:
+                log.debug(f'Dropped {call} due to all zero support vector.')
+                return
+
             if ac == 0:
                 call.filter = "GT"
 
@@ -279,11 +285,11 @@ class VCF:
                     call.ref = self.reference_handle.fetch(call.contig, start := max(0, call.pos - 1), start + 1)
                 except (KeyError, ValueError):
                     ...
-
-                if call.svtype == "INS":
-                    call.alt = call.ref + call.alt
-                elif call.svtype == 'BND':
-                    call.alt = (call.ref + call.alt[1:]) if call.alt.startswith('N') else call.alt[:-1] + call.ref
+                else:
+                    if call.svtype == "INS" and call.alt != '<INS>':
+                        call.alt = call.ref + call.alt
+                    elif call.svtype == 'BND' and call.alt != '<BND>':
+                        call.alt = (call.ref + call.alt[1:]) if call.alt.startswith('N') else call.alt[:-1] + call.ref
 
         call.qual = max(0, min(60, call.qual))
 
@@ -399,10 +405,10 @@ class VCF:
         # This error will happen when input vcf does not have GT,GQ,DR,DV headers.
         # Some tools such as turvari will throw errors when processing the output vcf.
         has_gt_headers = {
-            "GT":False,
-            "GQ":False,
-            "DR":False,
-            "DV":False,
+            "GT": False,
+            "GQ": False,
+            "DR": False,
+            "DV": False,
         }
         for header_line in header_lines:
             for gt in has_gt_headers.keys():
@@ -410,15 +416,15 @@ class VCF:
                     has_gt_headers[gt] = True
         
         if not has_gt_headers["GT"]:
-            header_lines.insert(len(header_lines)-2,'##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">')
+            header_lines.insert(len(header_lines)-2, '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">')
         if not has_gt_headers["GQ"]:
-            header_lines.insert(len(header_lines)-2,'##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">')
+            header_lines.insert(len(header_lines)-2, '##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">')
         if not has_gt_headers["DR"]:
-            header_lines.insert(len(header_lines)-2,'##FORMAT=<ID=DR,Number=1,Type=Integer,Description="Number of reference reads">')
+            header_lines.insert(len(header_lines)-2, '##FORMAT=<ID=DR,Number=1,Type=Integer,Description="Number of reference reads">')
         if not has_gt_headers["DV"]:
-            header_lines.insert(len(header_lines)-2,'##FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of variant reads">')
+            header_lines.insert(len(header_lines)-2, '##FORMAT=<ID=DV,Number=1,Type=Integer,Description="Number of variant reads">')
 
-        self.write_raw("\n".join(header_lines),endl="")
+        self.write_raw("\n".join(header_lines), endl="")
 
     def close(self):
         self.handle.close()

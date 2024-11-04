@@ -193,17 +193,25 @@ class SVGroup:
 
         # Filtering
         samples_count = float(len(config.snf_input_info))
+        n_samples = len(config.snf_input_info)
         sample_internal_ids = set(sample["internal_id"] for sample in config.snf_input_info)
         total_count = len(self.included_samples)
         pass_count = sum(cand.qc for cand in self.candidates)
-        qc = (pass_count > 0 and pass_count / samples_count >= config.combine_high_confidence) or (
-                    total_count / samples_count >= config.combine_low_confidence and total_count >= config.combine_low_confidence_abs)
+        qc = ((pass_count > 0 and pass_count / samples_count >= config.combine_high_confidence) or
+              (total_count / samples_count >= config.combine_low_confidence and
+               total_count >= config.combine_low_confidence_abs))
 
         if not qc:
-            return None
+            if not config.no_qc and n_samples == 1:
+                pass
+            else:
+                return None
 
-        if (not config.combine_output_filtered) and not any(cand.qc and cand.filter == "PASS" for cand in self.candidates):
-            return None
+        if not config.combine_output_filtered and not any(cand.qc and cand.filter == "PASS" for cand in self.candidates):
+            if not config.no_qc and n_samples == 1:
+                pass
+            else:
+                return None
 
         rnames = [] if config.output_rnames else None
         genotypes = {}
@@ -245,13 +253,19 @@ class SVGroup:
                 genotypes_consensus[(a, b)]["qual"].append(gt_qual)
                 genotypes_consensus[(a, b)]["dr"].append(dr)
                 genotypes_consensus[(a, b)]["dv"].append(dv)
-            most_common_count = genotypes_consensus[sorted(genotypes_consensus, key=lambda k: genotypes_consensus[k]["count"], reverse=True)[0]]["count"]
+            most_common_count = genotypes_consensus[sorted(genotypes_consensus,
+                                                           key=lambda k: genotypes_consensus[k]["count"],
+                                                           reverse=True)[0]]["count"]
             most_common_gt = [gt for gt in genotypes_consensus if genotypes_consensus[gt]["count"] == most_common_count]
             cons_a, cons_b = max(most_common_gt)
             consensus_info = genotypes_consensus[(cons_a, cons_b)]
-            genotypes = {0: (cons_a, cons_b, int(sum(consensus_info["qual"]) / consensus_info["count"]), sum(consensus_info["dr"]), sum(consensus_info["dv"]))}
+            genotypes = {0: (cons_a, cons_b, int(sum(consensus_info["qual"]) / consensus_info["count"]),
+                             sum(consensus_info["dr"]), sum(consensus_info["dv"]))}
             if cons_a != 1 and cons_b != 1:
-                return None
+                if not config.no_qc and n_samples == 1:
+                    pass
+                else:
+                    return None
 
         if config.combine_pair_relabel:
             max_gt = (0, 0)
@@ -290,8 +304,8 @@ class SVGroup:
                         ref="N",
                         alt=svcall_alt,
                         qual=round(util.mean(int(cand.qual) for cand in self.candidates)),
-                        filter="PASS",
-                        info=dict(),
+                        filter="PASS" if n_samples != 1 else first_cand.filter,
+                        info=dict() if n_samples != 1 else first_cand.info,
                         svtype=first_cand.svtype,
                         svlen=svcall_svlen if config.dev_combine_medians else first_cand.svlen,
                         svlens=svcall_svlens,
@@ -311,8 +325,9 @@ class SVGroup:
                         coverage_end=util.mean_or_none_round(cand.coverage_end for cand in self.candidates if cand.coverage_end is not None),
                         coverage_downstream=util.mean_or_none_round(cand.coverage_downstream for cand in self.candidates if cand.coverage_downstream is not None))
 
-        svcall.set_info("STDEV_POS", util.stdev(cand.pos for cand in self.candidates))
-        svcall.set_info("STDEV_LEN", util.stdev(cand.svlen for cand in self.candidates))
+        if n_samples != 1:
+            svcall.set_info("STDEV_POS", util.stdev(cand.pos for cand in self.candidates))
+            svcall.set_info("STDEV_LEN", util.stdev(cand.svlen for cand in self.candidates))
 
         if abs(svcall.svlen) < config.minsvlen_screen:
             return None
@@ -476,6 +491,9 @@ def call_groups(svgroups: list[SVGroup], config, task):
 
 
 def classify_splits(read, leads, config, main_contig):
+    """
+    Determines the SV type of a split read (read with supplementary alignments)
+    """
     minsvlen_screen = config.minsvlen_screen
     maxsvlen_other = minsvlen_screen * config.dev_split_max_query_distance_mult
     min_split_len_bnd = config.bnd_min_split_length

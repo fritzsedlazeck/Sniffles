@@ -16,7 +16,7 @@ from sniffles.sv import SVCall
 import math
 
 
-def annotate_sv(svcall, config):
+def annotate_sv(svcall: SVCall, config):
     if config.phase:
         phase = phase_sv(svcall, config)
     else:
@@ -258,22 +258,66 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
             svcall.filter = "COV_MIN"
             return False
 
+    upstream_downstream_max_coverage_diff = 0.7  # 70%
+    upstream_downstream_diff = 0.5  # add to config
     if (svcall.svtype == "DEL" and config.long_del_length != -1 and abs(svcall.svlen) >= config.long_del_length and
             not config.mosaic):
-        scaled_long_del_coverage = config.long_del_coverage/2.0
+        scaled_long_del_coverage = config.long_del_coverage/2.0   # 0.66/2 = 0.33
         if svcall.coverage_center > (svcall.coverage_upstream + svcall.coverage_downstream) * scaled_long_del_coverage:
-            svcall.filter = "COV_CHANGE_DEL"
-            return False
-    elif svcall.svtype == "INS" and (svcall.coverage_upstream < config.qc_coverage or
-                                     svcall.coverage_downstream < config.qc_coverage):
-        svcall.filter = "COV_CHANGE_INS"
-        return False
+            # check if slopped coverage, that often happens over large spans
+            if svcall.coverage_upstream > svcall.coverage_center > svcall.coverage_downstream:
+                if svcall.coverage_downstream/svcall.coverage_upstream < upstream_downstream_max_coverage_diff:
+                    svcall.filter = "COV_CHANGE_DEL"
+                    return False
+            elif svcall.coverage_upstream < svcall.coverage_center < svcall.coverage_downstream:
+                if svcall.coverage_upstream/svcall.coverage_downstream < upstream_downstream_max_coverage_diff:
+                    svcall.filter = "COV_CHANGE_DEL"
+                    return False
+            else:
+                pass
+        if svcall.coverage_upstream > svcall.coverage_downstream:
+            if (upstream_downstream_diff > svcall.coverage_downstream/svcall.coverage_upstream or
+                    svcall.coverage_center > svcall.coverage_downstream):
+                svcall.filter = "COV_CHANGE_DEL"
+                return False
+        elif svcall.coverage_upstream < svcall.coverage_downstream:
+            if (upstream_downstream_diff > svcall.coverage_upstream/svcall.coverage_downstream or
+                    svcall.coverage_upstream < svcall.coverage_center):
+                svcall.filter = "COV_CHANGE_DEL"
+                return False
+        else:
+            pass
     elif (svcall.svtype == "DUP" and config.long_dup_length != -1 and abs(svcall.svlen) >= config.long_dup_length and
           not config.mosaic):
         scaled_long_dup_coverage = config.long_dup_coverage / 2.0
         if svcall.coverage_center < (svcall.coverage_upstream + svcall.coverage_downstream) * scaled_long_dup_coverage:
-            svcall.filter = "COV_CHANGE_DUP"
-            return False
+            # check if slopped coverage, that often happens over large spans
+            if svcall.coverage_upstream > svcall.coverage_center > svcall.coverage_downstream:
+                if svcall.coverage_downstream/svcall.coverage_upstream < upstream_downstream_max_coverage_diff:
+                    svcall.filter = "COV_CHANGE_DUP"
+                    return False
+            elif svcall.coverage_upstream < svcall.coverage_center < svcall.coverage_downstream:
+                if svcall.coverage_upstream/svcall.coverage_downstream < upstream_downstream_max_coverage_diff:
+                    svcall.filter = "COV_CHANGE_DUP"
+                    return False
+            else:
+                pass
+            if svcall.coverage_upstream > svcall.coverage_downstream:
+                if (upstream_downstream_diff > svcall.coverage_downstream / svcall.coverage_upstream or
+                        svcall.coverage_center < svcall.coverage_downstream):
+                    svcall.filter = "COV_CHANGE_DUP"
+                    return False
+            elif svcall.coverage_upstream < svcall.coverage_downstream:
+                if (upstream_downstream_diff > svcall.coverage_upstream / svcall.coverage_downstream or
+                        svcall.coverage_upstream > svcall.coverage_center):
+                    svcall.filter = "COV_CHANGE_DEL"
+                    return False
+            else:
+                pass
+    elif svcall.svtype == "INS" and (svcall.coverage_upstream < config.qc_coverage or
+                                     svcall.coverage_downstream < config.qc_coverage):
+        svcall.filter = "COV_CHANGE_INS"
+        return False
 
     qc_coverage_max_change_frac = config.qc_coverage_max_change_frac
     if config.mosaic and sv_is_mosaic:
@@ -358,108 +402,10 @@ def binomial_coef(n, k):
     return math.factorial(n) / (math.factorial(k) * math.factorial(n - k))
 
 
-def binomial_probability(k, n, p):
-    try:
-        # Binomial coef cancels out for likelihood ratios
-        # return binomial_coef(n,k) * (p**k) * ((1.0-p)**(n-k))
-        return (p ** k) * ((1.0 - p) ** (n - k))
-    except OverflowError:
-        return 1.0
+def genotype_sv(svcall: SVCall, config, phase):
+    from sniffles.genotyping import GENOTYPER_BY_TYPE, Genotyper
 
-
-def likelihood_ratio(q1, q2):
-    if q1 / q2 > 0:
-        try:
-            return math.log(q1 / q2, 10)
-        except ValueError:
-            return 0
-    else:
-        return 0
-
-
-def genotype_sv(svcall, config, phase):
-    normalization_target = 250
-    hom_ref_p = config.genotype_error
-    het_p = (1.0 / config.genotype_ploidy)  # - config.genotype_error
-    hom_var_p = 1.0 - config.genotype_error
-    coverage = 0
-
-    # Count inline events only once per read, but split events as individual alignments, as in coverage calculation
-    leads = svcall.postprocess.cluster.leads
-    # TODO: long insertions skew this way higher than the number of reads we have
-    support = rescale_support(svcall, config)
-
-    if svcall.svtype == "INS":
-        coverage_list = [svcall.coverage_center]
-    else:
-        if svcall.svtype == "DUP":
-            if False and svcall.coverage_start != 0 and svcall.coverage_end != 0:
-                # TODO: will never run, has False in and statement
-                if svcall.coverage_start > svcall.coverage_end:
-                    coverage_list = [svcall.coverage_end]
-                else:
-                    coverage_list = [svcall.coverage_start]
-            else:
-                coverage_list = [svcall.coverage_start, svcall.coverage_end]
-            coverage += round(support * 0.75)
-        elif svcall.svtype == "INV":
-            # check event length, for whole chromosome event do something different
-            coverage_list = [svcall.coverage_upstream, svcall.coverage_downstream]
-            coverage += round(support * 0.5)
-        else:
-            coverage_list = [svcall.coverage_start, svcall.coverage_center, svcall.coverage_end]
-
-    coverage_list = [each_coverage for each_coverage in coverage_list if each_coverage != 0]
-    if len(coverage_list) == 0:
-        # For clean DEL cuts we don't have anything inside the call,
-        # so coverage_list will be empty -> use up/downstream to continue
-        if not (svcall.svtype == "DEL" and svcall.coverage_upstream > 0 and svcall.coverage_downstream > 0):
-            return
-
-    if len(coverage_list) > 0:
-        coverage += round(sum(coverage_list) / len(coverage_list))
-
-    if support > coverage:
-        coverage = support
-
-    af = support / float(coverage)
-
-    genotype_p = [((0, 0), hom_ref_p),
-                  ((0, 1), het_p),
-                  ((1, 1), hom_var_p)]
-
-    max_lead = max(support, coverage)
-    if max_lead > normalization_target:
-        norm = normalization_target / float(max_lead)
-        normalized_support = round(support * norm)
-        normalized_coverage = round(coverage * norm)
-    else:
-        normalized_support = support
-        normalized_coverage = coverage
-
-    genotype_likelihoods = []
-    for gt, p in genotype_p:
-        q = binomial_probability(normalized_support, normalized_coverage, p)
-        genotype_likelihoods.append((gt, q))
-    genotype_likelihoods.sort(key=lambda k: k[1], reverse=True)
-
-    sum_likelihoods = sum(q for gt, q in genotype_likelihoods)
-    normalized_likelihoods = [(gt, (q / sum_likelihoods)) for gt, q in genotype_likelihoods]
-
-    gt1, q1 = normalized_likelihoods[0]
-    gt2, q2 = normalized_likelihoods[1]
-    qz = [q for gt, q in normalized_likelihoods if gt == (0, 0)][0]
-    genotype_z_score = min(60, int((-10) * likelihood_ratio(qz, q1)))
-    genotype_quality = min(60, int((-10) * likelihood_ratio(q2, q1)))
-
-    is_long_ins = (svcall.svtype == "INS" and svcall.svlen >= config.long_ins_length and config.detect_large_ins)
-    if genotype_z_score < config.genotype_min_z_score and not config.mosaic and not is_long_ins:
-        if svcall.filter == "PASS":
-            svcall.filter = "GT"
-
-    a, b = gt1
-    svcall.genotypes[0] = (a, b, genotype_quality, coverage - support, support, phase)
-    svcall.set_info("AF", af)
+    GENOTYPER_BY_TYPE.get(svcall.svtype, Genotyper)(svcall, config, phase).calculate()
 
 
 def phase_sv(svcall, config):

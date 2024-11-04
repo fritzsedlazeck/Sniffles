@@ -11,6 +11,7 @@
 import logging
 import logging.config
 import multiprocessing
+from collections import deque
 from typing import Optional
 
 from sniffles.utils.resmon import ResourceMonitor
@@ -134,10 +135,10 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     log.info(f"  Used command: {config.command}")
     log.info("==============================")
 
-    monitor = ResourceMonitor(config)
     rkwargs = {}  # result kwargs
 
-    if monitor.filename is not None:
+    monitor = ResourceMonitor(config)
+    if monitor and monitor.filename is not None:
         logging.getLogger('sniffles.resources').info(f'Logging memory usage to {monitor.filename}')
 
 
@@ -230,6 +231,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
 
         log.info(f"Opening for writing: {config.vcf} {vcf_output_info_str}")
 
+    # SNF writing during single sample mode
     snf_out = None
     if config.snf is not None:
         log.info(f"Opening for writing: {config.snf}")
@@ -244,7 +246,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     # Plan multiprocessing tasks
     #
     task_id = 0
-    tasks_list = []
+    tasks = deque()
     contigs = []
     contig_tasks_intervals = {}
 
@@ -314,7 +316,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
                     config=config,
                     regions=config.regions_by_contig.get(contig_str),
                 )
-                tasks_list.append(task)
+                tasks.append(task)
                 if contig_str not in contig_tasks_intervals:
                     contig_tasks_intervals[contig_str] = []
                 contig_tasks_intervals[contig_str].append((task.start, task.end, task))
@@ -383,8 +385,8 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
                 config.sample_ids_vcf.append((info["internal_id"], info["sample_id"]))
 
         # TODO: Assure header consistency across multiple .snfs
-        if config.contig:
-            contig_lengths = [(name, length) for name, length in contig_lengths if name in config.contig]
+        if to_process := (config.contig or config.regions_by_contig):
+            contig_lengths = [(name, length) for name, length in contig_lengths if name in to_process]
 
         result_class = None
         if len(input_snfs_sample_ids) > config.combine_max_inmemory_results:
@@ -402,12 +404,13 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
                 sv_id=0,
                 config=config,
                 result_class=result_class,
+                regions=config.regions_by_contig.get(contig_str)
             )
-            tasks_list.extend(task.scatter())
+            tasks.extend(task.scatter())
             if contig_str not in contig_tasks_intervals:
                 contig_tasks_intervals[contig_str] = []
             contig_tasks_intervals[contig_str].append((task.start, task.end, task))
-            task_id = tasks_list[-1].id + 1
+            task_id = tasks[-1].id + 1
 
         log.info(f"Verified headers for {len(input_snfs_sample_ids)} .snf files.")
         log.info("The following samples will be processed in multi-calling:")
@@ -422,8 +425,11 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     #
     # Start workers
     #
-    for pnum in range(config.threads):
-        processes.append(parallel.SnifflesWorker(process_id=pnum, config=config, tasks=tasks_list, recycle_hint=monitor))
+    if config.threads:
+        for pnum in range(config.threads):
+            processes.append(parallel.SnifflesWorker(process_id=pnum, config=config, tasks=tasks, recycle_hint=monitor))
+    else:
+        processes.append(parallel.SnifflesParentWorker(config=config, tasks=tasks))
 
     if config.vcf is not None and config.sort:
         task_id_calls = {}
@@ -442,7 +448,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     #
     # Distribute analysis tasks to workers and collect results
     #
-    analysis_start_time = time.time()
+    analysis_start_time = time.monotonic()
 
     for p in processes:
         p.start()
@@ -456,7 +462,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
         p.finalize()
         finished_tasks.extend(p.finished_tasks)
 
-    log.info(f"Took {time.time() - analysis_start_time:.2f}s.")
+    log.info(f"Took {time.monotonic() - analysis_start_time:.2f}s.")
     log.info("")
 
     finished_tasks.sort(key=lambda task: task.id)
@@ -514,6 +520,9 @@ if __name__ == "__main__":
             'loggers': {
                 'sniffles.progress': {
                     'level': logging.WARNING,
+                },
+                'sniffles.vcf': {
+                    'level': logging.INFO,
                 }
             },
             'root': {
