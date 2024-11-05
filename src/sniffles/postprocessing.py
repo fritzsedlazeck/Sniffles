@@ -199,7 +199,7 @@ def qc_support_const(svcall, config):
 
 
 def qc_sv(svcall: SVCall, config: SnifflesConfig):
-    af = svcall.get_info("AF")
+    af = svcall.get_info("VAF")
     af = af if af is not None else 0
     sv_is_mosaic = af <= config.mosaic_af_max
 
@@ -368,7 +368,7 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
 
 
 def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig):
-    af = svcall.get_info("AF")
+    af = svcall.get_info("VAF")
     af = af if af is not None else 0
     sv_is_mosaic = af <= config.mosaic_af_max
 
@@ -389,10 +389,10 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig):
 
     if config.mosaic:
         if sv_is_mosaic and (af < config.mosaic_af_min or af > config.mosaic_af_max):
-            svcall.filter = "MOSAIC_AF"
+            svcall.filter = "MOSAIC_VAF"
             return False
         elif not sv_is_mosaic and not config.mosaic_include_germline:
-            svcall.filter = "NOT_MOSAIC_AF"
+            svcall.filter = "NOT_MOSAIC_VAF"
             return False
 
     return True
