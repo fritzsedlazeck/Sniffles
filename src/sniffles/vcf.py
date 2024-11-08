@@ -230,7 +230,7 @@ class VCF:
             "SVTYPE": call.svtype,
             "SVLEN": call.svlen,
             "SVLENGTHS": ",".join(map(str, call.svlens)) if call.svlens else None,
-            "END": end + 1,
+            "END": end,
             "SUPPORT": call.support,
             "RNAMES": call.rnames if self.config.output_rnames else None,
             "COVERAGE": f"{call.coverage_upstream},{call.coverage_start},{call.coverage_center},{call.coverage_end},"
@@ -243,6 +243,10 @@ class VCF:
             infos["SVLEN"] = None
             infos["SVLENGTHS"] = None
             infos["END"] = None
+
+        if call.svtype == "DEL":
+            # END is POS + length of REF allele - 1
+            infos["END"] = end - 1
 
         infos_ordered = ["PRECISE" if call.precise else "IMPRECISE"]
         af = call.get_info("AF")
