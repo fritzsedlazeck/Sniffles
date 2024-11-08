@@ -230,7 +230,7 @@ class VCF:
             "SVTYPE": call.svtype,
             "SVLEN": call.svlen,
             "SVLENGTHS": ",".join(map(str, call.svlens)) if call.svlens else None,
-            "END": end,
+            "END": end + 1,
             "SUPPORT": call.support,
             "RNAMES": call.rnames if self.config.output_rnames else None,
             "COVERAGE": f"{call.coverage_upstream},{call.coverage_start},{call.coverage_center},{call.coverage_end},"
