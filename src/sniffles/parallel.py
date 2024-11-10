@@ -611,28 +611,28 @@ class SnifflesWorker:
         t.start()
 
         while self.running:
+            self._logger.debug(f'Worker {self.id} ({self.pid}) waiting for tasks...')
+
+            task = self.pipe_worker.recv()
+
+            self._logger.debug(f'Worker {self.id} got task {task}')
+
             try:
-                self._logger.debug(f'Worker {self.id} ({self.pid}) waiting for tasks...')
-
-                task = self.pipe_worker.recv()
-
-                self._logger.debug(f'Worker {self.id} got task {task}')
-
                 result = task.execute(self)
-
+            except self.Shutdown:
+                self.running = False
+                self._shutdown.set()
+            except Exception as e:
+                self._logger.exception(msg := f'Error in worker process while executing {task}')
+                self.pipe_worker.send(ErrorResult(msg))
+            else:
                 self._logger.debug(f'Worker {self.id} finished executing {task}, sending back result...')
 
                 if result is not None:
                     self.pipe_worker.send(result)
 
-                del task
-                gc.collect()
-            except self.Shutdown:
-                self.running = False
-                self._shutdown.set()
-            except Exception as e:
-                self._logger.exception(f'Error in worker process')
-                self.pipe_worker.send(ErrorResult(e))
+            del task
+            gc.collect()
 
         t.join(1.0)
 
