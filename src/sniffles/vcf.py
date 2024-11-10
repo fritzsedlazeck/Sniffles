@@ -143,8 +143,8 @@ class VCF:
         self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_SC,Description="Coverage fractional change filter: start-center">')
         self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_CE,Description="Coverage fractional change filter: center-end">')
         self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_ED,Description="Coverage fractional change filter: end-downstream">')
-        self.write_header_line('FILTER=<ID=MOSAIC_AF,Description="Mosaic variant allele frequency filter">')
-        self.write_header_line('FILTER=<ID=NOT_MOSAIC_AF,Description="Variant allele frequency filter for non-mosaic">')
+        self.write_header_line('FILTER=<ID=MOSAIC_VAF,Description="Mosaic variant allele fraction filter">')
+        self.write_header_line('FILTER=<ID=NOT_MOSAIC_VAF,Description="Variant allele fraction filter for non-mosaic">')
         self.write_header_line('FILTER=<ID=ALN_NM,Description="Length adjusted mismatch filter">')
         self.write_header_line('FILTER=<ID=STRAND_BND,Description="Strand support filter for BNDs">')
         self.write_header_line('FILTER=<ID=STRAND,Description="Strand support filter for germline SVs">')
@@ -171,7 +171,7 @@ class VCF:
         self.write_header_line('INFO=<ID=SUPP_VEC,Number=1,Type=String,Description="List of read support for all samples">')
         self.write_header_line('INFO=<ID=CONSENSUS_SUPPORT,Number=1,Type=Integer,Description="Number of reads that support the generated insertion (INS) consensus sequence">')
         self.write_header_line('INFO=<ID=RNAMES,Number=.,Type=String,Description="Names of supporting reads (if enabled with --output-rnames)">')
-        self.write_header_line('INFO=<ID=AF,Number=1,Type=Float,Description="Allele Frequency">')
+        self.write_header_line('INFO=<ID=VAF,Number=1,Type=Float,Description="Variant Allele Fraction">')
         self.write_header_line('INFO=<ID=NM,Number=.,Type=Float,Description="Mean number of query alignment length adjusted mismatches of supporting reads">')
         self.write_header_line('INFO=<ID=PHASE,Number=.,Type=String,Description="Phasing information derived from supporting reads, represented as list of: HAPLOTYPE,PHASESET,HAPLOTYPE_SUPPORT,PHASESET_SUPPORT,HAPLOTYPE_FILTER,PHASESET_FILTER">')
 
@@ -249,7 +249,7 @@ class VCF:
             infos["END"] = end - 1
 
         infos_ordered = ["PRECISE" if call.precise else "IMPRECISE"]
-        af = call.get_info("AF")
+        af = call.get_info("VAF")
         af = af if af is not None else 0
         sv_is_mosaic = af <= self.config.mosaic_af_max
         if sv_is_mosaic and self.config.mosaic:

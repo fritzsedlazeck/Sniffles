@@ -135,7 +135,7 @@ class Genotyper:
 
         a, b = gt1
         svcall.genotypes[0] = (a, b, genotype_quality, coverage - support, support, self.phase)
-        svcall.set_info("AF", af)
+        svcall.set_info("VAF", af)
 
 
 class InsertionGenotyper(Genotyper):
