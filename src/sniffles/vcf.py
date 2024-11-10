@@ -244,6 +244,10 @@ class VCF:
             infos["SVLENGTHS"] = None
             infos["END"] = None
 
+        if call.svtype == "DEL":
+            # END is POS + length of REF allele - 1
+            infos["END"] = end - 1
+
         infos_ordered = ["PRECISE" if call.precise else "IMPRECISE"]
         af = call.get_info("AF")
         af = af if af is not None else 0
