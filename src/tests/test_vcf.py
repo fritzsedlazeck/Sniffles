@@ -37,7 +37,7 @@ class TestVCFFormat(TestCase):
         config.genotype_format = "GT:GQ:DR:DV"
         return config
 
-    def verify_common_fields(self, *args, **kwargs) -> Tuple[int, str, str]:
+    def verify_common_fields(self, *args, **kwargs) -> Tuple[int, str, str, str]:
         """
         Verifies common fields, returns pos, ref and alt fields
         """
@@ -48,7 +48,21 @@ class TestVCFFormat(TestCase):
         self.assertEqual('chr1', contig)
         self.assertEqual('Sniffles.unittest-1', id)
 
-        return int(pos), ref, alt
+        return int(pos), ref, alt, info
+
+    def parse_info(self, info: str) -> tuple[set[str], dict[str, str]]:
+        """
+        Simple parsing of an info string
+        """
+        flags = []
+        flds = {}
+        for fld in info.split(';'):
+            if '=' in fld:
+                key, value = fld.split('=')
+                flds[key] = value
+            else:
+                flags.append(fld)
+        return set(flags), flds
 
     def get_vcf(self, reference: str):
         vcf = VCF(self.get_config(), None)
@@ -89,7 +103,7 @@ class TestVCFFormat(TestCase):
         1      a t C T A G g a
         """
         def verify(*args, **kwargs):
-            pos, ref, alt = self.verify_common_fields(*args, **kwargs)
+            pos, ref, alt, _ = self.verify_common_fields(*args, **kwargs)
             self.assertEqual(3, pos)
             self.assertEqual('C', ref)
             self.assertEqual('CTAG', alt)
@@ -120,10 +134,12 @@ class TestVCFFormat(TestCase):
         Alt  a T - - a
         """
         def verify(*args, **kwargs):
-            pos, ref, alt = self.verify_common_fields(*args, **kwargs)
+            pos, ref, alt, info = self.verify_common_fields(*args, **kwargs)
             self.assertEqual(2, pos)
             self.assertEqual('TCG', ref)
             self.assertEqual('T', alt)
+            _, info_fields = self.parse_info(info)
+            self.assertEqual(pos + abs(int(info_fields['SVLEN'])) - 1, int(info_fields['END']))
 
         vcf = self.get_vcf('aTCGa')
         vcf.write_raw = Mock(side_effect=verify)
@@ -159,7 +175,7 @@ class TestVCFFormat(TestCase):
         )
 
         def verify(*args, **kwargs):
-            pos, ref, alt = self.verify_common_fields(*args, **kwargs)
+            pos, ref, alt, info = self.verify_common_fields(*args, **kwargs)
             self.assertEqual(964631, pos)
             self.assertEqual('CGGGTCCGCAGTGGGGATGTGCTGCCGGGAGGGGGGCGCGGGTCCGCAGTGGGGATGTGCTGCCGGGAGGGGGGCG', ref)
             self.assertEqual('C', alt)
@@ -183,7 +199,7 @@ class TestVCFFormat(TestCase):
           See https://github.com/fritzsedlazeck/Sniffles/issues/501
         """
         def verify(*args, **kwargs):
-            pos, ref, alt = self.verify_common_fields(*args, **kwargs)
+            pos, ref, alt, info = self.verify_common_fields(*args, **kwargs)
             self.assertEqual(2, pos)
             self.assertEqual('T', ref)
             self.assertEqual('<INS>', alt)
