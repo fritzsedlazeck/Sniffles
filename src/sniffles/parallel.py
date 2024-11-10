@@ -446,7 +446,8 @@ class CombineTask(Task):
         for svtype in groups_keep:
             calls.extend(sv.call_groups(groups_keep[svtype], self.config, self))
 
-        result.store_calls(calls)
+        if calls:
+            result.store_calls(calls)
 
         result.finalize()
         return result
