@@ -394,6 +394,15 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             from sniffles.result import CombineResultTmpFile
             result_class = CombineResultTmpFile
 
+            if config.sort:
+                log.warning(
+                    f'''Sniffles currently does not support sorting on a number of input files exceeding --combine-max-inmemory-results'''
+                    f''' (currently set to {config.combine_max_inmemory_results}). Unsorted calls will be written to '''
+                    f'''result-{config.run_id}-*-unsorted.part.vcf. Please use either --no-sort or increase the number of in-memory results.'''
+                )
+                if config.vcf_output_bgz:
+                    util.fatal_error_main('BGZ files require sorting, and thus are currently not supported for the given number of input files.')
+
         for contig_str, contig_length in contig_lengths:
             task = parallel.CombineTask(
                 id=task_id,
