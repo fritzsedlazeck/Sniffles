@@ -24,7 +24,7 @@ If you previously installed Sniffles1 using conda and want to upgrade to Sniffle
 `conda update sniffles=2.5`
 
 ## Requirements
-* Python >= 3.10
+* Python == 3.10
 * pysam >= 0.21.0
 * edlib >=1.3.9
 * psutil>=5.9.4
