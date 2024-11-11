@@ -154,7 +154,7 @@ class CombineResultTmpFile(CombineResult):
         if SnifflesConfig.GLOBAL.sort and svcalls:
             svcalls = list(sorted(svcalls, key=lambda call: call.pos))
 
-            while svcalls[offset].pos < self._highest_position_call:
+            while offset < len(svcalls) and svcalls[offset].pos < self._highest_position_call:
                 log.debug(f'Unsorted call detected: {self._highest_position_call} > {svcalls[0]}')
                 offset += 1
 
@@ -206,8 +206,12 @@ class CombineResultTmpFile(CombineResult):
 class ErrorResult:
     error = True
 
-    def __init__(self, ex: Exception):
-        self.message = f'{ex}'
+    def __init__(self, msg: str):
+        self.message = msg
 
     def __str__(self):
         return self.message
+
+    def emit(self, **kwargs) -> int:
+        log.error(f'{self.message}')
+        return 0
