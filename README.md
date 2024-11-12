@@ -17,15 +17,15 @@ You can install Sniffles2 using pip or conda using:
 
 or
 
-`conda install sniffles=2.5.1`
+`conda install sniffles=2.5.2`
 
 If you previously installed Sniffles1 using conda and want to upgrade to Sniffles2, you can use:
 
-`conda update sniffles=2.5.1`
+`conda update sniffles=2.5.2`
 
 ## Requirements
-* Python == 3.10
-* pysam >= 0.21.0
+* Python ==3.10.15
+* pysam >=0.21.0
 * edlib >=1.3.9
 * psutil>=5.9.4
 
