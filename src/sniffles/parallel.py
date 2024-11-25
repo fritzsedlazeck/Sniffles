@@ -574,14 +574,17 @@ class SnifflesWorker:
                     # self._logger.debug(f'Worker {self.id} got heartbeat #{hb}')
 
                 if self._heartbeat < time.monotonic() - self.HEARTBEAT_TIMEOUT:
-                    self._logger.warning(f'Worker {self.id} found dead!')
-                    if self.task:  # if we were working on a task, requeue it to have it picked up by another worker...
-                        self.tasks.appendleft(self.task)
+                    self._logger.debug(f'Worker {self.id} missed heartbeat!')
                     try:
-                        self.process.join(0.2)  # ...collect any process remains...
+                        self.process.join(0.2)  # try collecting process remains...
                     except:  # noqa
                         ...
-                    self.running = False  # ...and shut down
+                    if self.process.exitcode is not None:
+                        # if we got an exitcode, the process really was killed
+                        self._logger.warning(f'Worker {self.id} found dead!')
+                        if self.task:  # if we were working on a task, requeue it to have it picked up by another worker...
+                            self.tasks.appendleft(self.task)
+                        self.running = False  # ...and shut down
         except:
             self._logger.exception(f'Unhandled error in worker {self.id}. This may result in an orphened worker process.')
             try:
