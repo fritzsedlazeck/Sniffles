@@ -25,49 +25,68 @@ BUILD = "2.5"
 SNF_VERSION = "S2_rc4"
 
 
-class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
-    pass
+class ArgFormatter(argparse.RawDescriptionHelpFormatter):
+    def _format_action_invocation(self, action):
+        if action.metavar is not None:
+            return super()._format_action_invocation(action)
+        else:
+            parts = []
+            if action.option_strings:
+                parts.extend(action.option_strings)
+            elif action.nargs == 0:
+                parts.append(action.dest)
+            else:
+                metavar, = self._metavar_formatter(action, action.dest)(1)
+                parts.append('%s' % metavar)
+            return ', '.join(parts)
 
 
-def tobool(v):
-    if v is True or v is False:
-        return v
-    elif v.strip().lower() == "true" or v.strip() == "1":
-        return True
-    elif v.strip().lower() == "false" or v.strip() == "0":
-        return False
-    else:
-        raise argparse.ArgumentTypeError("Boolean value (True | False) required for argument")
+class ExampleAction(argparse.Action):
+    def __init__(self, option_strings, dest, **kwargs):
+        super().__init__(option_strings, dest, nargs=0, **kwargs)
 
+    def __call__(self, parser, namespace, values, option_string=None):
+        print("sniffles example commands:")
+        print("""
+Call SVs for a single sample
+=============================
+     -> sniffles --input sorted_indexed_alignments.bam --vcf output.vcf
+
+   ... OR, with CRAM input and bgzipped+tabix indexed VCF output:
+     -> sniffles --input sample.cram --vcf output.vcf.gz
+
+   ... OR, producing only a SNF file with SV candidates:
+     -> sniffles --input sample1.bam --snf sample1.snf
+
+   ... OR, simultaneously produce a single-sample VCF and SNF file:
+     -> sniffles --input sample1.bam --vcf sample1.vcf.gz --snf sample1.snf
+
+   ... OR, with tandem repeat annotations, reference (for DEL sequences) and mosaic mode for detecting rare SVs:
+     -> sniffles --input sample1.bam --vcf sample1.vcf.gz --tandem-repeats tandem_repeats.bed --reference genome.fa --mosaic
+
+Multi-sample calling
+====================
+   Step 1. Create .snf for each sample:
+     -> sniffles --input sample1.bam --snf sample1.snf
+   Step 2. Combined calling:
+     -> sniffles --input sample1.snf sample2.snf ... sampleN.snf --vcf multisample.vcf
+
+   ... OR, using a .tsv file containing a list of .snf files and sample ids (one sample per line):
+   Step 2. Combined calling:
+     -> sniffles --input snf_files_list.tsv --vcf multisample.vcf
+
+Determine genotypes for a set of known SVs (force calling)
+==========================================================
+     -> sniffles --input sample.bam --genotype-vcf input_known_svs.vcf --vcf output_genotypes.vcf
+""")
+        parser.exit()
 
 class SnifflesConfig(argparse.Namespace):
     header = f"Sniffles2: A fast structural variant (SV) caller for long-read sequencing data\n Version {BUILD}\n Contact: sniffles@romanek.at"
-    example = """ Usage example A - Call SVs for a single sample:
-       sniffles --input sorted_indexed_alignments.bam --vcf output.vcf
-
-       ... OR, with CRAM input and bgzipped+tabix indexed VCF output:
-         sniffles --input sample.cram --vcf output.vcf.gz
-
-       ... OR, producing only a SNF file with SV candidates for later multi-sample calling:
-         sniffles --input sample1.bam --snf sample1.snf
-
-       ... OR, simultaneously producing a single-sample VCF and SNF file for later multi-sample calling:
-         sniffles --input sample1.bam --vcf sample1.vcf.gz --snf sample1.snf
-
-       ... OR, with additional options to specify tandem repeat annotations (for improved call accuracy), reference (for DEL sequences) and mosaic mode for detecting rare SVs:
-         sniffles --input sample1.bam --vcf sample1.vcf.gz --tandem-repeats tandem_repeats.bed --reference genome.fa --mosaic
-
-    Usage example B - Multi-sample calling:
-       Step 1. Create .snf for each sample: sniffles --input sample1.bam --snf sample1.snf
-       Step 2. Combined calling: sniffles --input sample1.snf sample2.snf ... sampleN.snf --vcf multisample.vcf
-
-       ... OR, using a .tsv file containing a list of .snf files, and custom sample ids in an optional second column (one sample per line):
-       Step 2. Combined calling: sniffles --input snf_files_list.tsv --vcf multisample.vcf
-
-    Usage example C - Determine genotypes for a set of known SVs (force calling):
-       sniffles --input sample.bam --genotype-vcf input_known_svs.vcf --vcf output_genotypes.vcf
-       """
-    usage = "sniffles --input SORTED_INPUT.bam [--vcf OUTPUT.vcf] [--snf MERGEABLE_OUTPUT.snf] [--threads 4] [--mosaic]\n\n" + header + "\n\n" + example + "\n\n Use --help for full parameter/usage information\n \n"
+    usage = "sniffles --input SORTED_INPUT.bam [--vcf OUTPUT.vcf] [--snf MERGEABLE_OUTPUT.snf] [--threads 4] [--mosaic]\n\n" +  \
+            header +  \
+            "\n\n Use --help for full parameter information\n" + \
+            " Use --example for detailed usage information\n\n"
 
     parser: argparse.ArgumentParser
 
@@ -104,15 +123,29 @@ class SnifflesConfig(argparse.Namespace):
 
     def add_main_args(self, parser):
         main_args = parser.add_argument_group("Common parameters")
-        main_args.add_argument("-i", "--input", metavar="IN", type=str, help="For single-sample calling: A coordinate-sorted and indexed .bam/.cram (BAM/CRAM format) file containing aligned reads. - OR - For multi-sample calling: Multiple .snf files (generated before by running Sniffles2 for individual samples with --snf)", required=True, nargs="+")
-        main_args.add_argument("-v", "--vcf", metavar="OUT.vcf", type=str, help="VCF output filename to write the called and refined SVs to. If the given filename ends with .gz, the VCF file will be automatically bgzipped and a .tbi index built for it.", required=False)
-        main_args.add_argument("--snf", metavar="OUT.snf", type=str, help="Sniffles2 file (.snf) output filename to store candidates for later multi-sample calling", required=False)
-        main_args.add_argument("--reference", metavar="reference.fasta", type=str, help="(Optional) Reference sequence the reads were aligned against. To enable output of deletion SV sequences, this parameter must be set.", default=None)
-        main_args.add_argument("--tandem-repeats", metavar="IN.bed", type=str, help="(Optional) Input .bed file containing tandem repeat annotations for the reference genome.", default=None)
-        main_args.add_argument("--phase", help="Determine phase for SV calls (requires the input alignments to be phased)", default=False, action="store_true")
-        main_args.add_argument("-t", "--threads", metavar="N", type=int, help="Number of parallel threads to use (speed-up for multi-core CPUs)", default=4)
-        main_args.add_argument("-c", "--contig", default=None, type=str, help="(Optional) Only process the specified contigs. May be given more than once.", action="append")
-        main_args.add_argument("--regions", metavar="REGIONS.bed", type=str, help="(Optional) Only process the specified regions.", default=None)
+        main_args.add_argument("-i", "--input", metavar="IN", type=str, required=True, nargs="+",
+                               help=("For single-sample calling: A coordinate-sorted and indexed .bam/.cram (BAM/CRAM format) "
+                                     "file containing aligned reads. - OR - For multi-sample calling: Multiple .snf files "
+                                     "(generated before by running Sniffles2 for individual samples with --snf)"))
+        main_args.add_argument("-v", "--vcf", metavar="OUT.vcf", type=str, required=False,
+                               help=("VCF output filename to write the called and refined SVs to. If the given filename ends "
+                                     "with .gz, the VCF file will be automatically bgzipped and a .tbi index built for it."))
+        main_args.add_argument("--snf", metavar="OUT.snf", type=str, required=False,
+                               help="Sniffles2 file (.snf) output filename to store candidates for later multi-sample calling")
+        main_args.add_argument("--reference", metavar="REF.fa", type=str, default=None,
+                               help=("(Optional) Reference sequence the reads were aligned against. To enable output of "
+                                     "deletion SV sequences, this parameter must be set."))
+        main_args.add_argument("--tandem-repeats", metavar="IN.bed", type=str, default=None,
+                               help="(Optional) Input .bed file containing tandem repeat annotations for the reference genome.")
+        main_args.add_argument("--regions", metavar="REG.bed", type=str,
+                               help="(Optional) Only process the specified regions.", default=None)
+        main_args.add_argument("-c", "--contig", default=None, type=str, action="append",
+                                help="(Optional) Only process the specified contigs. May be given more than once.")
+        main_args.add_argument("--phase", action="store_true",
+                                help="Determine phase for SV calls (requires the input alignments to be phased)")
+        main_args.add_argument("-t", "--threads", type=int, default=4,
+                               help="Number of parallel threads to use (%(default)s)")
+
 
     minsupport: Union[str, int]
     minsvlen: int
@@ -120,68 +153,128 @@ class SnifflesConfig(argparse.Namespace):
 
     def add_filter_args(self, parser):
         filter_args = parser.add_argument_group("SV Filtering parameters")
-        filter_args.add_argument("--minsupport", metavar="auto", type=str, help="Minimum number of supporting reads for a SV to be reported (default: automatically choose based on coverage)", default="auto")
-        filter_args.add_argument("--minsupport-auto-mult", metavar="0.1/0.025", type=float, help="Coverage based minimum support multiplier for germline mode (only for auto minsupport) ", default=None)
-        filter_args.add_argument("--minsvlen", metavar="N", type=int, help="Minimum SV length (in bp)", default=50)
-        filter_args.add_argument("--minsvlen-screen-ratio", metavar="N", type=float, help="Minimum length for SV candidates (as fraction of --minsvlen)", default=0.9)
-        filter_args.add_argument("--mapq", metavar="N", type=int, help="Alignments with mapping quality lower than this value will be ignored", default=argparse.SUPPRESS)
-        filter_args.add_argument("--no-qc", "--qc-output-all", help="Output all SV candidates, disregarding quality control steps.", default=False, action="store_true")
-        filter_args.add_argument("--qc-stdev", help="Apply filtering based on SV start position and length standard deviation", metavar="True", type=tobool, default=True)
-        filter_args.add_argument("--qc-stdev-abs-max", help="Maximum standard deviation for SV length and size (in bp)", metavar="N", type=int, default=500)
-        filter_args.add_argument("--qc-strand", help="Apply filtering based on strand support of SV calls", metavar="False", type=tobool, default=False)
-        filter_args.add_argument("--qc-coverage", help="Minimum surrounding region coverage of SV calls", metavar="N", type=int, default=1)
-        filter_args.add_argument("--long-ins-length", help="Insertion SVs longer than this value are considered as hard to detect based on the aligner and read length and subjected to more sensitive filtering.", metavar="2500", type=int, default=2500)
-        filter_args.add_argument("--long-del-length", help="Deletion SVs longer than this value are subjected to central coverage drop-based filtering (Not applicable for --mosaic)", metavar="50000", type=int, default=50000)
-        filter_args.add_argument("--long-inv-length", help="Inversion SVs longer than this value are not subjected to central coverage drop-based filtering", metavar="10000", type=int, default=10000)
-        filter_args.add_argument("--long-del-coverage", help="Long deletions with central coverage (in relation to upstream/downstream coverage) higher than this value will be filtered (Not applicable for --mosaic)", metavar="0.66", type=float, default=0.66)
-        filter_args.add_argument("--long-dup-length", help="Duplication SVs longer than this value are subjected to central coverage increase-based filtering (Not applicable for --mosaic)", metavar="50000", type=int, default=50000)
-        filter_args.add_argument("--qc-bnd-filter-strand", help="Filter breakends that do not have support for both strands", type=tobool, default=True)
-        filter_args.add_argument("--bnd-min-split-length", help="Minimum length of read splits to be considered for breakends", type=int, default=1000)
-        filter_args.add_argument("--long-dup-coverage", help="Long duplications with central coverage (in relation to upstream/downstream coverage) lower than this value will be filtered (Not applicable for --mosaic)", metavar="1.33", type=float, default=1.33)
-        filter_args.add_argument("--max-splits-kb", metavar="N", type=float, help="Additional number of splits per kilobase read sequence allowed before reads are ignored", default=0.1)
-        filter_args.add_argument("--max-splits-base", metavar="N", type=int, help="Base number of splits allowed before reads are ignored (in addition to --max-splits-kb)", default=3)
-        filter_args.add_argument("--min-alignment-length", metavar="N", type=int, help="Reads with alignments shorter than this length (in bp) will be ignored", default=argparse.SUPPRESS)
-        filter_args.add_argument("--phase-conflict-threshold", metavar="F", type=float, help="Maximum fraction of conflicting reads permitted for SV phase information to be labelled as PASS (only for --phase)", default=0.1)
-        filter_args.add_argument("--detect-large-ins", help="Infer insertions that are longer than most reads and therefore are spanned by few alignments only.", metavar="True", type=tobool, default=True)
-        # filter_args.add_argument("--large-ins-threshold", metavar="N", type=int, help="Minimum clipping at read ends to be considered a potential large insertion (only with --detect-large-ins)", default=5000)
+        filter_args.add_argument("--minsupport", type=str, default="auto",
+                                 help="Min number of supporting reads for a SV to be reported (%(default)s)")
+        filter_args.add_argument("--minsupport-auto-mult", type=float, default=None,
+                                 help="Coverage based auto-minsupport multiplier for germline mode (0.1/0.025)")
+        filter_args.add_argument("--minsvlen", type=int, default=50,
+                                 help="Min SV length in bp (%(default)s)")
+        filter_args.add_argument("--minsvlen-screen-ratio", type=float, default=0.9,
+                                 help="Min length for SV candidates as fraction of --minsvlen (%(default)s)")
+        filter_args.add_argument("--mapq", type=int, default=argparse.SUPPRESS,
+                                 help="Alignments with mapping quality lower than this value will be ignored")
+        filter_args.add_argument("--no-qc", "--qc-output-all", action="store_true",
+                                 help="Output all SV candidates, disregarding quality control steps")
+        # This was previously a --qc-stdev true argument but now a flag
+        filter_args.add_argument("--qc-stdev", action="store_false",
+                                 help="Apply filtering based on SV start position and length standard deviation")
+        filter_args.add_argument("--qc-stdev-abs-max", type=int, default=500,
+                                 help="Max standard deviation for SV length and size in bp (%(default)s)")
+        # This was previously an argument but now a flag
+        filter_args.add_argument("--qc-strand", action="store_true",
+                                 help="Apply filtering based on strand support of SV calls")
+        filter_args.add_argument("--qc-coverage", type=int, default=1,
+                                 help="Min surrounding region coverage of SV calls (%(default)s)")
+        # Trimmed the description, wiki should hold more detail
+        filter_args.add_argument("--long-ins-length", type=int, default=2500,
+                                 help="Insertion SVs longer than this are subjected to more sensitive filtering (%(default)s)")
+        filter_args.add_argument("--long-del-length",type=int, default=50000,
+                                 help=("Deletion SVs longer than this are subjected to central coverage drop-based filtering. "
+                                       "Not applicable for --mosaic (%(default)s)"))
+        filter_args.add_argument("--long-inv-length", type=int, default=10000,
+                                 help=("Inversion SVs longer than this value are not subjected to central coverage "
+                                       "drop-based filtering (%(default)s)"))
+        filter_args.add_argument("--long-del-coverage", type=float, default=0.66,
+                                 help=("Long deletions with central coverage higher than this value will be filtered. "
+                                      "Not applicable for --mosaic (%(default)s)"))
+        filter_args.add_argument("--long-dup-length", type=int, default=50000,
+                                 help=("Duplication SVs longer than this value are subjected to central coverage increase-based "
+                                       "filtering. Not applicable for --mosaic (%(default)s)"))
+        # This was previously an argument but now a flag
+        filter_args.add_argument("--qc-bnd-filter-strand", action="store_false",
+                                 help="Filter breakends that do not have support for both strands")
+        filter_args.add_argument("--bnd-min-split-length", type=int, default=1000,
+                                 help="Min length of read splits to be considered for breakends (%(default)s)")
+        filter_args.add_argument("--long-dup-coverage", type=float, default=1.33,
+                                 help=("Long duplications with central coverage lower than this value will be filtered. "
+                                       "Not applicable for --mosaic (%(default)s)"))
+        filter_args.add_argument("--max-splits-kb", type=float, default=0.1,
+                                 help="Additional number of splits per kilobase read sequence allowed before reads are ignored (%(default)s)")
+        filter_args.add_argument("--max-splits-base", metavar="N", type=int, default=3,
+                                 help="Base number of splits allowed before reads are ignored (%(default)s)")
+        filter_args.add_argument("--min-alignment-length", type=int, default=argparse.SUPPRESS,
+                                 help="Reads with alignments shorter than this length in bp will be ignored")
+        filter_args.add_argument("--phase-conflict-threshold", type=float, default=0.1,
+                                 help="Max fraction of conflicting reads permitted for SV phase information to be labelled as PASS. Only for --phase (%(default)s)")
+        # This was previously an argument but now a flag
+        filter_args.add_argument("--detect-large-ins", action="store_false",
+                                 help="Infer insertions that are longer than most reads and therefore are spanned by few alignments only.")
+        # filter_args.add_argument("--large-ins-threshold", metavar="N", type=int, help="Min clipping at read ends to be considered a potential large insertion (only with --detect-large-ins)", default=5000)
 
     cluster_binsize: int
     cluster_binsize_combine_mult: int
 
     def add_cluster_args(self, parser):
         cluster_args = parser.add_argument_group("SV Clustering parameters")
-        cluster_args.add_argument("--cluster-binsize", metavar="N", type=int, help="Initial screening bin size in bp", default=100)
-        cluster_args.add_argument("--cluster-r", metavar="R", type=float, help="Multiplier for SV start position standard deviation criterion in cluster merging", default=2.5)
-        cluster_args.add_argument("--cluster-repeat-h", metavar="H", type=float, help="Multiplier for mean SV length criterion for tandem repeat cluster merging", default=1.5)
-        cluster_args.add_argument("--cluster-repeat-h-max", metavar="N", type=float, help="Max. merging distance based on SV length criterion for tandem repeat cluster merging", default=1000)
-        cluster_args.add_argument("--cluster-merge-pos", metavar="N", type=int, help="Max. merging distance for insertions and deletions on the same read and cluster in non-repeat regions", default=150)
-        cluster_args.add_argument("--cluster-merge-len", metavar="F", type=float, help="Max. size difference for merging SVs as fraction of SV length", default=0.33)
-        cluster_args.add_argument("--cluster-merge-bnd", metavar="N", type=int, help="Max. merging distance for breakend SV candidates.", default=1000)
+        cluster_args.add_argument("--cluster-binsize", type=int, default=100,
+                                  help="Initial screening bin size in bp (%(default)s)")
+        cluster_args.add_argument("--cluster-r", type=float, default=2.5,
+                                  help="Multiplier for SV start position standard deviation criterion in cluster merging (%(default)s)")
+        cluster_args.add_argument("--cluster-repeat-h", type=float, default=1.5,
+                                 help="Multiplier for mean SV length criterion for tandem repeat cluster merging (%(default)s)")
+        cluster_args.add_argument("--cluster-repeat-h-max", type=float, default=1000,
+                                  help="Max. merging distance based on SV length criterion for tandem repeat cluster merging (%(default)s)")
+        cluster_args.add_argument("--cluster-merge-pos", type=int, default=150,
+                                 help="Max. merging distance for insertions and deletions on the same read and cluster in non-repeat regions (%(default)s)")
+        cluster_args.add_argument("--cluster-merge-len", type=float, default=0.33,
+                                 help="Max. size difference for merging SVs as fraction of SV length (%(default)s)")
+        cluster_args.add_argument("--cluster-merge-bnd", type=int, default=1000,
+                                  help="Max. merging distance for breakend SV candidates (%(default)s)")
 
     genotype_ploidy: int
     genotype_vcf: str
 
     def add_genotype_args(self, parser):
         genotype_args = parser.add_argument_group("SV Genotyping parameters")
-        genotype_args.add_argument("--genotype-ploidy", metavar="N", type=int, help="Sample ploidy (currently fixed at value 2)", default=2)
-        genotype_args.add_argument("--genotype-error", metavar="N", type=float, help="Estimated false positive rate for leads (relating to total coverage)", default=0.05)
-        genotype_args.add_argument("--sample-id", type=str, help="Custom ID for this sample, used for later multi-sample calling (stored in .snf)", default=None)
-        genotype_args.add_argument("--genotype-vcf", metavar="IN.vcf", type=str, help="Determine the genotypes for all SVs in the given input .vcf file (forced calling). Re-genotyped .vcf will be written to the output file specified with --vcf.", default=None)
+        genotype_args.add_argument("--genotype-ploidy", type=int, default=2,
+                                   help="Sample ploidy (%(default)s)")
+        genotype_args.add_argument("--genotype-error", type=float, default=0.05,
+                                   help="Estimated false positive rate for leads (%(default)s)")
+        # I assume this is also used in the output VCF, so I removed notes about .snf
+        genotype_args.add_argument("--sample-id", type=str, default="SAMPLE",
+                                  help="Custom ID for this sample (%(default)s))")
+        genotype_args.add_argument("--genotype-vcf", metavar="IN.vcf", type=str,
+                                   help="Forced calling input.vcf")
 
     def add_multi_args(self, parser):
         multi_args = parser.add_argument_group("Multi-Sample Calling / Combine parameters")
-        multi_args.add_argument("--combine-high-confidence", metavar="F", type=float, help="Minimum fraction of samples in which a SV needs to have individually passed QC for it to be reported in combined output (a value of zero will report all SVs that pass QC in at least one of the input samples)", default=0.0)
-        multi_args.add_argument("--combine-low-confidence", metavar="F", type=float, help="Minimum fraction of samples in which a SV needs to be present (failed QC) for it to be reported in combined output", default=0.2)
-        multi_args.add_argument("--combine-low-confidence-abs", metavar="N", type=int, help="Minimum absolute number of samples in which a SV needs to be present (failed QC) for it to be reported in combined output", default=2)
-        multi_args.add_argument("--combine-null-min-coverage", metavar="N", type=int, help="Minimum coverage for a sample genotype to be reported as 0/0 (sample genotypes with coverage below this threshold at the SV location will be output as ./.)", default=5)
-        multi_args.add_argument("--combine-match", metavar="N", type=int, help="Multiplier for maximum deviation of multiple SV's start/end position for them to be combined across samples. Given by max_dev=M*sqrt(min(SV_length_a,SV_length_b)), where M is this parameter.", default=250)
-        multi_args.add_argument("--combine-match-max", metavar="N", type=int, help="Upper limit for the maximum deviation computed for --combine-match, in bp.", default=1000)
-        multi_args.add_argument("--combine-separate-intra", help="Disable combination of SVs within the same sample", default=False, action="store_true")
-        multi_args.add_argument("--combine-output-filtered", help="Include low-confidence / mosaic SVs in multi-calling", default=False, action="store_true")
-        multi_args.add_argument("--combine-pair-relabel", help="Override low-quality genotypes when combining 2 samples (may be used for e.g. tumor-normal comparisons)", default=False, action="store_true")
-        multi_args.add_argument("--combine-pair-relabel-threshold", help="Genotype quality below which a genotype call will be relabeled", default=20, type=int)
-        multi_args.add_argument("--combine-close-handles", help="Close .SNF file handles after each use. May lower performance, but may be required when maximum number of file handles supported by OS is reached when merging many samples.", default=False, action="store_true")
-        multi_args.add_argument("--combine-pctseq", default=0.7, type=float, help="Minimum alignment distance as percent of SV length to be merged. Set to 0 to disable alignments for merging.")
+        multi_args.add_argument("--combine-high-confidence", type=float, default=0.0,
+                                help="Min fraction of passed QC samples an SV needs (%(default)s)")
+        multi_args.add_argument("--combine-low-confidence", type=float, default=0.2,
+                                help="Min fraction of present samples an SV needs (%(default)s)")
+        multi_args.add_argument("--combine-low-confidence-abs", type=int, default=2,
+                                help="Min number of present samples an SV needs (%(default)s)")
+        multi_args.add_argument("--combine-null-min-coverage", type=int, default=5,
+                                help="Min coverage for a genotype to be reported as 0/0 instead of ./. (%(default)s)")
+        # The formula and detail should be in wiki
+        multi_args.add_argument("--combine-match", type=int, default=250,
+                                help=("Multiplier for maximum deviation of multiple SV's start/end position for them to "
+                                     "be combined across samples. Given by max_dev=M*sqrt(min(SV_length_a,SV_length_b)), "
+                                     "where M is this parameter (%(default)s)"))
+        multi_args.add_argument("--combine-match-max", type=int, default=1000,
+                                 help="Upper limit for the max deviation computed for --combine-match, in bp (%(default)s)")
+        multi_args.add_argument("--combine-separate-intra", action="store_true", 
+                                help="Disable combination of SVs within the same sample")
+        multi_args.add_argument("--combine-output-filtered", action="store_true",
+                                 help="Include low-confidence / mosaic SVs in multi-calling")
+        multi_args.add_argument("--combine-pair-relabel", action="store_true",
+                                help="Override low-quality genotypes when combining paired samples")
+        multi_args.add_argument("--combine-pair-relabel-threshold", default=20, type=int,
+                                help="Genotype quality minimum before relabeling (%(default)s)")
+        multi_args.add_argument("--combine-close-handles", action="store_true",
+                                help="Close .SNF file handles after each use to avoid opened files ulimit when merging many samples.")
+        multi_args.add_argument("--combine-pctseq", default=0.7, type=float,
+                                help="Min alignment distance as percent of SV length to be merged. 0=off (%(default)s)")
         multi_args.add_argument("--combine-max-inmemory-results", default=20, type=int, help=argparse.SUPPRESS)
         # multi_args.add_argument("--combine-exhaustive", help="(DEV) Disable performance optimization in multi-calling", default=False, action="store_true")
         # multi_args.add_argument("--combine-relabel-rare", help="(DEV)", default=False, action="store_true")
@@ -190,15 +283,23 @@ class SnifflesConfig(argparse.Namespace):
     allow_overwrite: bool
 
     def add_postprocess_args(self, parser):
-        postprocess_args = parser.add_argument_group("SV Postprocessing, QC and output parameters")
-        postprocess_args.add_argument("--output-rnames", help="Output names of all supporting reads for each SV in the RNAMEs info field", default=False, action="store_true")
-        postprocess_args.add_argument("--no-consensus", help="Disable consensus sequence generation for insertion SV calls (may improve performance)", default=False, action="store_true")
-        postprocess_args.add_argument("--no-sort", help="Do not sort output VCF by genomic coordinates (may slightly improve performance)", default=False, action="store_true")
-        postprocess_args.add_argument("--no-progress", help="Disable progress display", default=False, action="store_true")
-        postprocess_args.add_argument("--quiet", help="Disable all logging, except errors", default=False, action="store_true")
-        postprocess_args.add_argument("--max-del-seq-len", metavar="N", type=int, help="Maximum deletion sequence length to be output. Deletion SVs longer than this value will be written to the output as symbolic SVs.", default=50000)
-        postprocess_args.add_argument("--symbolic", help="Output all SVs as symbolic, including insertions and deletions, instead of reporting nucleotide sequences.", default=False, action="store_true")
-        postprocess_args.add_argument("--allow-overwrite", help="Allow overwriting output files if already existing", default=False, action="store_true")
+        postprocess_args = parser.add_argument_group("Output formatting parameters")
+        postprocess_args.add_argument("--output-rnames", action="store_true",
+                                      help="Output names supporting reads in INFO/RNAME")
+        postprocess_args.add_argument("--no-consensus", action="store_true",
+                                      help="Disable consensus sequence generation for insertion SV calls")
+        postprocess_args.add_argument("--no-sort", action="store_true",
+                                      help="Do not sort output VCF")
+        postprocess_args.add_argument("--no-progress", action="store_true",
+                                      help="Disable progress display")
+        postprocess_args.add_argument("--quiet", action="store_true",
+                                      help="Disable any non-error logging")
+        postprocess_args.add_argument("--max-del-seq-len", type=int, default=50000,
+                                      help="Max deletion sequence length in output before writing as symbolic <DEL> (%(default)s)")
+        postprocess_args.add_argument("--symbolic", action="store_true",
+                                      help="Output all SVs as symbolic")
+        postprocess_args.add_argument("--allow-overwrite", action="store_true",
+                                      help="Allow overwriting existing output files")
 
     mosaic_include_germline: bool
     mosaic_qc_nm: bool
@@ -207,16 +308,25 @@ class SnifflesConfig(argparse.Namespace):
     mosaic_use_strand_thresholds: int = 10
 
     def add_mosaic_args(self, parser):
-        mosaic_args = parser.add_argument_group("Mosaic calling mode parameters")
-        mosaic_args.add_argument("--mosaic", help="Set Sniffles run mode to detect rare, somatic and mosaic SVs", default=False, action="store_true")
-        mosaic_args.add_argument("--mosaic-af-max", help="Maximum allele frequency for which SVs are considered mosaic", metavar="F", default=0.2, type=float)
-        mosaic_args.add_argument("--mosaic-af-min", help="Minimum allele frequency for mosaic SVs to be output", metavar="F", default=0.05, type=float)
-        mosaic_args.add_argument("--mosaic-qc-invdup-min-length", help="Minimum SV length for mosaic inversion and duplication SVs", metavar="N", default=500, type=int)
+        mosaic_args = parser.add_argument_group("Mosaic/somatic calling mode parameters")
+        mosaic_args.add_argument("--mosaic", action="store_true",
+                                 help="Turn on mosaic calling")
+        mosaic_args.add_argument("--mosaic-af-max", type=float, default=0.2,
+                                 help="Max allele frequency for which SVs are considered mosaic (%(default)s)")
+        mosaic_args.add_argument("--mosaic-af-min", type=float, default=0.05, 
+                                 help="Min allele frequency for mosaic SVs to be output (%(default)s)")
+        mosaic_args.add_argument("--mosaic-qc-invdup-min-length", type=int,  default=500,
+                                 help="Min SV length for mosaic inversion and duplication SVs (%(default)s)")
+        # This flag is always True
         mosaic_args.add_argument("--mosaic-qc-nm", default=True, action="store_true", help=argparse.SUPPRESS)
-        mosaic_args.add_argument("--mosaic-qc-nm-mult", metavar="F", type=float, default=1.66, help=argparse.SUPPRESS)
-        mosaic_args.add_argument("--mosaic-qc-coverage-max-change-frac", help="Maximum relative coverage change across SV breakpoints", metavar="F", type=float, default=0.1)
-        mosaic_args.add_argument("--mosaic-qc-strand", help="Apply filtering based on strand support of SV calls", metavar="True", type=tobool, default=True)
-        mosaic_args.add_argument("--mosaic-include-germline", help="Report germline SVs as well in mosaic mode", default=False, action="store_true")
+        mosaic_args.add_argument("--mosaic-qc-nm-mult", type=float, default=1.66, help=argparse.SUPPRESS)
+        mosaic_args.add_argument("--mosaic-qc-coverage-max-change-frac", type=float, default=0.1,
+                                 help="Max relative coverage change across breakpoints (%(default)s)")
+        # This parameter is now a flag
+        mosaic_args.add_argument("--mosaic-qc-strand", action="store_false", 
+                                 help="Apply filtering based on strand support of calls")
+        mosaic_args.add_argument("--mosaic-include-germline", action="store_true",
+                                 help="Report germline SVs as well in mosaic mode")
 
     qc_nm: bool
     combine_consensus: bool
@@ -245,7 +355,7 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--repeat", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--qc-nm", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--qc-nm-mult", metavar="F", type=float, default=1.66, help=argparse.SUPPRESS)
-        developer_args.add_argument("--qc-coverage-max-change-frac", help="Maximum relative coverage change across SV breakpoints", metavar="F", type=float, default=-1)
+        developer_args.add_argument("--qc-coverage-max-change-frac", help="Max relative coverage change across SV breakpoints", metavar="F", type=float, default=-1)
         developer_args.add_argument("--coverage-updown-bins", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
         developer_args.add_argument("--coverage-shift-bins", metavar="N", type=int, default=3, help=argparse.SUPPRESS)
         developer_args.add_argument("--coverage-shift-bins-min-aln-length", metavar="N", type=int, default=1000, help=argparse.SUPPRESS)
@@ -266,7 +376,9 @@ class SnifflesConfig(argparse.Namespace):
     def __init__(self, *args, **kwargs):
         super().__init__(**kwargs)
 
-        parser = argparse.ArgumentParser(description="", epilog=self.example, formatter_class=lambda prog: ArgFormatter(prog, max_help_position=100, width=150), usage=self.usage)
+        parser = argparse.ArgumentParser(description="", usage=self.usage,
+            formatter_class=lambda prog: ArgFormatter(prog, width=100))
+        parser.add_argument('--example', action=ExampleAction, help='Show example usage and exit')
         parser.add_argument("--version", action="version", version=f"Sniffles2, Version {BUILD}")
 
         self.add_main_args(parser)
