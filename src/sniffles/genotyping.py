@@ -66,6 +66,9 @@ class Genotyper:
         return support / float(coverage)
 
     def _get_coverage_from_list(self, coverage_list: list = None) -> int:
+        """
+        Coverage here is NOT the same as in IGV, but the number of reads spanning the SV
+        """
         svcall = self.svcall
         if coverage_list is None:
             coverage_list = [svcall.coverage_start, svcall.coverage_center, svcall.coverage_end]
@@ -179,9 +182,7 @@ class InversionGenotyper(Genotyper):
 
 
 class DeletionGenotyper(Genotyper):
-    def _calculate_coverage(self, support: int) -> int:
-        svcall = self.svcall
-        return self._get_coverage_from_list([svcall.coverage_start + support, svcall.coverage_center + support, svcall.coverage_end + support])
+    ...
 
 
 GENOTYPER_BY_TYPE = {
