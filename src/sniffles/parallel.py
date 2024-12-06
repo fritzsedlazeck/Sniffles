@@ -350,6 +350,7 @@ class CombineTask(Task):
         bin_min_size = self.config.combine_min_size
         bin_max_candidates = max(25, int(len(self.config.snf_input_info) * 0.5))
         overlap_abs = self.config.combine_overlap_abs
+        support_threshold = self.config.combine_support_threshold
 
         sample_internal_ids = set(samples_headers_snf.keys())
 
@@ -384,6 +385,8 @@ class CombineTask(Task):
                         for cand in block[svtype]:
                             # if config.combine_pass_only and (cand.qc==False or cand.filter!="PASS"):
                             #    continue
+                            if cand.support < support_threshold:
+                                continue
 
                             cand.sample_internal_id = sample_internal_id
 

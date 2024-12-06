@@ -183,6 +183,7 @@ class SnifflesConfig(argparse.Namespace):
         multi_args.add_argument("--combine-close-handles", help="Close .SNF file handles after each use. May lower performance, but may be required when maximum number of file handles supported by OS is reached when merging many samples.", default=False, action="store_true")
         multi_args.add_argument("--combine-pctseq", default=0.7, type=float, help="Minimum alignment distance as percent of SV length to be merged. Set to 0 to disable alignments for merging.")
         multi_args.add_argument("--combine-max-inmemory-results", default=20, type=int, help=argparse.SUPPRESS)
+        multi_args.add_argument("--combine-support-threshold", default=3, metavar="N", type=int, help="Minimum support for SVs to be considered for multi-sample calling.")
         # multi_args.add_argument("--combine-exhaustive", help="(DEV) Disable performance optimization in multi-calling", default=False, action="store_true")
         # multi_args.add_argument("--combine-relabel-rare", help="(DEV)", default=False, action="store_true")
         # multi_args.add_argument("--combine-with-missing", help="(DEV)", default=False, action="store_true")
