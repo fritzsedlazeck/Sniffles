@@ -203,13 +203,13 @@ class SVGroup:
                total_count >= config.combine_low_confidence_abs))
 
         if not qc:
-            if not config.no_qc and n_samples == 1:
+            if config.no_qc and n_samples == 1:
                 pass
             else:
                 return None
 
         if not config.combine_output_filtered and not any(cand.qc and cand.filter == "PASS" for cand in self.candidates):
-            if not config.no_qc and n_samples == 1:
+            if config.no_qc and n_samples == 1:
                 pass
             else:
                 return None
