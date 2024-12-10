@@ -114,7 +114,7 @@ class Task:
         self.coverage_average_total = self.coverage_average_fwd + self.coverage_average_rev
         return candidates
 
-    def finalize_candidates(self, candidates, keep_qc_fails, config):
+    def finalize_candidates(self, candidates: list['SVCall'], keep_qc_fails, config):
         passed = []
         for svcall in candidates:
             svcall.qc = svcall.qc and postprocessing.qc_sv(svcall, config)
@@ -376,9 +376,10 @@ class CombineTask(Task):
 
             for svtype in sv.TYPES:
                 bins = {}
-                # svcandidates=[]
-                for sample_internal_id in samples_headers_snf.keys():  # fetch current block for each file
+                for sample_internal_id, sample_snf in samples_headers_snf.items():  # fetch current block for each file
                     blocks = samples_blocks[sample_internal_id]
+                    reqc = sample_snf.reqc
+
                     if blocks is None:
                         continue
                     for block in blocks:  # usually only 1 block
@@ -387,6 +388,9 @@ class CombineTask(Task):
                             #    continue
                             if cand.support < support_threshold:
                                 continue
+
+                            if reqc:
+                                postprocessing.genotype_sv(cand, self.config)
 
                             cand.sample_internal_id = sample_internal_id
 

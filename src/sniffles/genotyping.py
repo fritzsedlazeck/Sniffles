@@ -48,10 +48,19 @@ class Genotyper:
     _support: int
     _coverage: float
 
-    def __init__(self, svcall: SVCall, config, phase):
+    def __init__(self, svcall: SVCall, config, phase: tuple | None):
         self.svcall = svcall
         self.config = config
-        self.phase = phase
+        self.phase = phase if phase is not None else self._get_phase()
+
+    def _get_phase(self) -> tuple | None:
+        """
+        Get phasing information from the genotyped SV, or None if it can't be determined.
+        """
+        try:
+            return self.svcall.genotypes[0][5]
+        except (KeyError, IndexError):
+            return None
 
     def _calculate_support(self) -> int:
         return self.svcall.support

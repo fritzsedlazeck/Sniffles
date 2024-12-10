@@ -362,6 +362,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
         else:
             util.fatal_error_main("Failed to determine .snf files to be combined. Please specify either one or more .snf files OR a single .tsv file as input for multi-calling.")
 
+        log.info("The following samples will be processed in multi-calling:")
         for snf_internal_id, (input_filename, sample_id) in enumerate(input_snfs_sample_ids):
             snf_in = snf.SNFile(config, open(input_filename, "rb"), filename=input_filename)
             snf_in.read_header()
@@ -378,7 +379,9 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
                 else:
                     sample_id, _ = os.path.splitext(os.path.basename(input_filename))
             config.snf_input_info.append({"internal_id": snf_internal_id, "sample_id": sample_id, "filename": input_filename})
+            reqc_info = f' (Rerunning QC)' if snf_in.reqc else ''
             snf_in.close()
+            log.info(f"    {input_filename} (sample ID in output VCF='{sample_id}'{reqc_info})")
 
         if not config.combine_consensus:
             for info in config.snf_input_info:
@@ -422,9 +425,6 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             task_id = tasks[-1].id + 1
 
         log.info(f"Verified headers for {len(input_snfs_sample_ids)} .snf files.")
-        log.info("The following samples will be processed in multi-calling:")
-        for info in config.snf_input_info:
-            log.info(f"    {info['filename']} (sample ID in output VCF='{info['sample_id']}')")
 
     if config.mode != "genotype_vcf" and config.vcf is not None:
         vcf_out.write_header(contig_lengths)

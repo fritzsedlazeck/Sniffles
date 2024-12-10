@@ -168,7 +168,26 @@ class SnifflesConfig(argparse.Namespace):
         genotype_args.add_argument("--sample-id", type=str, help="Custom ID for this sample, used for later multi-sample calling (stored in .snf)", default=None)
         genotype_args.add_argument("--genotype-vcf", metavar="IN.vcf", type=str, help="Determine the genotypes for all SVs in the given input .vcf file (forced calling). Re-genotyped .vcf will be written to the output file specified with --vcf.", default=None)
 
-    def add_multi_args(self, parser):
+    combine_high_confidence: float
+    combine_low_confidence: float
+    combine_low_confidence_abs: int
+    combine_null_min_coverage: int
+    combine_match: int
+    combine_match_max: int
+    combine_separate_intra: bool
+    combine_output_filtered: bool
+    combine_pair_relabel: bool
+    combine_pair_relabel_threshold: int
+    combine_close_handles: bool
+    combine_pctseq: float
+    combine_max_inmemory_results: int
+    combine_support_threshold: int
+
+    @classmethod
+    def add_multi_args(cls, parser):
+        """
+        Arguments for multi-sample calling
+        """        
         multi_args = parser.add_argument_group("Multi-Sample Calling / Combine parameters")
         multi_args.add_argument("--combine-high-confidence", metavar="F", type=float, help="Minimum fraction of samples in which a SV needs to have individually passed QC for it to be reported in combined output (a value of zero will report all SVs that pass QC in at least one of the input samples)", default=0.0)
         multi_args.add_argument("--combine-low-confidence", metavar="F", type=float, help="Minimum fraction of samples in which a SV needs to be present (failed QC) for it to be reported in combined output", default=0.2)
@@ -184,6 +203,8 @@ class SnifflesConfig(argparse.Namespace):
         multi_args.add_argument("--combine-pctseq", default=0.7, type=float, help="Minimum alignment distance as percent of SV length to be merged. Set to 0 to disable alignments for merging.")
         multi_args.add_argument("--combine-max-inmemory-results", default=20, type=int, help=argparse.SUPPRESS)
         multi_args.add_argument("--combine-support-threshold", default=3, metavar="N", type=int, help="Minimum support for SVs to be considered for multi-sample calling.")
+        multi_args.add_argument("--re-qc", metavar="auto", default="auto", type=str, help="Re-QC SVs from SNF files. Set to 0 to disable re-qc of SNF files. Set to 1 to force re-qc. Default of 'auto' will try to fix known errors in SNF files.")
+
         # multi_args.add_argument("--combine-exhaustive", help="(DEV) Disable performance optimization in multi-calling", default=False, action="store_true")
         # multi_args.add_argument("--combine-relabel-rare", help="(DEV)", default=False, action="store_true")
         # multi_args.add_argument("--combine-with-missing", help="(DEV)", default=False, action="store_true")
@@ -326,6 +347,13 @@ class SnifflesConfig(argparse.Namespace):
 
         if self.dev_no_qc:
             self.no_qc = True
+
+        if self.re_qc == 'auto':
+            self.reqc = 'auto'
+        elif self.re_qc in ('0', '1'):
+            self.reqc = bool(int(self.re_qc))
+        else:
+            util.fatal_error('Invalid value for --re-qc, allowed values are: auto, 0, 1')
 
         if not hasattr(self, 'mapq'):
             self.mapq = 0 if self.dev_no_qc else 20

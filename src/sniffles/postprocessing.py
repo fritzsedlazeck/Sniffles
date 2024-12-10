@@ -402,7 +402,7 @@ def binomial_coef(n, k):
     return math.factorial(n) / (math.factorial(k) * math.factorial(n - k))
 
 
-def genotype_sv(svcall: SVCall, config, phase):
+def genotype_sv(svcall: SVCall, config, phase: tuple | None = None):
     from sniffles.genotyping import GENOTYPER_BY_TYPE, Genotyper
 
     GENOTYPER_BY_TYPE.get(svcall.svtype, Genotyper)(svcall, config, phase).calculate()
