@@ -8,16 +8,20 @@
 # Maintainer:  Hermann Romanek
 # Contact:     sniffles@romanek.at
 #
+import logging
 import os
 import pickle
 import json
 import gzip
 import math
-from collections import OrderedDict
-from typing import Optional, Union
+from functools import cached_property
+from typing import Optional
 
 from sniffles import sv
 from sniffles.config import SnifflesConfig
+
+
+log = logging.getLogger(__name__)
 
 
 class SNFile:
@@ -41,6 +45,22 @@ class SNFile:
     @property
     def header(self) -> dict:
         return self._header
+
+    @cached_property
+    def reqc(self) -> bool:
+        """
+        Was this file created by an old Version of sniffles we want to redo qc?
+        """
+        if self.config.reqc == 'auto':
+            try:
+                build, _, _ = self.header['config']['build'].partition('-')
+            except (KeyError, AttributeError):
+                log.warning(f'Unable to determine version of SNF file {self.filename} for auto-reqc')
+                return True
+            else:
+                return build < '2.5.3'
+        else:
+            return self.config.reqc
 
     def is_open(self) -> bool:
         return self.handle is not False
