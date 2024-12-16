@@ -263,7 +263,7 @@ class SVGroup:
             genotypes = {0: (cons_a, cons_b, int(sum(consensus_info["qual"]) / consensus_info["count"]),
                              sum(consensus_info["dr"]), sum(consensus_info["dv"]))}
             if cons_a != 1 and cons_b != 1:
-                if not config.no_qc and n_samples == 1:
+                if config.no_qc and n_samples == 1:
                     pass
                 else:
                     return None

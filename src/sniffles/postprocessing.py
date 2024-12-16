@@ -310,7 +310,7 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
             elif svcall.coverage_upstream < svcall.coverage_downstream:
                 if (upstream_downstream_diff > svcall.coverage_upstream / svcall.coverage_downstream or
                         svcall.coverage_upstream > svcall.coverage_center):
-                    svcall.filter = "COV_CHANGE_DEL"
+                    svcall.filter = "COV_CHANGE_DUP"
                     return False
             else:
                 pass
