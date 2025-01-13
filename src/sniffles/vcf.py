@@ -98,15 +98,18 @@ class VCF:
         self.reference_handle = None
         self.header_str = ""
 
-    def open_reference(self):
+    def open_reference(self, generate_index: bool = True):
         if self.config.reference is None:
             return
 
-        if not os.path.exists(self.config.reference + ".fai") and not os.path.exists(self.config.reference + ".gzi"):
-            print(f"Info: Fasta index for {self.config.reference} not found. Generating with pysam.faidx "
-                  f"(this may take a while)")
+        if not os.path.exists(self.config.reference + ".fai") and not os.path.exists(self.config.reference + ".gzi") and generate_index:
+            log.warning(f"Fasta index for {self.config.reference} not found. Generating with pysam.faidx (this may take a while)")
             pysam.faidx(self.config.reference)
-        self.reference_handle = pysam.FastaFile(self.config.reference)
+
+        try:
+            self.reference_handle = pysam.FastaFile(self.config.reference)
+        except:
+            log.error(f'Unable to open reference file {self.config.reference}')
 
     def write_header(self, contigs_lengths):
         self.write_header_line("fileformat=VCFv4.2")
