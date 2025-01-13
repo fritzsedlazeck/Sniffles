@@ -225,10 +225,14 @@ class SNFileBase:
             self.handle.close()
             self.handle = False
 
-    def get_all_blocks(self, contig: str):
+    def get_all_blocks(self, contig: str) -> dict[str, dict]:
+        """
+        Fetches all blocks for given contig.
+        """
         blocks = {}
-        for block_start in self.index[contig].keys():
-            blocks[block_start] = self.read_blocks(contig, block_start)[0]
+        if contig in self.index:
+            for block_start in self.index[contig].keys():
+                blocks[block_start] = self.read_blocks(contig, block_start)[0]
         return blocks
 
     def get_full_coverage(self, contig: str):

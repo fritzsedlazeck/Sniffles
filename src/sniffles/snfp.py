@@ -121,21 +121,25 @@ class PopulationSNF(SNFileBase):
     """
     _blocks = None
 
-    def _get_block_index(self, pos: int) -> int:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._blocks = {}
+
+    def _calculate_block_index(self, pos: int) -> int:
         return int(pos / self.config.snf_block_size) * self.config.snf_block_size
 
     def get_population_AF(self, svcall: SVCall) -> tuple[float, int] | None:
         """
         Returns the population AF and population size for the given SVCall. Returns None if the variant is not found in the population SNF.
         """
-        if self._blocks is None:
-            self._blocks = self.get_all_blocks(svcall.contig)
+        if svcall.contig not in self._blocks:
+            self._blocks[svcall.contig] = self.get_all_blocks(svcall.contig)
 
-        block = str(self._get_block_index(svcall.pos))
+        block = str(self._calculate_block_index(svcall.pos))
         best_dist = None
         best_variant = None
         try:
-            for pv in self._blocks[block][svcall.svtype]:
+            for pv in self._blocks[svcall.contig][block][svcall.svtype]:
                 pv: PopulationVariant
                 dist = pv.match(svcall)
                 if dist is not None:
