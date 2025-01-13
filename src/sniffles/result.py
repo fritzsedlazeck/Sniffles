@@ -180,6 +180,7 @@ class CombineResultTmpFile(CombineResult):
 
         with open(self.tmpfile_name, 'a') as f:
             vcf = VCF(SnifflesConfig.GLOBAL, f)
+            vcf.open_reference(generate_index=False)
             for call in svcalls[offset:]:
                 vcf.write_call(call)
 
