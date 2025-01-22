@@ -210,7 +210,13 @@ class InversionGenotyper(Genotyper):
 
 
 class DeletionGenotyper(Genotyper):
-    ...
+
+    def _calculate_coverage(self, support: int) -> int:
+        svcall = self.svcall
+        if support_sa := svcall.get_info('SUPPORT_SA'):
+            return self._get_coverage_from_list([svcall.coverage_start + support_sa, svcall.coverage_center + support_sa, svcall.coverage_end + support_sa])
+        else:
+            return super()._calculate_coverage(support)
 
 
 GENOTYPER_BY_TYPE = {

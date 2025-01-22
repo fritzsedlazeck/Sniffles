@@ -447,6 +447,8 @@ def call_from(cluster, config, keep_qc_fails, task):
         resolve_bnd(svcall, cluster, config)
     elif svtype == "INS":
         svcall.set_info("SUPPORT_LONG", support_long)
+    elif svtype == "DEL":
+        svcall.set_info("SUPPORT_SA", len([l for l in leads if l.source != "INLINE"]))
 
     if stdev_pos is not None:
         svcall.set_info("STDEV_POS", stdev_pos)

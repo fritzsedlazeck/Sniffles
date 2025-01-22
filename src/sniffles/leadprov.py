@@ -28,7 +28,7 @@ from sniffles.region import Region
 
 @dataclass
 class Lead:
-    read_id: int = None
+    read_id: int = None  # or tuple[int, str, str] for phased reads, with (read_id, HP, PS)
     read_qname: str = None
     contig: str = None
     ref_start: int = None
