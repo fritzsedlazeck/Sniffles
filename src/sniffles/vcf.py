@@ -235,6 +235,12 @@ class VCF:
             if ac == 0:
                 call.filter = "GT"
 
+        # Check if svlen == len(alt) in INS
+        if "INS" == call.svtype:
+            if call.svlen != (len(call.alt) - 1) and not self.config.symbolic:
+                log.info(f"Updating SVLEN for INS to match sequence length: {call.svlen} v {(len(call.alt) - 1)}")
+                call.svlen = (len(call.alt) - 1)
+
         # Output core SV attributes
         infos = {
             "SVTYPE": call.svtype,
