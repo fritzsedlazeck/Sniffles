@@ -70,6 +70,19 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     #
     config = SnifflesConfig()
 
+    if config.dev_debug:
+        try:
+            import pydevd_pycharm
+        except ImportError:
+            logging.getLogger('sniffles.dev').info(f'pydevd not available!')
+        else:
+            try:
+                pydevd_pycharm.settrace('localhost', port=config.dev_debug, stdoutToServer=True, stderrToServer=True)
+            except:  # noqa
+                logging.getLogger('sniffles.dev').info(f'Failed to connect to PyCharm debugger.', exc_info=True)
+            else:
+                logging.getLogger('sniffles.dev').info(f'Connected to PyCharm debugger.')
+
     input_ext = [f.split(".")[-1].lower() for f in config.input]
 
     # needed for running on osx
