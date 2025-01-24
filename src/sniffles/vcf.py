@@ -9,6 +9,7 @@
 # Contact:     sniffles@romanek.at
 #
 import logging
+from collections import Counter
 
 import pysam
 import os
@@ -199,7 +200,7 @@ class VCF:
     def write_header_line(self, text):
         self.write_raw("##" + text)
 
-    def write_call(self, call):
+    def write_call(self, call) -> int:
         # pysam coordinates are 0-based, VCF 1-based
         # but VCF also requires the index of the base before the SV to be reported,
         # so we are fine without offsetting
@@ -230,7 +231,7 @@ class VCF:
 
             if int(svec) == 0:
                 log.debug(f'Dropped {call} due to all zero support vector.')
-                return
+                return 0
 
             if ac == 0:
                 call.filter = "GT"
@@ -295,6 +296,11 @@ class VCF:
             except ValueError:
                 call.ref = "N"
                 call.alt = f"<{call.svtype}>"
+            else:
+                if 'N' in call.ref and (pct_n := Counter(call.ref)['N'] / len(call.ref)) > self.config.max_unknown_pct:
+                    # don't emit calls with too many N bases
+                    log.debug(f'Not emitting {call} due to {pct_n*100:.2f}% N bases in reference.')
+                    return 0
 
         if self.config.symbolic:
             call.ref = "N"
@@ -318,6 +324,7 @@ class VCF:
                                                   call.alt, call.qual if call.qual is not None else '.', call.filter, info_str, self.genotype_format] +
                                  sample_genotypes))
         self.call_count += 1
+        return 1
 
     def read_svs_iter(self):
         self.header_str = ""
