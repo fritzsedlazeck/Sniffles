@@ -299,7 +299,7 @@ class VCF:
             else:
                 if 'N' in call.ref and (pct_n := Counter(call.ref)['N'] / len(call.ref)) > self.config.max_unknown_pct:
                     # don't emit calls with too many N bases
-                    log.debug(f'Not emitting {call} due to {pct_n*100:.2f}% N bases in reference.')
+                    log.debug(f'Not emitting {call.id} (length {call.svlen}) due to {pct_n*100:.2f}% N bases in reference.')
                     return 0
 
         if self.config.symbolic:

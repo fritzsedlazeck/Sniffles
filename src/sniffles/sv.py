@@ -509,17 +509,17 @@ def call_groups(svgroups: list[SVGroup], config, task):
             yield svcall
 
 
-def classify_splits(read, leads, config, main_contig):
+def classify_splits(read, leads, config, main_contig) -> list:
     """
-    Determines the SV type of a split read (read with supplementary alignments)
+    Determines the SV type of a split read (read with supplementary alignments). Returns (possibly changed) list of leads.
     """
     minsvlen_screen = config.minsvlen_screen
-    maxsvlen_other = minsvlen_screen * config.dev_split_max_query_distance_mult
     min_split_len_bnd = config.bnd_min_split_length
 
     leads.sort(key=lambda ld: ld.qry_start)
     last = leads[0]
     last.svtypes_starts_lens = []
+    hints = 0
 
     if last.qry_start >= config.long_ins_length * 0.5:
         last.svtypes_starts_lens.append(("INS", last.ref_start, None))
@@ -527,7 +527,6 @@ def classify_splits(read, leads, config, main_contig):
     for i in range(1, len(leads)):
         curr = leads[i]
         curr.svtypes_starts_lens = []
-        qry_dist_abs = abs(curr.qry_start - last.qry_end)
 
         if curr.contig == last.contig:
             rev = (curr.strand == "-")
@@ -537,7 +536,6 @@ def classify_splits(read, leads, config, main_contig):
                 # INS, DEL, DUP
                 #
                 if (fwd and (curr.qry_start - last.qry_end) >= minsvlen_screen
-                        and (curr.ref_start - last.ref_end) < maxsvlen_other
                         and (curr.qry_start - last.qry_end) - (curr.ref_start - last.ref_end) >= minsvlen_screen):
                     # INS, FWD
                     svstart = curr.ref_start
@@ -547,9 +545,9 @@ def classify_splits(read, leads, config, main_contig):
                     else:
                         curr.seq = None
                     curr.svtypes_starts_lens.append(("INS", svstart, svlen))
+                    hints += 1
 
                 elif (rev and (curr.qry_start - last.qry_end) >= minsvlen_screen
-                      and (last.ref_start - curr.ref_end) < maxsvlen_other
                       and (curr.qry_start - last.qry_end) - (last.ref_start - curr.ref_end) >= minsvlen_screen):
                     # INS, REV
                     svstart = last.ref_start
@@ -559,40 +557,41 @@ def classify_splits(read, leads, config, main_contig):
                     else:
                         curr.seq = None
                     curr.svtypes_starts_lens.append(("INS", svstart, svlen))
+                    hints += 1
 
                 elif (fwd and (curr.ref_start - last.ref_end) >= minsvlen_screen
-                      and qry_dist_abs < maxsvlen_other
                       and (curr.ref_start - last.ref_end) - (curr.qry_start - last.qry_end) >= minsvlen_screen):
                     # DEL, FWD
                     svstart = curr.ref_start
                     svlen = (curr.ref_start - last.ref_end)
                     curr.svtypes_starts_lens.append(("DEL", svstart, -svlen))
+                    hints += 1
 
                 elif (rev and (last.ref_start - curr.ref_end) >= minsvlen_screen
-                      and qry_dist_abs < maxsvlen_other
                       and (last.ref_start - curr.ref_end) - (curr.qry_start - last.qry_end) >= minsvlen_screen):
                     # DEL, REV
                     svstart = last.ref_start
                     svlen = (last.ref_start - curr.ref_end)
                     curr.svtypes_starts_lens.append(("DEL", svstart, -svlen))
+                    hints += 1
 
                 elif fwd and curr.ref_start <= last.ref_end:
-                    if qry_dist_abs < maxsvlen_other:
-                        # DUP, FWD
-                        svstart = curr.ref_start
-                        svlen = (last.ref_end - curr.ref_start)
-                        if svlen >= minsvlen_screen:
-                            curr.svtypes_starts_lens.append(("DUP", svstart, svlen))
+                    # DUP, FWD
+                    svstart = curr.ref_start
+                    svlen = (last.ref_end - curr.ref_start)
+                    if svlen >= minsvlen_screen:
+                        curr.svtypes_starts_lens.append(("DUP", svstart, svlen))
+                        hints += 1
 
                 elif rev and last.ref_start <= curr.ref_end:
-                    if qry_dist_abs < maxsvlen_other:
-                        # DUP, REV
-                        svstart = last.ref_start
-                        svlen = (curr.ref_end - last.ref_start)
-                        if svlen >= minsvlen_screen:
-                            curr.svtypes_starts_lens.append(("DUP", svstart, svlen))
+                    # DUP, REV
+                    svstart = last.ref_start
+                    svlen = (curr.ref_end - last.ref_start)
+                    if svlen >= minsvlen_screen:
+                        curr.svtypes_starts_lens.append(("DUP", svstart, svlen))
+                        hints += 1
 
-            elif qry_dist_abs < maxsvlen_other:
+            else:
                 #
                 # INV
                 #
@@ -602,6 +601,7 @@ def classify_splits(read, leads, config, main_contig):
                     svlen = last.ref_start - curr.ref_start
                     if svlen >= minsvlen_screen:
                         curr.svtypes_starts_lens.append(("INV", svstart, svlen))
+                        hints += 1
 
                 elif fwd and curr.ref_start > last.ref_start:
                     # CASE C
@@ -609,6 +609,7 @@ def classify_splits(read, leads, config, main_contig):
                     svlen = curr.ref_start - last.ref_start
                     if svlen >= minsvlen_screen:
                         curr.svtypes_starts_lens.append(("INV", svstart, svlen))
+                        hints += 1
 
                 elif rev and curr.ref_end >= last.ref_end:
                     # CASE A
@@ -616,6 +617,7 @@ def classify_splits(read, leads, config, main_contig):
                     svlen = curr.ref_end - last.ref_end
                     if svlen >= minsvlen_screen:
                         curr.svtypes_starts_lens.append(("INV", svstart, svlen))
+                        hints += 1
 
                 elif rev and curr.ref_end < last.ref_end:
                     # CASE D
@@ -623,8 +625,8 @@ def classify_splits(read, leads, config, main_contig):
                     svlen = last.ref_end - curr.ref_end
                     if svlen >= minsvlen_screen:
                         curr.svtypes_starts_lens.append(("INV", svstart, svlen))
-
-        elif qry_dist_abs < maxsvlen_other:
+                        hints += 1
+        else:
             #
             # BND
             #
@@ -651,4 +653,14 @@ def classify_splits(read, leads, config, main_contig):
                                                             b.ref_start,
                                                             is_first,
                                                             a.strand != b.strand)))
+                hints += 1
         last = curr
+
+    if not hints and len(leads) > 2:
+        # filter out short pseudo BND hints
+        left = leads[0]
+        leads = [ld for ld in leads if ld.contig == left.contig and ld.strand == left.strand]
+        if len(leads) == 2:
+            return classify_splits(read, leads, config, main_contig)
+
+    return leads
