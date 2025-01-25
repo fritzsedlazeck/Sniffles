@@ -225,12 +225,13 @@ class SnifflesConfig(argparse.Namespace):
     mosaic_include_germline: bool
     mosaic_qc_nm: bool
     # TODO some better rules here
-    mosaic_min_reads: int = 3
+    mosaic_min_reads: int
     mosaic_use_strand_thresholds: int = 10
 
     def add_mosaic_args(self, parser):
         mosaic_args = parser.add_argument_group("Mosaic calling mode parameters")
         mosaic_args.add_argument("--mosaic", help="Set Sniffles run mode to detect rare, somatic and mosaic SVs", default=False, action="store_true")
+        mosaic_args.add_argument("--mosaic-min-reads", help="Minimum number of reads required to call a mosaic SV", metavar="N", default=1, type=int)
         mosaic_args.add_argument("--mosaic-af-max", help="Maximum allele frequency for which SVs are considered mosaic", metavar="F", default=0.218, type=float)
         mosaic_args.add_argument("--mosaic-af-min", help="Minimum allele frequency for mosaic SVs to be output", metavar="F", default=0.05, type=float)
         mosaic_args.add_argument("--mosaic-qc-invdup-min-length", help="Minimum SV length for mosaic inversion and duplication SVs", metavar="N", default=500, type=int)

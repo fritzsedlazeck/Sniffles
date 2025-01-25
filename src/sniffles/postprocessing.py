@@ -385,6 +385,7 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig):
         qc_nm_threshold = config.qc_nm_threshold * config.qc_nm_mult
     if qc_nm and svcall.nm > qc_nm_threshold and (len(svcall.genotypes) == 0 or svcall.genotypes[0][1] == 0):
         svcall.filter = "ALN_NM"
+        svcall.set_info("QC_NM_THRESHOLD", qc_nm_threshold)
         return False
 
     if config.mosaic:
