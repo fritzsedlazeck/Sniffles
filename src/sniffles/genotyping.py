@@ -104,7 +104,11 @@ class Genotyper:
         coverage_list = [each_coverage for each_coverage in coverage_list if each_coverage != 0]
 
         if len(coverage_list) > 0:
-            return round(sum(coverage_list) / len(coverage_list))
+            coverage_has_none = True if None in coverage_list else False
+            if coverage_has_none:
+                raise UnknownGenotypeError()
+            else:
+                return round(sum(coverage_list) / len(coverage_list))
         else:
             raise UnknownGenotypeError()
 

@@ -38,41 +38,43 @@ def unpack_phase(phase, svid="") -> tuple:
         hp_i, ps = phase
     except TypeError:
         if phase is None:
-            # log.debug(f"Single 'None'-valued phase: {phase}|{svid}")
-            hp_i, ps = None, None
+            hp_i, ps = ".", "."
         else:
             log.debug(f"Single not 'None'-valued phase: {phase}|{svid}")
             hp_i, ps = phase, phase
+    ps = ps if ps is not None else "."
     return hp_i, ps
 
 
-def format_genotype(gt):
+def format_genotype(gt, is_phased):
     """
     hp_i is the index of the haplotype in config.phase_identifiers:
     HP:1 => index 0 => phased genotype in the form of 1|0
     HP:2 => index 1 => phased genotype in the form of 0|1
+    is_phased was added to modify the output as phasing adds the PS tag to FORMAT
     """
-    if len(gt) == 6:
+    gt_multi_sample_fields = 6
+    if len(gt) == gt_multi_sample_fields:
         a, b, qual, dr, dv, phase = gt
         hp_i, ps = unpack_phase(phase)
-        if hp_i is not None and (a, b) == (0, 1):
+        if hp_i is not None and (a, b) == (0, 1) and is_phased:
             gt_sep = "|"
             if hp_i == 0:
                 a, b = b, a
         else:
             gt_sep = "/"
-        return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}" if ps is None else f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{ps}"
+        return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{ps}" if is_phased else f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}"
     else:
         a, b, qual, dr, dv, phase, svid = gt
         hp_i, ps = unpack_phase(phase, svid)
-        if hp_i is not None and (a, b) == (0, 1):
+        if hp_i is not None and (a, b) == (0, 1) and is_phased:
             gt_sep = "|"
             if hp_i == 0:
                 a, b = b, a
         else:
             gt_sep = "/"
-        return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{svid}" if ps is None \
-            else f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{ps}:{svid}"
+        return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{ps}:{svid}" if is_phased \
+            else f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{svid}"
 
 
 class VCF:
@@ -214,14 +216,14 @@ class VCF:
         for internal_id, _ in self.config.sample_ids_vcf:
             if internal_id in call.genotypes and call.genotypes[internal_id] is not None:
                 gt_curr = call.genotypes[internal_id]
-                sample_genotypes.append(format_genotype(gt_curr))
+                sample_genotypes.append(format_genotype(gt_curr, self.config.phase))
                 if gt_curr[0] != "." and gt_curr[4] > 0:  # Not non-genotype and has supporting reads
                     ac += sum(call.genotypes[internal_id][:2])
                     supp = "1"
                 else:
                     supp = "0"
             else:
-                sample_genotypes.append(format_genotype(self.default_genotype))
+                sample_genotypes.append(format_genotype(self.default_genotype, self.config.phase))
                 supp = "0"
             supvec.append(supp)
 
@@ -239,7 +241,7 @@ class VCF:
         # Check if svlen == len(alt) in INS
         if "INS" == call.svtype:
             if call.svlen != (len(call.alt) - 1) and not self.config.symbolic:
-                log.info(f"Updating SVLEN for INS to match sequence length: {call.svlen} v {(len(call.alt) - 1)}")
+                log.debug(f"Updating SVLEN for INS to match sequence length: {call.svlen} v {(len(call.alt) - 1)}")
                 call.svlen = (len(call.alt) - 1)
 
         # Output core SV attributes
@@ -417,7 +419,7 @@ class VCF:
         # parts=parts_no_gt + [gt_format,vcf.format_genotype(gt)]
         # gt_vcf=svcall.raw_vcf_line.split("\t")[9].split(":")[0]
         # parts= parts_no_gt + [gt_vcf] + [gt_format,vcf.format_genotype(gt)]
-        parts = parts_no_gt + [gt_format, format_genotype(gt)]
+        parts = parts_no_gt + [gt_format, format_genotype(gt, self.config.phased)]
         # parts[7]="NA"
         # parts[3]=f"REF_{len(parts[3])}"
         # parts[4]=f"ALT_{len(parts[4])}"
