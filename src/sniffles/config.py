@@ -13,6 +13,7 @@ import os
 import sys
 import datetime
 import argparse
+import tempfile
 from collections import defaultdict
 
 from typing import Union, Optional
@@ -21,7 +22,7 @@ from sniffles import util
 from sniffles.region import Region
 
 VERSION = "Sniffles2"
-BUILD = "2.5.3"
+BUILD = "2.6.0"
 SNF_VERSION = "S2_rc4"
 
 
@@ -41,6 +42,8 @@ def tobool(v):
 
 
 class SnifflesConfig(argparse.Namespace):
+    GLOBAL: 'SnifflesConfig'
+
     header = f"Sniffles2: A fast structural variant (SV) caller for long-read sequencing data\n Version {BUILD}\n Contact: sniffles@romanek.at"
     example = """ Usage example A - Call SVs for a single sample:
        sniffles --input sorted_indexed_alignments.bam --vcf output.vcf
@@ -91,6 +94,7 @@ class SnifflesConfig(argparse.Namespace):
     threads: int
     contig: Optional[str]
     run_id: str
+    tmp_dir: str
 
     @property
     def vcf_output_bgz(self) -> Optional[bool]:
@@ -101,8 +105,8 @@ class SnifflesConfig(argparse.Namespace):
             path, ext = os.path.splitext(self.vcf)
             return ext == ".gz" or ext == ".bgz"
 
-
-    def add_main_args(self, parser):
+    @staticmethod
+    def add_main_args(parser):
         main_args = parser.add_argument_group("Common parameters")
         main_args.add_argument("-i", "--input", metavar="IN", type=str, help="For single-sample calling: A coordinate-sorted and indexed .bam/.cram (BAM/CRAM format) file containing aligned reads. - OR - For multi-sample calling: Multiple .snf files (generated before by running Sniffles2 for individual samples with --snf)", required=True, nargs="+")
         main_args.add_argument("-v", "--vcf", metavar="OUT.vcf", type=str, help="VCF output filename to write the called and refined SVs to. If the given filename ends with .gz, the VCF file will be automatically bgzipped and a .tbi index built for it.", required=False)
@@ -113,12 +117,15 @@ class SnifflesConfig(argparse.Namespace):
         main_args.add_argument("-t", "--threads", metavar="N", type=int, help="Number of parallel threads to use (speed-up for multi-core CPUs)", default=4)
         main_args.add_argument("-c", "--contig", default=None, type=str, help="(Optional) Only process the specified contigs. May be given more than once.", action="append")
         main_args.add_argument("--regions", metavar="REGIONS.bed", type=str, help="(Optional) Only process the specified regions.", default=None)
+        main_args.add_argument("--tmp-dir", type=str, help="(Optional) Directory where temporary files are written, must exist. If it doesn't, default path is used", default="")
 
     minsupport: Union[str, int]
     minsvlen: int
     minsvlen_screen_ratio: float
+    max_unknown_pct: float
 
-    def add_filter_args(self, parser):
+    @staticmethod
+    def add_filter_args(parser):
         filter_args = parser.add_argument_group("SV Filtering parameters")
         filter_args.add_argument("--minsupport", metavar="auto", type=str, help="Minimum number of supporting reads for a SV to be reported (default: automatically choose based on coverage)", default="auto")
         filter_args.add_argument("--minsupport-auto-mult", metavar="0.1/0.025", type=float, help="Coverage based minimum support multiplier for germline mode (only for auto minsupport) ", default=None)
@@ -143,12 +150,14 @@ class SnifflesConfig(argparse.Namespace):
         filter_args.add_argument("--min-alignment-length", metavar="N", type=int, help="Reads with alignments shorter than this length (in bp) will be ignored", default=argparse.SUPPRESS)
         filter_args.add_argument("--phase-conflict-threshold", metavar="F", type=float, help="Maximum fraction of conflicting reads permitted for SV phase information to be labelled as PASS (only for --phase)", default=0.1)
         filter_args.add_argument("--detect-large-ins", help="Infer insertions that are longer than most reads and therefore are spanned by few alignments only.", metavar="True", type=tobool, default=True)
+        filter_args.add_argument("--max-unknown-pct", help="Maximum percentage of N for an SV to be emitted.", metavar="0.5", type=float, default=0.5)
         # filter_args.add_argument("--large-ins-threshold", metavar="N", type=int, help="Minimum clipping at read ends to be considered a potential large insertion (only with --detect-large-ins)", default=5000)
 
     cluster_binsize: int
     cluster_binsize_combine_mult: int
 
-    def add_cluster_args(self, parser):
+    @staticmethod
+    def add_cluster_args(parser):
         cluster_args = parser.add_argument_group("SV Clustering parameters")
         cluster_args.add_argument("--cluster-binsize", metavar="N", type=int, help="Initial screening bin size in bp", default=100)
         cluster_args.add_argument("--cluster-r", metavar="R", type=float, help="Multiplier for SV start position standard deviation criterion in cluster merging", default=2.5)
@@ -161,7 +170,8 @@ class SnifflesConfig(argparse.Namespace):
     genotype_ploidy: int
     genotype_vcf: str
 
-    def add_genotype_args(self, parser):
+    @staticmethod
+    def add_genotype_args(parser):
         genotype_args = parser.add_argument_group("SV Genotyping parameters")
         genotype_args.add_argument("--genotype-ploidy", metavar="N", type=int, help="Sample ploidy (currently fixed at value 2)", default=2)
         genotype_args.add_argument("--genotype-error", metavar="N", type=float, help="Estimated false positive rate for leads (relating to total coverage)", default=0.05)
@@ -182,6 +192,7 @@ class SnifflesConfig(argparse.Namespace):
     combine_pctseq: float
     combine_max_inmemory_results: int
     combine_support_threshold: int
+    combine_population: str
 
     @classmethod
     def add_multi_args(cls, parser):
@@ -203,6 +214,7 @@ class SnifflesConfig(argparse.Namespace):
         multi_args.add_argument("--combine-pctseq", default=0.7, type=float, help="Minimum alignment distance as percent of SV length to be merged. Set to 0 to disable alignments for merging.")
         multi_args.add_argument("--combine-max-inmemory-results", default=20, type=int, help=argparse.SUPPRESS)
         multi_args.add_argument("--combine-support-threshold", default=3, metavar="N", type=int, help="Minimum support for SVs to be considered for multi-sample calling.")
+        multi_args.add_argument("--combine-population", metavar="population.snf", type=str, help="Name of a population SNF to enable population annotation.")
         multi_args.add_argument("--re-qc", metavar="auto", default="auto", type=str, help="Re-QC SVs from SNF files. Set to 0 to disable re-qc of SNF files. Set to 1 to force re-qc. Default of 'auto' will try to fix known errors in SNF files.")
 
         # multi_args.add_argument("--combine-exhaustive", help="(DEV) Disable performance optimization in multi-calling", default=False, action="store_true")
@@ -211,7 +223,11 @@ class SnifflesConfig(argparse.Namespace):
 
     allow_overwrite: bool
 
-    def add_postprocess_args(self, parser):
+    @staticmethod
+    def add_postprocess_args(parser):
+        """
+        Postprocessing arguments
+        """
         postprocess_args = parser.add_argument_group("SV Postprocessing, QC and output parameters")
         postprocess_args.add_argument("--output-rnames", help="Output names of all supporting reads for each SV in the RNAMEs info field", default=False, action="store_true")
         postprocess_args.add_argument("--no-consensus", help="Disable consensus sequence generation for insertion SV calls (may improve performance)", default=False, action="store_true")
@@ -228,7 +244,8 @@ class SnifflesConfig(argparse.Namespace):
     mosaic_min_reads: int = 3
     mosaic_use_strand_thresholds: int = 10
 
-    def add_mosaic_args(self, parser):
+    @staticmethod
+    def add_mosaic_args(parser):
         mosaic_args = parser.add_argument_group("Mosaic calling mode parameters")
         mosaic_args.add_argument("--mosaic", help="Set Sniffles run mode to detect rare, somatic and mosaic SVs", default=False, action="store_true")
         mosaic_args.add_argument("--mosaic-af-max", help="Maximum allele frequency for which SVs are considered mosaic", metavar="F", default=0.218, type=float)
@@ -243,8 +260,15 @@ class SnifflesConfig(argparse.Namespace):
     qc_nm: bool
     combine_consensus: bool
     low_memory: bool
+    dev_population_snf: str
+    dev_population_min_gt: float
+    dev_debug: int
 
-    def add_developer_args(self, parser):
+    @staticmethod
+    def add_developer_args(parser):
+        """
+        Developer arguments
+        """
         developer_args = parser.add_argument_group("Developer parameters")
 
         developer_args.add_argument("--dev-emit-sv-lengths", default=False, action="store_true", help=argparse.SUPPRESS)
@@ -275,13 +299,16 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--cluster-resplit-binsize", metavar="N", type=int, default=20, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-trace-read", default=False, metavar="read_id", type=str, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-split-max-query-distance-mult", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
-        developer_args.add_argument("--dev-no-qc", default=False, action="store_true", help=argparse.SUPPRESS) # noqc + mapq0 + minAlnLen0
+        developer_args.add_argument("--dev-no-qc", default=False, action="store_true", help=argparse.SUPPRESS)  # noqc + mapq0 + minAlnLen0
         developer_args.add_argument("--dev-disable-interblock-threads", default=False, help=argparse.SUPPRESS, action="store_true")
         developer_args.add_argument("--dev-combine-medians", default=False, help=argparse.SUPPRESS, action="store_true")
         developer_args.add_argument("--dev-monitor-memory", metavar="N", type=int, default=0, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-monitor-filename", metavar="memory.csv", type=str, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-debug-log", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-progress-log", default=False, action="store_true", help=argparse.SUPPRESS)
+        developer_args.add_argument("--dev-population-snf", metavar="population.snf", type=str, help=argparse.SUPPRESS)
+        developer_args.add_argument("--dev-population-min-gt", default=0.75, type=float, help=argparse.SUPPRESS)  # min
+        developer_args.add_argument("--dev-debug", default=0, type=int, help=argparse.SUPPRESS)  # Enable debug connection on the given port
 
         # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 
@@ -301,6 +328,9 @@ class SnifflesConfig(argparse.Namespace):
         self.add_developer_args(parser)
 
         parser.parse_args(args=args or None, namespace=self)
+
+        if not self.tmp_dir or not os.path.exists(self.tmp_dir):
+            self.tmp_dir = tempfile.gettempdir()
 
         if self.quiet:
             sys.stdout = open(os.devnull, "w")
