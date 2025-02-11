@@ -13,6 +13,7 @@ import os
 import sys
 import datetime
 import argparse
+import tempfile
 from collections import defaultdict
 
 from typing import Union, Optional
@@ -21,7 +22,7 @@ from sniffles import util
 from sniffles.region import Region
 
 VERSION = "Sniffles2"
-BUILD = "2.6.0b2"
+BUILD = "2.6.0b3"
 SNF_VERSION = "S2_rc4"
 
 
@@ -113,6 +114,7 @@ class SnifflesConfig(argparse.Namespace):
         main_args.add_argument("-t", "--threads", metavar="N", type=int, help="Number of parallel threads to use (speed-up for multi-core CPUs)", default=4)
         main_args.add_argument("-c", "--contig", default=None, type=str, help="(Optional) Only process the specified contigs. May be given more than once.", action="append")
         main_args.add_argument("--regions", metavar="REGIONS.bed", type=str, help="(Optional) Only process the specified regions.", default=None)
+        main_args.add_argument("--tmp-dir", type=str, help="(Optional) Directory where temporary files are written, must exisit. If it doesn't, default path is used", default="")
 
     minsupport: Union[str, int]
     minsvlen: int
@@ -323,6 +325,9 @@ class SnifflesConfig(argparse.Namespace):
         self.add_developer_args(parser)
 
         parser.parse_args(args=args or None, namespace=self)
+
+        if "" == self.tmp_dir:
+            self.tmp_dir = tempfile.gettempdir()
 
         if self.quiet:
             sys.stdout = open(os.devnull, "w")
