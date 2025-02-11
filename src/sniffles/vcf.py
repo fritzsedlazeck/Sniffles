@@ -9,6 +9,7 @@
 # Contact:     sniffles@romanek.at
 #
 import logging
+from collections import Counter
 
 import pysam
 import os
@@ -26,8 +27,10 @@ def format_info(k, v):
         return f"{k}={v:.3f}"
     elif isinstance(v, list):
         return f"{k}={','.join(v)}"
-    else:
-        return f"{k}={v}"
+    elif v is None:
+        v = '.'
+
+    return f"{k}={v}"
 
 
 def unpack_phase(phase, svid="") -> tuple:
@@ -35,41 +38,43 @@ def unpack_phase(phase, svid="") -> tuple:
         hp_i, ps = phase
     except TypeError:
         if phase is None:
-            # log.debug(f"Single 'None'-valued phase: {phase}|{svid}")
-            hp_i, ps = None, None
+            hp_i, ps = ".", "."
         else:
             log.debug(f"Single not 'None'-valued phase: {phase}|{svid}")
             hp_i, ps = phase, phase
+    ps = ps if ps is not None else "."
     return hp_i, ps
 
 
-def format_genotype(gt):
+def format_genotype(gt, is_phased):
     """
     hp_i is the index of the haplotype in config.phase_identifiers:
     HP:1 => index 0 => phased genotype in the form of 1|0
     HP:2 => index 1 => phased genotype in the form of 0|1
+    is_phased was added to modify the output as phasing adds the PS tag to FORMAT
     """
-    if len(gt) == 6:
+    gt_multi_sample_fields = 6
+    if len(gt) == gt_multi_sample_fields:
         a, b, qual, dr, dv, phase = gt
         hp_i, ps = unpack_phase(phase)
-        if hp_i is not None and (a, b) == (0, 1):
+        if hp_i is not None and (a, b) == (0, 1) and is_phased:
             gt_sep = "|"
             if hp_i == 0:
                 a, b = b, a
         else:
             gt_sep = "/"
-        return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}" if ps is None else f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{ps}"
+        return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{ps}" if is_phased else f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}"
     else:
         a, b, qual, dr, dv, phase, svid = gt
         hp_i, ps = unpack_phase(phase, svid)
-        if hp_i is not None and (a, b) == (0, 1):
+        if hp_i is not None and (a, b) == (0, 1) and is_phased:
             gt_sep = "|"
             if hp_i == 0:
                 a, b = b, a
         else:
             gt_sep = "/"
-        return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{svid}" if ps is None \
-            else f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{ps}:{svid}"
+        return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{ps}:{svid}" if is_phased \
+            else f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{svid}"
 
 
 class VCF:
@@ -164,6 +169,7 @@ class VCF:
         self.write_header_line('INFO=<ID=CHR2,Number=1,Type=String,Description="Mate chromsome for BND SVs">')
         self.write_header_line('INFO=<ID=SUPPORT,Number=1,Type=Integer,Description="Number of reads supporting the structural variation">')
         self.write_header_line('INFO=<ID=SUPPORT_INLINE,Number=1,Type=Integer,Description="Number of reads supporting an INS/DEL SV (non-split events only)">')
+        self.write_header_line('INFO=<ID=SUPPORT_SA,Number=1,Type=Integer,Description="Number of reads supporting a DEL SV through supplementary alignments (split events)">')
         self.write_header_line('INFO=<ID=SUPPORT_LONG,Number=1,Type=Integer,Description="Number of soft-clipped reads putatively supporting the long insertion SV">')
         self.write_header_line('INFO=<ID=END,Number=1,Type=Integer,Description="End position of structural variation">')
         self.write_header_line('INFO=<ID=STDEV_POS,Number=1,Type=Float,Description="Standard deviation of structural variation start position">')
@@ -177,6 +183,10 @@ class VCF:
         self.write_header_line('INFO=<ID=VAF,Number=1,Type=Float,Description="Variant Allele Fraction">')
         self.write_header_line('INFO=<ID=NM,Number=.,Type=Float,Description="Mean number of query alignment length adjusted mismatches of supporting reads">')
         self.write_header_line('INFO=<ID=PHASE,Number=.,Type=String,Description="Phasing information derived from supporting reads, represented as list of: HAPLOTYPE,PHASESET,HAPLOTYPE_SUPPORT,PHASESET_SUPPORT,HAPLOTYPE_FILTER,PHASESET_FILTER">')
+
+        if self.config.combine_population:
+            self.write_header_line('INFO=<ID=POPULATION_VAF,Number=1,Type=Float,Description="Variant Allele Fraction in population">')
+            self.write_header_line('INFO=<ID=POPULATION_SIZE,Number=1,Type=Integer,Description="Size of genotyped population for this variant">')
 
         samples_header = "\t".join(sample_id for _, sample_id in self.config.sample_ids_vcf)
         self.write_raw(f"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{samples_header}")
@@ -192,7 +202,7 @@ class VCF:
     def write_header_line(self, text):
         self.write_raw("##" + text)
 
-    def write_call(self, call):
+    def write_call(self, call) -> int:
         # pysam coordinates are 0-based, VCF 1-based
         # but VCF also requires the index of the base before the SV to be reported,
         # so we are fine without offsetting
@@ -206,14 +216,14 @@ class VCF:
         for internal_id, _ in self.config.sample_ids_vcf:
             if internal_id in call.genotypes and call.genotypes[internal_id] is not None:
                 gt_curr = call.genotypes[internal_id]
-                sample_genotypes.append(format_genotype(gt_curr))
+                sample_genotypes.append(format_genotype(gt_curr, self.config.phase))
                 if gt_curr[0] != "." and gt_curr[4] > 0:  # Not non-genotype and has supporting reads
                     ac += sum(call.genotypes[internal_id][:2])
                     supp = "1"
                 else:
                     supp = "0"
             else:
-                sample_genotypes.append(format_genotype(self.default_genotype))
+                sample_genotypes.append(format_genotype(self.default_genotype, self.config.phase))
                 supp = "0"
             supvec.append(supp)
 
@@ -223,10 +233,16 @@ class VCF:
 
             if int(svec) == 0:
                 log.debug(f'Dropped {call} due to all zero support vector.')
-                return
+                return 0
 
             if ac == 0:
                 call.filter = "GT"
+
+        # Check if svlen == len(alt) in INS
+        if "INS" == call.svtype:
+            if call.svlen != (len(call.alt) - 1) and not self.config.symbolic:
+                log.debug(f"Updating SVLEN for INS to match sequence length: {call.svlen} v {(len(call.alt) - 1)}")
+                call.svlen = (len(call.alt) - 1)
 
         # Output core SV attributes
         infos = {
@@ -282,6 +298,11 @@ class VCF:
             except ValueError:
                 call.ref = "N"
                 call.alt = f"<{call.svtype}>"
+            else:
+                if 'N' in call.ref and (pct_n := Counter(call.ref)['N'] / len(call.ref)) > self.config.max_unknown_pct:
+                    # don't emit calls with too many N bases
+                    log.debug(f'Not emitting {call.id} (length {call.svlen}) due to {pct_n*100:.2f}% N bases in reference.')
+                    return 0
 
         if self.config.symbolic:
             call.ref = "N"
@@ -305,6 +326,7 @@ class VCF:
                                                   call.alt, call.qual if call.qual is not None else '.', call.filter, info_str, self.genotype_format] +
                                  sample_genotypes))
         self.call_count += 1
+        return 1
 
     def read_svs_iter(self):
         self.header_str = ""
@@ -397,7 +419,7 @@ class VCF:
         # parts=parts_no_gt + [gt_format,vcf.format_genotype(gt)]
         # gt_vcf=svcall.raw_vcf_line.split("\t")[9].split(":")[0]
         # parts= parts_no_gt + [gt_vcf] + [gt_format,vcf.format_genotype(gt)]
-        parts = parts_no_gt + [gt_format, format_genotype(gt)]
+        parts = parts_no_gt + [gt_format, format_genotype(gt, self.config.phased)]
         # parts[7]="NA"
         # parts[3]=f"REF_{len(parts[3])}"
         # parts[4]=f"ALT_{len(parts[4])}"

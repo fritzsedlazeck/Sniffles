@@ -119,6 +119,15 @@ class CombineResult(Result):
         if SnifflesConfig.GLOBAL.sort:
             self.svcalls.sort(key=lambda call: call.pos)
 
+    def emit(self, vcf_out: VCF = None, **kwargs) -> int:
+        res = super().emit(vcf_out=vcf_out, **kwargs)
+        from sniffles.config import SnifflesConfig
+        if (config := SnifflesConfig.GLOBAL).dev_population_snf:
+            from sniffles.snfp import PopulationSNF
+            PopulationSNF.create(config, self.svcalls)
+
+        return res
+
     def __str__(self):
         return f'CombineResult #{self.task_id}'
 
@@ -133,14 +142,14 @@ class CombineResultTmpFile(CombineResult):
 
     @property
     def tmpfile_name(self) -> str:
-        return f'result-{self.run_id}-{self.task_id:04}.part.vcf'
+        return os.path.join(SnifflesConfig.GLOBAL.tmp_dir, f'result-{self.run_id}-{self.task_id:04}.part.vcf')
 
     @property
     def tmpfile_unsorted(self) -> str:
         """
         Name of this task/results temporary file for unsorted calls
         """
-        return f'result-{self.run_id}-{self.task_id:04}-unsorted.part.vcf'
+        return os.path.join(SnifflesConfig.GLOBAL.tmp_dir, f'result-{self.run_id}-{self.task_id:04}-unsorted.part.vcf')
 
     def store_calls(self, svcalls):
         from sniffles.config import SnifflesConfig
@@ -202,6 +211,49 @@ class CombineResultTmpFile(CombineResult):
             os.unlink(self.tmpfile_name)
         except FileNotFoundError:
             ...
+
+
+class CombineResultTmpFilePopulationSNF(CombineResultTmpFile):
+    """
+    Combine result with temporary files plus population SNF creation
+    """
+    @property
+    def snf_filename(self) -> str:
+        return os.path.join(SnifflesConfig.GLOBAL.tmp_dir, f'result-{self.run_id}-{self.task_id:04}.part.snf')
+
+    has_snf = True
+    snf_index: dict
+    snf_total_length: int
+    snf_candidate_count: int = 0
+    svcalls: list = None
+
+    def store_calls(self, svcalls: list[SVCall]) -> None:
+        super().store_calls(svcalls)
+
+        if self.svcalls is None:
+            self.svcalls = []
+        self.svcalls.extend(svcalls)
+
+    def finalize(self):
+        with open(self.snf_filename, 'wb') as handle:
+            from sniffles.snfp import PopulationSNF
+            snfp = PopulationSNF(SnifflesConfig.GLOBAL, handle)
+            c = 0
+            for call in self.svcalls:
+                c += 1 if snfp.store(call) else 0
+            snfp.write_and_index()
+
+        self.snf_index = snfp.get_index()
+        self.snf_total_length = snfp.get_total_length()
+        self.snf_candidate_count = c
+
+    def emit(self, vcf_out: VCF = None, **kwargs) -> int:
+        res = super().emit(vcf_out=vcf_out, **kwargs)
+
+        if psnf_out := kwargs.get('psnf_out'):
+            psnf_out.add_result(self)
+
+        return res
 
 
 class ErrorResult:

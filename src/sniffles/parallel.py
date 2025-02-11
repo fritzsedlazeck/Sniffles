@@ -30,6 +30,7 @@ from sniffles import snf
 from sniffles import sv
 from sniffles.region import Region
 from sniffles.result import Result, ErrorResult, CallResult, GenotypeResult, CombineResult
+from sniffles.snfp import PopulationSNF
 
 
 @dataclass
@@ -93,7 +94,7 @@ class Task:
         externals = self.lead_provider.build_leadtab(self.regions if self.regions else [Region(self.contig, self.start, self.end)], self.bam)
         return externals, self.lead_provider.read_count
 
-    def call_candidates(self, keep_qc_fails, config):
+    def call_candidates(self, keep_qc_fails, config) -> list[sv.SVCall]:
         candidates = []
         for svtype in sv.TYPES:
             for svcluster in cluster.resolve(svtype, self.lead_provider, config, self.tandem_repeats):
@@ -342,6 +343,9 @@ class CombineTask(Task):
 
             if self.config.combine_close_handles:
                 snf_in.close()
+
+        if self.config.combine_population:
+            self.config.combine_population = PopulationSNF.open(self.config.combine_population)
 
         result = self.result_class(self, [], 0)
 
