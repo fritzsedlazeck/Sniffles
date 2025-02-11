@@ -139,27 +139,17 @@ class CombineResultTmpFile(CombineResult):
     _highest_position_call: int = -1  # maximum position of last emitted call, for sorting
     unsorted: bool = False
     _initialized: bool = False
-    tmp_dir = ""
-
-    def set_tmp_dir(self, arg_tmp_dir: str = ""):
-        if "" != arg_tmp_dir:
-            if os.path.exists(arg_tmp_dir):
-                self.tmp_dir = arg_tmp_dir
 
     @property
     def tmpfile_name(self) -> str:
-        if "" != self.tmp_dir:
-            return f'${self.tmp_dir}/result-{self.run_id}-{self.task_id:04}.part.vcf'
-        return f'result-{self.run_id}-{self.task_id:04}.part.vcf'
+        return os.path.join(SnifflesConfig.GLOBAL.tmp_dir, f'result-{self.run_id}-{self.task_id:04}.part.vcf')
 
     @property
     def tmpfile_unsorted(self) -> str:
         """
         Name of this task/results temporary file for unsorted calls
         """
-        if "" != self.tmp_dir:
-            return f'${self.tmp_dir}/result-{self.run_id}-{self.task_id:04}.part.vcf'
-        return f'result-{self.run_id}-{self.task_id:04}-unsorted.part.vcf'
+        return os.path.join(SnifflesConfig.GLOBAL.tmp_dir, f'result-{self.run_id}-{self.task_id:04}-unsorted.part.vcf')
 
     def store_calls(self, svcalls):
         from sniffles.config import SnifflesConfig
@@ -229,9 +219,7 @@ class CombineResultTmpFilePopulationSNF(CombineResultTmpFile):
     """
     @property
     def snf_filename(self) -> str:
-        if "" != self.tmp_dir:
-            return f'${self.tmp_dir}/result-{self.run_id}-{self.task_id:04}.part.snf'
-        return f'result-{self.run_id}-{self.task_id:04}.part.snf'
+        return os.path.join(SnifflesConfig.GLOBAL.tmp_dir, f'result-{self.run_id}-{self.task_id:04}.part.snf')
 
     has_snf = True
     snf_index: dict

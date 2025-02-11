@@ -42,6 +42,8 @@ def tobool(v):
 
 
 class SnifflesConfig(argparse.Namespace):
+    GLOBAL: 'SnifflesConfig'
+
     header = f"Sniffles2: A fast structural variant (SV) caller for long-read sequencing data\n Version {BUILD}\n Contact: sniffles@romanek.at"
     example = """ Usage example A - Call SVs for a single sample:
        sniffles --input sorted_indexed_alignments.bam --vcf output.vcf
@@ -92,6 +94,7 @@ class SnifflesConfig(argparse.Namespace):
     threads: int
     contig: Optional[str]
     run_id: str
+    tmp_dir: str
 
     @property
     def vcf_output_bgz(self) -> Optional[bool]:
@@ -114,7 +117,7 @@ class SnifflesConfig(argparse.Namespace):
         main_args.add_argument("-t", "--threads", metavar="N", type=int, help="Number of parallel threads to use (speed-up for multi-core CPUs)", default=4)
         main_args.add_argument("-c", "--contig", default=None, type=str, help="(Optional) Only process the specified contigs. May be given more than once.", action="append")
         main_args.add_argument("--regions", metavar="REGIONS.bed", type=str, help="(Optional) Only process the specified regions.", default=None)
-        main_args.add_argument("--tmp-dir", type=str, help="(Optional) Directory where temporary files are written, must exisit. If it doesn't, default path is used", default="")
+        main_args.add_argument("--tmp-dir", type=str, help="(Optional) Directory where temporary files are written, must exist. If it doesn't, default path is used", default="")
 
     minsupport: Union[str, int]
     minsvlen: int
@@ -326,7 +329,7 @@ class SnifflesConfig(argparse.Namespace):
 
         parser.parse_args(args=args or None, namespace=self)
 
-        if "" == self.tmp_dir:
+        if not self.tmp_dir or not os.path.exists(self.tmp_dir):
             self.tmp_dir = tempfile.gettempdir()
 
         if self.quiet:
