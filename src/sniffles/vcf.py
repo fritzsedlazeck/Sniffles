@@ -185,7 +185,7 @@ class VCF:
         self.write_header_line('INFO=<ID=PHASE,Number=.,Type=String,Description="Phasing information derived from supporting reads, represented as list of: HAPLOTYPE,PHASESET,HAPLOTYPE_SUPPORT,PHASESET_SUPPORT,HAPLOTYPE_FILTER,PHASESET_FILTER">')
 
         if self.config.combine_population:
-            self.write_header_line('INFO=<ID=POPULATION_VAF,Number=1,Type=Float,Description="Variant Allele Fraction in population">')
+            self.write_header_line('INFO=<ID=POPULATION_AF,Number=1,Type=Float,Description="Population Allele Frequency">')
             self.write_header_line('INFO=<ID=POPULATION_SIZE,Number=1,Type=Integer,Description="Size of genotyped population for this variant">')
 
         samples_header = "\t".join(sample_id for _, sample_id in self.config.sample_ids_vcf)
@@ -202,7 +202,7 @@ class VCF:
     def write_header_line(self, text):
         self.write_raw("##" + text)
 
-    def write_call(self, call) -> int:
+    def write_call(self, call: sv.SVCall) -> int:
         # pysam coordinates are 0-based, VCF 1-based
         # but VCF also requires the index of the base before the SV to be reported,
         # so we are fine without offsetting
@@ -238,11 +238,13 @@ class VCF:
             if ac == 0:
                 call.filter = "GT"
 
-        # Check if svlen == len(alt) in INS
+        # Check if svlen == len(alt) in INS, NOT len(alt)-1 as the ref base is added after this step
         if "INS" == call.svtype:
-            if call.svlen != (len(call.alt) - 1) and not self.config.symbolic:
-                log.debug(f"Updating SVLEN for INS to match sequence length: {call.svlen} v {(len(call.alt) - 1)}")
-                call.svlen = (len(call.alt) - 1)
+            if call.svlen != len(call.alt) and not self.config.symbolic and "<INS>" != call.alt:
+                log.debug(f"Updating SVLEN for INS to match sequence length: {call.svlen} v {len(call.alt)}")
+                call.svlen = len(call.alt)
+            if call.svlen < self.config.minsvlen:
+                return 0
 
         # Output core SV attributes
         infos = {
@@ -323,8 +325,8 @@ class VCF:
         call.qual = max(0, min(60, call.qual)) if call.qual is not None else None
 
         self.write_raw("\t".join(str(v) for v in [call.contig, pos, self.config.id_prefix + call.id, call.ref,
-                                                  call.alt, call.qual if call.qual is not None else '.', call.filter, info_str, self.genotype_format] +
-                                 sample_genotypes))
+                                                  call.alt, call.qual if call.qual is not None else '.', call.filter,
+                                                  info_str, self.genotype_format] + sample_genotypes))
         self.call_count += 1
         return 1
 
