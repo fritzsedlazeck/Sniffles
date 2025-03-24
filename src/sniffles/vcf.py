@@ -421,7 +421,7 @@ class VCF:
         # parts=parts_no_gt + [gt_format,vcf.format_genotype(gt)]
         # gt_vcf=svcall.raw_vcf_line.split("\t")[9].split(":")[0]
         # parts= parts_no_gt + [gt_vcf] + [gt_format,vcf.format_genotype(gt)]
-        parts = parts_no_gt + [gt_format, format_genotype(gt, self.config.phased)]
+        parts = parts_no_gt + [gt_format, format_genotype(gt, self.config.phase)]
         # parts[7]="NA"
         # parts[3]=f"REF_{len(parts[3])}"
         # parts[4]=f"ALT_{len(parts[4])}"
