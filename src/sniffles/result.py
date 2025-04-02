@@ -73,6 +73,33 @@ class CallResult(Result):
     snf_index = None
     snf_total_length = None
     snf_candidate_count = None
+    candidate_filename = None
+
+    def store_candidates(self, candidates: list[SVCall]) -> None:
+        if SnifflesConfig.GLOBAL.dev_output_candidates:  # self.task.output_candidates
+            self.candidate_filename = filename = f'candidates.tmp-{self.task_id}.csv'
+            with open(filename, "w") as f:
+                lines, single_break_lines = 0, 0
+                for cand in candidates:
+                    if line := cand.csv_line:
+                        try:
+                            f.write(','.join(line))
+                        except:  # noqa
+                            log.exception(f'Error writing CSV line for {cand}')
+                        else:
+                            f.write('\n')
+                            lines += 1
+
+                for cand in candidates:
+                    if line := cand.csv_line_single:
+                        try:
+                            f.write(','.join(line))
+                        except:  # noqa
+                            log.exception(f'Error writing CSV line for single break for {cand}')
+                        else:
+                            f.write('\n')
+                            single_break_lines += 1
+            log.info(f'Wrote {lines} candidate lines and {single_break_lines} single break lines to {filename}')
 
     def emit(self, **kwargs) -> int:
         res = super().emit(**kwargs)

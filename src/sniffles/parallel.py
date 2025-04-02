@@ -96,7 +96,7 @@ class Task:
 
     def call_candidates(self, keep_qc_fails, config) -> list[sv.SVCall]:
         candidates = []
-        for svtype in sv.TYPES:
+        for svtype in sv.ALL_TYPES:
             for svcluster in cluster.resolve(svtype, self.lead_provider, config, self.tandem_repeats):
                 for svcall in sv.call_from(svcluster, config, keep_qc_fails, self):
                     if config.dev_trace_read is not False:
@@ -146,6 +146,13 @@ class Task:
                     svcall_copy.postprocess = None
                     print(f"[DEV_TRACE_READ] [4/4] [Task.finalize_candidates] Read {config.dev_trace_read} -> Cluster {svcall.postprocess.cluster.id} -> finalized SVCall, QC={svcall_copy.qc}: {svcall_copy}")
 
+            if config.dev_output_candidates:
+                try:
+                    svcall.csv_line  # noqa cache csv data
+                    svcall.csv_line_single  # noqa cache csv data
+                except:
+                    logging.getLogger('sniffles.csv').exception(f'Error generating CSV line for {svcall}')
+
             if not keep_qc_fails and not svcall.qc:
                 continue
 
@@ -177,6 +184,9 @@ class CallTask(Task):
 
         from sniffles.result import CallResult
         result = CallResult(self, svcalls, read_count)
+
+        if config.dev_output_candidates:
+            result.store_candidates(svcandidates)
 
         if config.snf is not None:  # and len(svcandidates):
             snf_filename = f"{config.snf}.tmp_{self.id}.snf"

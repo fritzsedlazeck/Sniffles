@@ -124,6 +124,9 @@ def get_cigar_indels(read) -> tuple[int, int]:
 
 
 def read_itersplits_bnd(read_id, read, contig, config, read_nm):
+    """
+    Iterate over supplementary alignments of a read and yield leads for BND events.
+    """
     assert read.is_supplementary
     # SA:refname,pos,strand,CIGAR,MAPQ,NM
     all_leads = []
@@ -153,8 +156,10 @@ def read_itersplits_bnd(read_id, read, contig, config, read_nm):
 
     prim_refname, prim_pos, prim_strand, prim_cigar, prim_mapq, prim_nm = supps[0]
     if prim_refname == contig:
-        # Primary alignment is on this chromosome, no need to parse the supplementary
-        return
+        # Primary alignment is on this chromosome, no need to parse the supplementary, but only if mapping quality of primary is sufficient
+        if int(prim_mapq) >= config.mapq:
+            # Skip if primary alignment is of sufficient quality
+            return
 
     minpos_curr_chr = min(itertools.chain([read.reference_start], (int(pos) for refname, pos, strand, cigar, mapq, nm in supps if refname == contig)))
     if minpos_curr_chr < read.reference_start:
@@ -369,7 +374,7 @@ class LeadProvider:
         self.leadtab = {}
         self.leadcounts = {}
 
-        for svtype in sv.TYPES:
+        for svtype in sv.ALL_TYPES:
             self.leadtab[svtype] = {}
             self.leadcounts[svtype] = 0
 

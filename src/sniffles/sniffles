@@ -510,6 +510,16 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     for t in finished_tasks:
         t.result.emit(vcf_out=vcf_out, snf_out=snf_out, **rkwargs)
 
+    if config.dev_output_candidates and config.mode == "call_sample":
+        from shutil import copyfileobj
+        with open(config.dev_output_candidates, "w") as csv:
+            csv.write('svtype,orientation_start,contig_start,pos_start,orientation_end,contig_end,pos_end,filter,support_inline,support_split,support_ref\n')
+            for t in finished_tasks:
+                tmpfile = t.result.candidate_filename  # noqa
+                with open(tmpfile, "r") as f:
+                    copyfileobj(f, csv)
+                os.unlink(tmpfile)
+
     if snf_out:
         snf_candidate_count = snf_out.write_results(config, contigs)
         snf_out.close()

@@ -209,15 +209,18 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
             else:
                 svcall.filter = "STDEV_POS"
                 return False
-        if svcall.svtype != "BND" and stdev_pos / abs(svcall.svlen) > 2.0:
+        if svcall.svtype not in ("BND", "SINGLE_LEFT", "SINGLE_RIGHT") and stdev_pos / abs(svcall.svlen) > 2.0:
             if config.dev_filter:
                 dev_sv_filter.append("STDEV_POS")
             else:
                 svcall.filter = "STDEV_POS"
+        if svcall.svtype not in ("BND", "SINGLE_LEFT", "SINGLE_RIGHT") and stdev_pos / abs(svcall.svlen) > 2.0:
+            svcall.filter = f'{svcall.filter}-STDEV_POS' if config.dev_filter else "STDEV_POS"
+            if not config.dev_filter:
                 return False
 
         stdev_len = svcall.get_info("STDEV_LEN")
-        if stdev_len is not None:
+        if stdev_len is not None and stdev_len != 0:
             if svcall.svtype != "BND" and stdev_len / abs(svcall.svlen) > 1.0:
                 if config.dev_filter:
                     dev_sv_filter.append("STDEV_LEN")
@@ -230,6 +233,10 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
                 else:
                     svcall.filter = "STDEV_LEN"
                     return False
+
+    if svcall.is_single_break:
+        svcall.filter = 'SINGLE_BREAK'
+        return False
 
     support_overwrite_svlen = 10
     if abs(svcall.svlen) < config.minsvlen:

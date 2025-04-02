@@ -9,10 +9,12 @@
 # Contact:     sniffles@romanek.at
 #
 import logging
-from dataclasses import dataclass
-from typing import Optional, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field
-from typing import Optional, Callable
+from functools import cached_property
+from typing import Optional, Callable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sniffles.cluster import Cluster
 
 import numpy as np
 
@@ -29,6 +31,8 @@ except ImportError:
 from sniffles import util
 
 TYPES = ["INS", "DEL", "DUP", "INV", "BND"]
+SINGLE_TYPES = ["SINGLE_LEFT", "SINGLE_RIGHT"]
+ALL_TYPES = TYPES + SINGLE_TYPES
 
 
 @dataclass
@@ -132,6 +136,57 @@ class SVCall:
 
     def has_info(self, k):
         return k in self.info
+
+    @cached_property
+    def is_single_break(self) -> bool:
+        return self.svtype.startswith('SINGLE')
+
+    @cached_property
+    def csv_line(self) -> tuple[str] | None:
+        """
+        Create a 10-tuple of data for CSV output:
+          orientation, contig, pos, orientation, contig, pos, filter, support_inline, support_split, support_ref
+          ^---- start break  ----^  ^----  end break   ----^
+        """
+        return self._to_csv_line()
+
+    @cached_property
+    def csv_line_single(self) -> tuple[str] | None:
+        """
+        Same as csv_line, but for single breaks
+        :return:
+        """
+        return self._to_csv_line(single_break=True)
+
+    def _to_csv_line(self, single_break: bool = False) -> tuple | None:
+        vaf = self.get_info('VAF')
+        support_ref = int(self.support / vaf) if vaf else 0
+
+        if self.svtype == "DEL":
+            o1, o2 = '+', '-'
+        elif self.svtype == "DUP":
+            o1, o2 = '-', '+'
+        else:
+            o1, o2 = '=', '='
+
+        cluster = self.postprocess.cluster
+        support_inline = len(set(l.read_qname for l in cluster.leads if l.source == "INLINE"))
+        support_splits = self.support - support_inline
+
+        if single_break:
+            if self.svtype == 'INS' and (loc := cluster.get_break()):
+                return self.svtype, '-', self.contig, str(loc), '', '', '', self.filter, str(support_inline), str(support_splits), str(support_ref)
+            elif self.svtype == 'SINGLE_LEFT':
+                return '', '-', self.contig, str(self.pos), '', '', '', self.filter, str(support_inline), str(support_splits), str(support_ref)
+            elif self.svtype == 'SINGLE_RIGHT':
+                return '', '+', self.contig, str(self.pos), '', '', '', self.filter, str(support_inline), str(support_splits), str(support_ref)
+            else:
+                return None
+        else:
+            if self.is_single_break:
+                return None
+
+        return self.svtype, o1, self.contig, str(self.pos), o2, self.contig, str(self.end), self.filter, str(support_inline), str(support_splits), str(support_ref)
 
     def finalize(self):
         self.postprocess = None
@@ -427,8 +482,10 @@ def call_from(cluster, config, keep_qc_fails, task):
     else:
         svlens = None
 
-    if abs(svlen) < config.minsvlen_screen:
-        return
+    if not svtype.startswith("SINGLE_"):
+        # Check length only for actual SVs, not single breaks
+        if abs(svlen) < config.minsvlen_screen:
+            return
 
     # Count inline events only once per read, but split events as individual alignments, as in coverage calculation
     # inline_qnames=set(k.read_qname for k in leads if k.source=="INLINE")

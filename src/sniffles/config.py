@@ -333,7 +333,7 @@ class SnifflesConfig(argparse.Namespace):
     mosaic_min_reads: int = 3
     mosaic_use_strand_thresholds: int = 10
     max_svlen_mosaic: int
-    
+
     @staticmethod
     def add_mosaic_args(parser):
         mosaic_args = parser.add_argument_group("Mosaic calling mode parameters")
@@ -358,6 +358,9 @@ class SnifflesConfig(argparse.Namespace):
     consensus_max_reads_bin: int
     qc_coverage_max_change_frac: float
     exclude_flags: int | None
+    dev_output_candidates: str = None
+    dev_single_break_count: int
+    dev_single_break_dist: int
 
     @staticmethod
     def add_developer_args(parser):
@@ -405,6 +408,9 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-filter", default=False, action="store_true", help=argparse.SUPPRESS)  # appends all filters to a given SV,
         developer_args.add_argument("--dev-debug", default=0, type=int, help=argparse.SUPPRESS)  # Enable debug connection on the given port
         developer_args.add_argument("--exclude-flags", "--excl-flags", "-F", default=None, type=int, help=argparse.SUPPRESS)
+        developer_args.add_argument("--dev-output-candidates", metavar="OUTPUT.csv", type=str, help=argparse.SUPPRESS)
+        developer_args.add_argument("--dev-single-break-count", default=3, type=int, help=argparse.SUPPRESS)
+        developer_args.add_argument("--dev-single-break-dist", default=50, type=int, help=argparse.SUPPRESS)
 
         # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 

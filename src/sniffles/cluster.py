@@ -25,7 +25,7 @@ class Cluster:
     start: int
     end: int
     seed: int
-    leads: list
+    leads: list['leadprov.Lead']
     repeat: bool
     leads_long: Optional[list]
 
@@ -50,6 +50,22 @@ class Cluster:
         else:
             self.mean_svlen = self.leads[0].svlen
             self.stdev_start = 0
+
+    def get_break(self):
+        """
+        Returns this cluster's single end breaks
+        """
+        from sniffles.config import SnifflesConfig
+
+        if self.leads_long and len(self.leads_long) >= SnifflesConfig.GLOBAL.dev_single_break_count:
+            loc = int(statistics.median(lead.ref_start for lead in self.leads_long))
+            mean_start = int(statistics.mean(lead.ref_start for lead in self.leads_long))
+            if abs(loc - mean_start) < SnifflesConfig.GLOBAL.dev_single_break_dist:
+                return loc
+            else:
+                return None
+        else:
+            return None
 
 
 def merge_inner(cluster, threshold):
@@ -213,18 +229,19 @@ def resolve(svtype, leadtab_provider, config, tr) -> Generator[Cluster | Any, No
             leads = leadtab[seed]
             leads_long = None
 
-        cluster = Cluster(id=f"CL.{svtype}.{leadtab_provider.contig}.{leadtab_provider.start}.{seed_index}",
-                          svtype=svtype,
-                          contig=leadtab_provider.contig,
-                          start=seed,
-                          end=seed + config.cluster_binsize,
-                          seed=seed,
-                          leads=leads,
-                          repeat=within_tr or config.repeat,
-                          leads_long=leads_long)
+        if len(leads) >= 3:
+            cluster = Cluster(id=f"CL.{svtype}.{leadtab_provider.contig}.{leadtab_provider.start}.{seed_index}",
+                              svtype=svtype,
+                              contig=leadtab_provider.contig,
+                              start=seed,
+                              end=seed + config.cluster_binsize,
+                              seed=seed,
+                              leads=leads,
+                              repeat=within_tr or config.repeat,
+                              leads_long=leads_long)
 
-        cluster.compute_metrics()
-        clusters.append(cluster)
+            cluster.compute_metrics()
+            clusters.append(cluster)
 
     # Merge clusters
     cluster_count_initial = len(clusters)
