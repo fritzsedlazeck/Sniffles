@@ -123,6 +123,11 @@ class SnifflesConfig(argparse.Namespace):
     minsvlen: int
     minsvlen_screen_ratio: float
     max_unknown_pct: float
+    long_ins_length: int
+    long_del_length: int
+    long_inv_length: int
+    long_dup_length: int
+    large_coverage_sample_interval: int
 
     @staticmethod
     def add_filter_args(parser):
@@ -151,6 +156,7 @@ class SnifflesConfig(argparse.Namespace):
         filter_args.add_argument("--phase-conflict-threshold", metavar="F", type=float, help="Maximum fraction of conflicting reads permitted for SV phase information to be labelled as PASS (only for --phase)", default=0.1)
         filter_args.add_argument("--detect-large-ins", help="Infer insertions that are longer than most reads and therefore are spanned by few alignments only.", metavar="True", type=tobool, default=True)
         filter_args.add_argument("--max-unknown-pct", help="Maximum percentage of N for an SV to be emitted.", metavar="0.5", type=float, default=0.5)
+        filter_args.add_argument("--large-coverage-sample-interval", metavar="5000", type=int, help="Sampling interval for coverage calculation for large SVs", default=5000)
         # filter_args.add_argument("--large-ins-threshold", metavar="N", type=int, help="Minimum clipping at read ends to be considered a potential large insertion (only with --detect-large-ins)", default=5000)
 
     cluster_binsize: int

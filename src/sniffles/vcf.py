@@ -151,6 +151,7 @@ class VCF:
         self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_SC,Description="Coverage fractional change filter: start-center">')
         self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_CE,Description="Coverage fractional change filter: center-end">')
         self.write_header_line('FILTER=<ID=COV_CHANGE_FRAC_ED,Description="Coverage fractional change filter: end-downstream">')
+        self.write_header_line('FILTER=<ID=COV_VAR,Description="Coverage variance exceeded">')
         self.write_header_line('FILTER=<ID=MOSAIC_VAF,Description="Mosaic variant allele fraction filter">')
         self.write_header_line('FILTER=<ID=NOT_MOSAIC_VAF,Description="Variant allele fraction filter for non-mosaic">')
         self.write_header_line('FILTER=<ID=ALN_NM,Description="Length adjusted mismatch filter">')
@@ -181,6 +182,7 @@ class VCF:
         self.write_header_line('INFO=<ID=CONSENSUS_SUPPORT,Number=1,Type=Integer,Description="Number of reads that support the generated insertion (INS) consensus sequence">')
         self.write_header_line('INFO=<ID=RNAMES,Number=.,Type=String,Description="Names of supporting reads (if enabled with --output-rnames)">')
         self.write_header_line('INFO=<ID=VAF,Number=1,Type=Float,Description="Variant Allele Fraction">')
+        self.write_header_line('INFO=<ID=COVERAGE_VAR,Number=1,Type=Float,Description="Variance of coverage across large events">')
         self.write_header_line('INFO=<ID=NM,Number=.,Type=Float,Description="Mean number of query alignment length adjusted mismatches of supporting reads">')
         self.write_header_line('INFO=<ID=PHASE,Number=.,Type=String,Description="Phasing information derived from supporting reads, represented as list of: HAPLOTYPE,PHASESET,HAPLOTYPE_SUPPORT,PHASESET_SUPPORT,HAPLOTYPE_FILTER,PHASESET_FILTER">')
 

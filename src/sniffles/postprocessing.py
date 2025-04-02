@@ -8,6 +8,8 @@
 # Maintainer:  Hermann Romanek
 # Contact:     sniffles@romanek.at
 #
+from functools import partial
+from typing import Callable
 
 from sniffles import util
 from sniffles import consensus
@@ -60,11 +62,24 @@ def annotate_sv(svcall: SVCall, config):
                 svcall.alt = best_lead.seq
 
 
-def add_request(svcall, field, pos, requests_for_coverage, config):
+def add_request(svcall, field, pos, requests_for_coverage: dict[int, list[Callable]], config):
+    """
+    Add a request for one of the five coverage fields to the given SVCall
+    """
     bin_index = int(pos / config.coverage_binsize) * config.coverage_binsize
     if bin_index not in requests_for_coverage:
         requests_for_coverage[bin_index] = []
-    requests_for_coverage[bin_index].append((svcall, field))
+    requests_for_coverage[bin_index].append(partial(setattr, svcall, field))
+
+
+def add_sampling_point_request(svcall, pos, requests_for_coverage: dict[int, list[Callable]], config):
+    """
+    Add a coverage request for a dynamic sampling point
+    """
+    bin_index = int(pos / config.coverage_binsize) * config.coverage_binsize
+    if bin_index not in requests_for_coverage:
+        requests_for_coverage[bin_index] = []
+    requests_for_coverage[bin_index].append(partial(svcall.add_coverage_sample, bin_index))
 
 
 def coverage(calls, lead_provider, config):
@@ -90,6 +105,12 @@ def coverage_build_requests(calls, config: SnifflesConfig):
             end = start + 1
         else:
             end = svcall.pos + abs(svcall.svlen)
+
+        if svcall.svtype in ("DEL", 'INV', 'DUP') and abs(svcall.svlen) >= config.long_del_length:
+            # Sampling more intervals for large deletions
+            for loc in range(start, end, config.large_coverage_sample_interval):
+                add_sampling_point_request(svcall, loc, requests_for_coverage, config)
+
         if svcall.svtype in ["INS", "BND"]:
             add_request(svcall, "coverage_start", start - config.coverage_binsize, requests_for_coverage, config)
             add_request(svcall, "coverage_center", int((start + end - config.coverage_binsize) / 2),
@@ -135,8 +156,8 @@ def coverage_fulfill(requests_for_coverage, lead_provider, config: SnifflesConfi
 
         if bin_index in requests_for_coverage:
             coverage_total_curr = coverage_fwd + coverage_rev
-            for svcall, field in requests_for_coverage[bin_index]:
-                setattr(svcall, field, coverage_total_curr)
+            for set_coverage_fn in requests_for_coverage[bin_index]:
+                set_coverage_fn(coverage_total_curr)
 
         coverage_fwd_total += coverage_fwd
         coverage_rev_total += coverage_rev
@@ -317,6 +338,12 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
     elif svcall.svtype == "INS" and (svcall.coverage_upstream < config.qc_coverage or
                                      svcall.coverage_downstream < config.qc_coverage):
         svcall.filter = "COV_CHANGE_INS"
+        return False
+
+    qc, val = svcall.qc_coverage_samples()
+    svcall.set_info('COVERAGE_VAR', val)
+    if not qc:
+        svcall.filter = f'COV_VAR'
         return False
 
     qc_coverage_max_change_frac = config.qc_coverage_max_change_frac

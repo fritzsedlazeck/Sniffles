@@ -12,6 +12,8 @@ import logging
 from dataclasses import dataclass
 from typing import Optional, Callable
 
+import numpy as np
+
 try:
     from edlib import align
 except ImportError:
@@ -70,6 +72,7 @@ class SVCall:
     coverage_start: int = 0
     coverage_center: int = 0
     coverage_end: int = 0
+    coverage_samples: dict = None
 
     sample_internal_id: int = None
     bnd_info: SVCallBNDInfo = None
@@ -90,6 +93,23 @@ class SVCall:
 
     def finalize(self):
         self.postprocess = None
+
+    def add_coverage_sample(self, pos: int, coverage: int):
+        if self.coverage_samples is None:
+            self.coverage_samples = {}
+        self.coverage_samples[pos] = coverage
+
+    def qc_coverage_samples(self) -> tuple[bool, float | None]:
+        """
+        Check if coverage sampling indicates a QC pass. Returns True if this Call passes QC, False otherwise.
+        """
+        if not self.coverage_samples:
+            return True, None
+
+        samples = np.fromiter(self.coverage_samples.values(), int)
+        diffs = np.diff(samples) / (samples[:-1] + 1e-10)  # epsilon to avoid division by zero
+        var = np.var(diffs)
+        return var < 0.3, float(var)
 
 
 @dataclass
