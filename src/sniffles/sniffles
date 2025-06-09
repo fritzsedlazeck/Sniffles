@@ -503,6 +503,11 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     log.info(f"Took {time.monotonic() - analysis_start_time:.2f}s.")
     log.info("")
 
+    # It is possible that workers have all exited without finishing all work
+    # Check the tasks deque is actually empty and explode accordingly if not
+    if len(tasks) > 0:
+        util.fatal_error_main("All workers have exited but work remains to be done, it is possible that all workers have been killed by your system due to memory constraints.")
+
     finished_tasks.sort(key=lambda task: task.id)
 
     for t in finished_tasks:
