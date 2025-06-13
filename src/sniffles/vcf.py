@@ -256,7 +256,7 @@ class VCF:
             "END": end,
             "SUPPORT": call.support,
             "RNAMES": call.rnames if self.config.output_rnames else None,
-            "COVERAGE": ",".join(util.optional_value, [call.coverage_upstream, call.coverage_start, call.coverage_center, call.coverage_end, call.coverage_downstream]),
+            "COVERAGE": ",".join(map(util.optional_value, [call.coverage_upstream, call.coverage_start, call.coverage_center, call.coverage_end, call.coverage_downstream])),
             "STRAND": ("+" if call.fwd > 0 else "") + ("-" if call.rev > 0 else ""),
             "NM": call.nm
         }
