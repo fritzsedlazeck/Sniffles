@@ -8,14 +8,34 @@
 # Maintainer:  Hermann Romanek
 # Contact:     sniffles@romanek.at
 #
-from functools import partial
-from typing import Callable
+from enum import IntEnum
+import math
+import logging
 
 from sniffles import util
 from sniffles import consensus
 from sniffles.config import SnifflesConfig
 from sniffles.sv import SVCall
-import math
+
+log = logging.getLogger('sniffles.postprocessing')
+
+class CoverageMode(IntEnum):
+    """A cheap(er) class to represent the coverage mode used when setting SVCall attributes."""
+    START = 1
+    CENTER = 2
+    END = 3
+    UPSTREAM = 4
+    DOWNSTREAM = 5
+
+    @property
+    def to_attr(self):
+        return {
+            CoverageMode.START: "coverage_start",
+            CoverageMode.CENTER: "coverage_center",
+            CoverageMode.END: "coverage_end",
+            CoverageMode.UPSTREAM: "coverage_upstream",
+            CoverageMode.DOWNSTREAM: "coverage_downstream",
+        }[self]
 
 
 def annotate_sv(svcall: SVCall, config):
@@ -62,29 +82,19 @@ def annotate_sv(svcall: SVCall, config):
                 svcall.alt = best_lead.seq
 
 
-def add_request(svcall, field, pos, requests_for_coverage: dict[int, list[Callable]], config):
+def add_request(svcall_i: int, field: CoverageMode, pos, requests_for_coverage: dict[int, set[tuple[int, int]]], config):
     """
     Add a request for one of the five coverage fields to the given SVCall
     """
     bin_index = int(pos / config.coverage_binsize) * config.coverage_binsize
     if bin_index not in requests_for_coverage:
-        requests_for_coverage[bin_index] = []
-    requests_for_coverage[bin_index].append(partial(setattr, svcall, field))
-
-
-def add_sampling_point_request(svcall, pos, requests_for_coverage: dict[int, list[Callable]], config):
-    """
-    Add a coverage request for a dynamic sampling point
-    """
-    bin_index = int(pos / config.coverage_binsize) * config.coverage_binsize
-    if bin_index not in requests_for_coverage:
-        requests_for_coverage[bin_index] = []
-    requests_for_coverage[bin_index].append(partial(svcall.add_coverage_sample, bin_index))
+        requests_for_coverage[bin_index] = set()
+    requests_for_coverage[bin_index].add( (svcall_i, field) )
 
 
 def coverage(calls, lead_provider, config):
-    requests_for_coverage = coverage_build_requests(calls, config)
-    return coverage_fulfill(requests_for_coverage, lead_provider, config)
+    requests_for_coverage_attrs, requests_for_coverage_sample_starts, requests_for_coverage_sample_ends = coverage_build_requests(calls, config)
+    return coverage_fulfill(calls, requests_for_coverage_attrs, requests_for_coverage_sample_starts, requests_for_coverage_sample_ends, lead_provider, config)
 
 
 def coverage_build_requests(calls, config: SnifflesConfig):
@@ -98,8 +108,11 @@ def coverage_build_requests(calls, config: SnifflesConfig):
     INV       U---          S---       E---            D---
                                   C---
     """
-    requests_for_coverage = {}
-    for svcall in calls:
+    requests_for_coverage_attrs = {}
+    requests_for_coverage_sample_starts = {}
+    requests_for_coverage_sample_ends = {}
+
+    for sv_i, svcall in enumerate(calls):
         start = svcall.pos
         if svcall.svtype == "INS":
             end = start + 1
@@ -108,33 +121,46 @@ def coverage_build_requests(calls, config: SnifflesConfig):
 
         if svcall.svtype in ("DEL", 'INV', 'DUP') and abs(svcall.svlen) >= config.long_del_length:
             # Sampling more intervals for large deletions
-            for loc in range(start, end, config.large_coverage_sample_interval):
-                add_sampling_point_request(svcall, loc, requests_for_coverage, config)
+            clean_start = start
+            if start < 0:
+                # Excusing a negative start, we'll find the first positive position we'd encounter striding our large coverage interval and start there instead
+                clean_start = start + ((-start // config.large_coverage_sample_interval) + 1) * config.large_coverage_sample_interval
+                log.warning(f"[sv] Encountered SV={svcall.id} with negative pos={start}. Setting to first viable positive pos={clean_start} for coverage postprocessing.")
+            first_bin = (clean_start // config.coverage_binsize) * config.coverage_binsize
+            last_bin_pos = clean_start + ((end - clean_start - 1) // config.large_coverage_sample_interval) * config.large_coverage_sample_interval
+            last_bin = (last_bin_pos // config.coverage_binsize) * config.coverage_binsize
+
+            if first_bin not in requests_for_coverage_sample_starts:
+                requests_for_coverage_sample_starts[first_bin] = set()
+            if last_bin not in requests_for_coverage_sample_ends:
+                requests_for_coverage_sample_ends[last_bin] = set()
+            requests_for_coverage_sample_starts[first_bin].add(sv_i)
+            requests_for_coverage_sample_ends[last_bin].add(sv_i)
 
         if svcall.svtype in ["INS", "BND"]:
-            add_request(svcall, "coverage_start", start - config.coverage_binsize, requests_for_coverage, config)
-            add_request(svcall, "coverage_center", int((start + end - config.coverage_binsize) / 2),
-                        requests_for_coverage, config)
-            add_request(svcall, "coverage_end", end + config.coverage_binsize, requests_for_coverage, config)
-            add_request(svcall, "coverage_upstream", start - config.coverage_binsize * config.coverage_updown_bins,
-                        requests_for_coverage, config)
-            add_request(svcall, "coverage_downstream", end + config.coverage_binsize * config.coverage_updown_bins,
-                        requests_for_coverage, config)
+            add_request(sv_i, CoverageMode.START, start - config.coverage_binsize, requests_for_coverage_attrs, config)
+            add_request(sv_i, CoverageMode.CENTER, int((start + end - config.coverage_binsize) / 2),
+                        requests_for_coverage_attrs, config)
+            add_request(sv_i, CoverageMode.END, end + config.coverage_binsize, requests_for_coverage_attrs, config)
+            add_request(sv_i, CoverageMode.UPSTREAM, start - config.coverage_binsize * config.coverage_updown_bins,
+                        requests_for_coverage_attrs, config)
+            add_request(sv_i, CoverageMode.DOWNSTREAM, end + config.coverage_binsize * config.coverage_updown_bins,
+                        requests_for_coverage_attrs, config)
         else:
-            add_request(svcall, "coverage_start", start, requests_for_coverage, config)
-            add_request(svcall, "coverage_center", int((start + end - config.coverage_binsize) / 2),
-                        requests_for_coverage, config)
-            add_request(svcall, "coverage_end", end - config.coverage_binsize, requests_for_coverage, config)
-            add_request(svcall, "coverage_upstream", start - config.coverage_binsize * config.coverage_updown_bins,
-                        requests_for_coverage, config)
-            add_request(svcall, "coverage_downstream", end + config.coverage_binsize * config.coverage_updown_bins,
-                        requests_for_coverage, config)
+            add_request(sv_i, CoverageMode.START, start, requests_for_coverage_attrs, config)
+            add_request(sv_i, CoverageMode.CENTER, int((start + end - config.coverage_binsize) / 2),
+                        requests_for_coverage_attrs, config)
+            add_request(sv_i, CoverageMode.END, end - config.coverage_binsize, requests_for_coverage_attrs, config)
+            add_request(sv_i, CoverageMode.UPSTREAM, start - config.coverage_binsize * config.coverage_updown_bins,
+                        requests_for_coverage_attrs, config)
+            add_request(sv_i, CoverageMode.DOWNSTREAM, end + config.coverage_binsize * config.coverage_updown_bins,
+                        requests_for_coverage_attrs, config)
 
-    return requests_for_coverage
+    return requests_for_coverage_attrs, requests_for_coverage_sample_starts, requests_for_coverage_sample_ends
 
 
-def coverage_fulfill(requests_for_coverage, lead_provider, config: SnifflesConfig):
-    if len(requests_for_coverage) == 0:
+def coverage_fulfill(calls, requests_for_coverage_attrs, requests_for_coverage_sample_starts, requests_for_coverage_sample_ends, lead_provider, config: SnifflesConfig):
+    if len(requests_for_coverage_attrs) == 0 and len(requests_for_coverage_sample_starts) == 0:
         return -1, -1
 
     start_bin = lead_provider.covrtab_min_bin
@@ -145,19 +171,60 @@ def coverage_fulfill(requests_for_coverage, lead_provider, config: SnifflesConfi
     coverage_rev_total = 0
     n = 0
 
-    for bin_index in range(start_bin, end_bin + config.coverage_binsize, config.coverage_binsize):
+    # We can efficiently store and query for large coverage sampling intervals (LCSI) by
+    #  maintaining a set for each possible bin modulus which stores the indices of SVCalls
+    #  that are open to be sampled at all bins with the same modulus.
+    # The diagram below illustrates a series of bins and how this approach would work.
+    # Consider an LCSI every 4 bins (actual positions ignored for simplicity).
+    # Here SV_i starts at a position between bin 1 and 2 and ends at a position
+    #  between bin 8 and 9. As the coverage postprocessing forces sampling to start and
+    #  end on a coverage bin, sampling of SV_i will start at bin 1 and end at bin 8.
+    #  Bin 1 has a modulus of 1 with respect to the LCSI of 4, as does 5, 9 and so on.
+    # For all the possible moduli (in this case, [0, 4]) we can maintain a set of
+    # SVCall indices that are open to be sampled at the next bin with the same modulus.
+    #
+    #   id   0    1    2    3    4    5    6    7    8    9   10   11    12 ..
+    # id%4   0    1    2    3    0    1    2    3    4    1    2    3    0 ...
+    # Bins   o----o----o----o----o----o----o----o----o----o----o----o----o ...
+    # LCSI%0 X-------------------X-------------------X-------------------X ...
+    # SV_i        ===S-------------------------------X==E
+    #             ^ First Bin has modulus 1          ^ Last Bin
+    #               we'll sample all modulus 1 bins before last bin
+    # LCSI%1       X-------------------X-------------------X-------------->...
+    # SV_i LCSI    X                   X
+    bin_moduli = {}
+
+    for bin_pos in range(start_bin, end_bin + config.coverage_binsize, config.coverage_binsize):
+        bin_modulus = bin_pos % config.large_coverage_sample_interval
         n += 1
 
-        if bin_index in lead_provider.covrtab_fwd:
-            coverage_fwd += lead_provider.covrtab_fwd[bin_index]
+        coverage_fwd += lead_provider.covrtab_fwd.get(bin_pos, 0)  # TODO -- should this be reset
+        coverage_rev += lead_provider.covrtab_rev.get(bin_pos, 0)  # TODO -- should this be reset
+        coverage_total_curr = coverage_fwd + coverage_rev
 
-        if bin_index in lead_provider.covrtab_rev:
-            coverage_rev += lead_provider.covrtab_rev[bin_index]
+        # handle attr style coverage requests for this bin position
+        for sv_i, mode in requests_for_coverage_attrs.get(bin_pos, []):
+            setattr(calls[sv_i], mode.to_attr, coverage_total_curr)
 
-        if bin_index in requests_for_coverage:
-            coverage_total_curr = coverage_fwd + coverage_rev
-            for set_coverage_fn in requests_for_coverage[bin_index]:
-                set_coverage_fn(coverage_total_curr)
+        # open
+        # if this bin position opens SVs, add each SVCall index to the set of SVs to be
+        # updated for any bin with the same modulo
+        if bin_pos in requests_for_coverage_sample_starts:
+            if bin_modulus not in bin_moduli:
+                bin_moduli[bin_modulus] = set()
+            to_open = list(requests_for_coverage_sample_starts[bin_pos])
+            bin_moduli[bin_modulus].update(to_open)
+
+        # sample welfordly
+        for sv_i in bin_moduli.get(bin_modulus, []):
+            calls[sv_i].forward_difference_sampler.push(coverage_total_curr)
+
+        # close
+        # this is the last bin, do not process any more overlaps on the next iteration
+        if bin_pos in requests_for_coverage_sample_ends:
+            to_close = list(requests_for_coverage_sample_ends[bin_pos])
+            for sv_i in to_close:
+                bin_moduli[bin_modulus].remove(sv_i)
 
         coverage_fwd_total += coverage_fwd
         coverage_rev_total += coverage_rev

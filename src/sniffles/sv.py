@@ -9,10 +9,8 @@
 # Contact:     sniffles@romanek.at
 #
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Callable
-
-import numpy as np
 
 try:
     from edlib import align
@@ -36,6 +34,42 @@ class SVCallBNDInfo:
 @dataclass
 class SVCallPostprocessingInfo:
     cluster: list
+
+
+class ForwardDifferenceWelford:
+    def __init__(self):
+        self.n = 0
+        self.m1 = 0
+        self.m2 = 0
+        self.last = None
+
+    def push(self, value):
+        # first observation just sets the last seen observation
+        # we'll calculate forward difference from here
+        if self.last is None:
+            self.last = value
+            return
+        last = self.last; m = self.n  # every little helps?
+        v = (value - last) / (last + 1e-10)  # TODO epsilon to avoid division by zero as before - is this appropriate?
+        n = m + 1
+        delta = v - self.m1
+        delta_n = delta / n
+        self.m1 += delta_n
+        self.m2 += delta * delta_n * m
+        self.n = n
+        self.last = value
+
+    @property
+    def mean(self):
+        if self.n == 0:
+            return None
+        return self.m1
+
+    @property
+    def variance(self):
+        if self.n < 2:
+            return None
+        return self.m2 / self.n  # ddof=0
 
 
 @dataclass
@@ -67,12 +101,12 @@ class SVCall:
     fwd: int = None
     rev: int = None
 
+    forward_difference_sampler: ForwardDifferenceWelford = field(default_factory=ForwardDifferenceWelford)
     coverage_upstream: int = 0
     coverage_downstream: int = 0
     coverage_start: int = 0
     coverage_center: int = 0
     coverage_end: int = 0
-    coverage_samples: dict = None
 
     sample_internal_id: int = None
     bnd_info: SVCallBNDInfo = None
@@ -94,23 +128,11 @@ class SVCall:
     def finalize(self):
         self.postprocess = None
 
-    def add_coverage_sample(self, pos: int, coverage: int):
-        if self.coverage_samples is None:
-            self.coverage_samples = {}
-        self.coverage_samples[pos] = coverage
-
     def qc_coverage_samples(self) -> tuple[bool, float | None]:
-        """
-        Check if coverage sampling indicates a QC pass. Returns True if this Call passes QC, False otherwise.
-        """
-        if not self.coverage_samples:
+        var = self.forward_difference_sampler.variance
+        if var is None:
             return True, None
-
-        samples = np.fromiter(self.coverage_samples.values(), int)
-        diffs = np.diff(samples) / (samples[:-1] + 1e-10)  # epsilon to avoid division by zero
-        var = np.var(diffs)
         return var < 0.3, float(var)
-
 
 @dataclass
 class SVGroup:
