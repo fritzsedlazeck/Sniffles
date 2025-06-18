@@ -212,8 +212,7 @@ def coverage_fulfill(calls, requests_for_coverage_attrs, requests_for_coverage_s
         if bin_pos in requests_for_coverage_sample_starts:
             if bin_modulus not in bin_moduli:
                 bin_moduli[bin_modulus] = set()
-            to_open = list(requests_for_coverage_sample_starts[bin_pos])
-            bin_moduli[bin_modulus].update(to_open)
+            bin_moduli[bin_modulus].update(requests_for_coverage_sample_starts[bin_pos])
 
         # sample welfordly
         for sv_i in bin_moduli.get(bin_modulus, []):
@@ -222,9 +221,7 @@ def coverage_fulfill(calls, requests_for_coverage_attrs, requests_for_coverage_s
         # close
         # this is the last bin, do not process any more overlaps on the next iteration
         if bin_pos in requests_for_coverage_sample_ends:
-            to_close = list(requests_for_coverage_sample_ends[bin_pos])
-            for sv_i in to_close:
-                bin_moduli[bin_modulus].remove(sv_i)
+            bin_moduli[bin_modulus].difference_update(requests_for_coverage_sample_ends[bin_pos])
 
         coverage_fwd_total += coverage_fwd
         coverage_rev_total += coverage_rev
