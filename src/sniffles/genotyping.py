@@ -170,7 +170,7 @@ class Genotyper:
 
         if svcall.filter == "PASS" and self._filter_by_z_score(genotype_z_score):
             svcall.filter = "GT"
-            svcall.qc = False
+            svcall.qc = not config.pass_only  # Fail QC if we only want PASS calls
 
         a, b = gt1
         svcall.genotypes[0] = (a, b, genotype_quality, coverage - support, support, self.phase)

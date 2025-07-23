@@ -128,6 +128,7 @@ class SnifflesConfig(argparse.Namespace):
     long_inv_length: int
     long_dup_length: int
     large_coverage_sample_interval: int
+    pass_only: bool
 
     @staticmethod
     def add_filter_args(parser):
@@ -138,6 +139,7 @@ class SnifflesConfig(argparse.Namespace):
         filter_args.add_argument("--minsvlen-screen-ratio", metavar="N", type=float, help="Minimum length for SV candidates (as fraction of --minsvlen)", default=0.9)
         filter_args.add_argument("--mapq", metavar="N", type=int, help="Alignments with mapping quality lower than this value will be ignored", default=argparse.SUPPRESS)
         filter_args.add_argument("--no-qc", "--qc-output-all", help="Output all SV candidates, disregarding quality control steps.", default=False, action="store_true")
+        filter_args.add_argument("--pass-only", help="Output only SVs that pass all quality control steps, including GT.", default=False, action="store_true")
         filter_args.add_argument("--qc-stdev", help="Apply filtering based on SV start position and length standard deviation", metavar="True", type=tobool, default=True)
         filter_args.add_argument("--qc-stdev-abs-max", help="Maximum standard deviation for SV length and size (in bp)", metavar="N", type=int, default=500)
         filter_args.add_argument("--qc-strand", help="Apply filtering based on strand support of SV calls", metavar="False", type=tobool, default=False)
