@@ -506,7 +506,7 @@ class LeadProvider:
                         yield lead
                 read_mq20 += 1 if read.mapping_quality >= 20 else 0
 
-        log.info(f'Processed {self.read_count} reads in region {region.contig}:{region.start}-{region.end}')
+        log.debug(f'Processed {self.read_count} reads in region {region.contig}:{region.start}-{region.end}')
 
         self.config.average_regional_nm = nm_sum / float(max(1, nm_count))
         self.config.qc_nm_threshold = self.config.average_regional_nm
