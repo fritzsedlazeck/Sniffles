@@ -30,6 +30,60 @@ class ArgFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescripti
     pass
 
 
+class BasicHelpArgFormatter(ArgFormatter):
+    """
+    Formatter to filter out expert help entries.
+    """
+    def add_argument(self, action):
+        if not isinstance(action.help, B):
+            return None
+
+        return super().add_argument(action)
+
+
+class ExpertHelpArgFormatter(ArgFormatter):
+    """
+    Formatter to show all help entries, including expert options.
+    """
+    mark_expert: bool = True
+
+    def add_argument(self, action):
+        if self.mark_expert and not isinstance(action.help, B) and action.help is not argparse.SUPPRESS:
+            action.help = f"{action.help} (expert)"  # optionally mark expert options
+        return super().add_argument(action)
+
+
+class ExpertHelpAction(argparse._HelpAction):
+    def __call__(self, parser: 'TwoLevelHelpArgParser', namespace, values, option_string=None):
+        parser.print_help(expert=True)
+        parser.exit()
+
+
+class B(str):
+    """
+    Marker for basic help entries.
+    """
+
+
+class TwoLevelHelpArgParser(argparse.ArgumentParser):
+    """
+    Custom argument parser that supports two-level help formatting.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.register('action', 'expert-help', ExpertHelpAction)
+        self.add_argument(
+            "--expert-help",
+            action=ExpertHelpAction,
+            help="Show help for all parameters, including expert options (default: only basic help is shown).",
+        )
+
+    def print_help(self, expert: bool = False):
+        cls = BasicHelpArgFormatter if not expert else ExpertHelpArgFormatter
+        self.formatter_class = lambda prog: cls(prog, max_help_position=100, width=150)
+        return super().print_help()
+
+
 def tobool(v):
     if v is True or v is False:
         return v
@@ -70,7 +124,7 @@ class SnifflesConfig(argparse.Namespace):
     Usage example C - Determine genotypes for a set of known SVs (force calling):
        sniffles --input sample.bam --genotype-vcf input_known_svs.vcf --vcf output_genotypes.vcf
        """
-    usage = "sniffles --input SORTED_INPUT.bam [--vcf OUTPUT.vcf] [--snf MERGEABLE_OUTPUT.snf] [--threads 4] [--mosaic]\n\n" + header + "\n\n" + example + "\n\n Use --help for full parameter/usage information\n \n"
+    usage = "sniffles --input SORTED_INPUT.bam [--vcf OUTPUT.vcf] [--snf MERGEABLE_OUTPUT.snf] [--threads 4] [--mosaic]\n\n" + header + "\n\n" + example + "\n\n Use --help for common parameter/usage information and --expert-help for all parameters\n \n"
 
     parser: argparse.ArgumentParser
 
@@ -112,17 +166,17 @@ class SnifflesConfig(argparse.Namespace):
     @staticmethod
     def add_main_args(parser):
         main_args = parser.add_argument_group("Common parameters")
-        main_args.add_argument("-i", "--input", metavar="IN", type=str, help="For single-sample calling: A coordinate-sorted and indexed .bam/.cram (BAM/CRAM format) file containing aligned reads. - OR - For multi-sample calling: Multiple .snf files (generated before by running Sniffles2 for individual samples with --snf)", required=True, nargs="+")
-        main_args.add_argument("-v", "--vcf", metavar="OUT.vcf", type=str, help="VCF output filename to write the called and refined SVs to. If the given filename ends with .gz, the VCF file will be automatically bgzipped and a .tbi index built for it.", required=False)
-        main_args.add_argument("--snf", metavar="OUT.snf", type=str, help="Sniffles2 file (.snf) output filename to store candidates for later multi-sample calling", required=False)
-        main_args.add_argument("--reference", metavar="reference.fasta", type=str, help="(Optional) Reference sequence the reads were aligned against. To enable output of deletion SV sequences, this parameter must be set.", default=None)
-        main_args.add_argument("--tandem-repeats", metavar="IN.bed", type=str, help="(Optional) Input .bed file containing tandem repeat annotations for the reference genome.", default=None)
-        main_args.add_argument("--phase", help="Determine phase for SV calls (requires the input alignments to be phased)", default=False, action="store_true")
-        main_args.add_argument("-t", "--threads", metavar="N", type=int, help="Number of parallel threads to use (speed-up for multi-core CPUs)", default=4)
-        main_args.add_argument("-c", "--contig", default=None, type=str, help="(Optional) Only process the specified contigs. May be given more than once.", action="append")
-        main_args.add_argument("--regions", metavar="REGIONS.bed", type=str, help="(Optional) Only process the specified regions.", default=None)
-        main_args.add_argument("--tmp-dir", type=str, help="(Optional) Directory where temporary files are written, must exist. If it doesn't, default path is used", default="")
-        main_args.add_argument("--all-contigs", help="(Optional) Process all contigs in the input file including small ones.", action="store_true", default=False)
+        main_args.add_argument("-i", "--input", metavar="IN", type=str, help=B("For single-sample calling: A coordinate-sorted and indexed .bam/.cram (BAM/CRAM format) file containing aligned reads. - OR - For multi-sample calling: Multiple .snf files (generated before by running Sniffles2 for individual samples with --snf)"), required=True, nargs="+")
+        main_args.add_argument("-v", "--vcf", metavar="OUT.vcf", type=str, help=B("VCF output filename to write the called and refined SVs to. If the given filename ends with .gz, the VCF file will be automatically bgzipped and a .tbi index built for it."), required=False)
+        main_args.add_argument("--snf", metavar="OUT.snf", type=str, help=B("Sniffles2 file (.snf) output filename to store candidates for later multi-sample calling"), required=False)
+        main_args.add_argument("--reference", metavar="reference.fasta", type=str, help=B("(Optional) Reference sequence the reads were aligned against. To enable output of deletion SV sequences, this parameter must be set."), default=None)
+        main_args.add_argument("--tandem-repeats", metavar="IN.bed", type=str, help=B("(Optional) Input .bed file containing tandem repeat annotations for the reference genome."), default=None)
+        main_args.add_argument("--phase", help=B("Determine phase for SV calls (requires the input alignments to be phased)"), default=False, action="store_true")
+        main_args.add_argument("-t", "--threads", metavar="N", type=int, help=B("Number of parallel threads to use (speed-up for multi-core CPUs)"), default=4)
+        main_args.add_argument("-c", "--contig", default=None, type=str, help=B("(Optional) Only process the specified contigs. May be given more than once."), action="append")
+        main_args.add_argument("--regions", metavar="REGIONS.bed", type=str, help=B("(Optional) Only process the specified regions."), default=None)
+        main_args.add_argument("--tmp-dir", type=str, help=B("(Optional) Directory where temporary files are written, must exist. If it doesn't, default path is used"), default="")
+        main_args.add_argument("--all-contigs", help=B("(Optional) Process all contigs in the input file including small ones."), action="store_true", default=False)
 
     minsupport: Union[str, int]
     minsupport_auto_mult: float
@@ -147,10 +201,10 @@ class SnifflesConfig(argparse.Namespace):
         filter_args = parser.add_argument_group("SV Filtering parameters")
         filter_args.add_argument("--minsupport", metavar="auto", type=str, help="Minimum number of supporting reads for a SV to be reported (default: automatically choose based on coverage)", default="3")
         filter_args.add_argument("--minsupport-auto-mult", metavar="0.1/0.025", type=float, help="Coverage based minimum support multiplier for germline mode (only for auto minsupport) ", default=None)
-        filter_args.add_argument("--minsvlen", metavar="N", type=int, help="Minimum SV length (in bp)", default=50)
+        filter_args.add_argument("--minsvlen", metavar="N", type=int, help=B("Minimum SV length (in bp)"), default=50)
         filter_args.add_argument("--minsvlen-screen-ratio", metavar="N", type=float, help="Minimum length for SV candidates (as fraction of --minsvlen)", default=0.9)
-        filter_args.add_argument("--mapq", metavar="N", type=int, help="Alignments with mapping quality lower than this value will be ignored", default=argparse.SUPPRESS)
-        filter_args.add_argument("--no-qc", "--qc-output-all", help="Output all SV candidates, disregarding quality control steps.", default=False, action="store_true")
+        filter_args.add_argument("--mapq", metavar="N", type=int, help=B("Alignments with mapping quality lower than this value will be ignored"), default=argparse.SUPPRESS)
+        filter_args.add_argument("--no-qc", "--qc-output-all", help=B("Output all SV candidates, disregarding quality control steps."), default=False, action="store_true")
         filter_args.add_argument("--pass-only", help="Output only SVs that pass all quality control steps, including GT.", default=False, action="store_true")
         filter_args.add_argument("--qc-stdev", help="Apply filtering based on SV start position and length standard deviation", metavar="True", type=tobool, default=True)
         filter_args.add_argument("--qc-stdev-abs-max", help="Maximum standard deviation for SV length and size (in bp)", metavar="N", type=int, default=500)
@@ -231,10 +285,10 @@ class SnifflesConfig(argparse.Namespace):
         multi_args.add_argument("--combine-pair-relabel", help="Override low-quality genotypes when combining 2 samples (may be used for e.g. tumor-normal comparisons)", default=False, action="store_true")
         multi_args.add_argument("--combine-pair-relabel-threshold", help="Genotype quality below which a genotype call will be relabeled", default=20, type=int)
         multi_args.add_argument("--combine-close-handles", help="Close .SNF file handles after each use. May lower performance, but may be required when maximum number of file handles supported by OS is reached when merging many samples.", default=False, action="store_true")
-        multi_args.add_argument("--combine-pctseq", default=0.7, type=float, help="Minimum alignment distance as percent of SV length to be merged. Set to 0 to disable alignments for merging.")
-        multi_args.add_argument("--combine-max-inmemory-results", default=20, type=int, help=argparse.SUPPRESS)
+        multi_args.add_argument("--combine-pctseq", default=0.7, type=float, help=B("Minimum alignment distance as percent of SV length to be merged. Set to 0 to disable alignments for merging."))
+        multi_args.add_argument("--combine-max-inmemory-results", default=20, type=int, help=B("Maximum number of .snf input files to keep results in memory for. If the number of input files exceeds this value, --no-sort should be given as well to keep the output in a single file. If sorting is requested, the result will be sorted but calls encountered out of order will be written to extra files and NOT be included in the result."))
         multi_args.add_argument("--combine-support-threshold", default=3, metavar="N", type=int, help="Minimum support for SVs to be considered for multi-sample calling.")
-        multi_args.add_argument("--combine-population", metavar="population.snf", type=str, help="Name of a population SNF to enable population annotation.")
+        multi_args.add_argument("--combine-population", metavar="population.snf", type=str, help=B("Name of a population SNF to enable population annotation."))
         multi_args.add_argument("--re-qc", metavar="auto", default="auto", type=str, help="Re-QC SVs from SNF files. Set to 0 to disable re-qc of SNF files. Set to 1 to force re-qc. Default of 'auto' will try to fix known errors in SNF files.")
 
         # multi_args.add_argument("--combine-exhaustive", help="(DEV) Disable performance optimization in multi-calling", default=False, action="store_true")
@@ -249,14 +303,14 @@ class SnifflesConfig(argparse.Namespace):
         Postprocessing arguments
         """
         postprocess_args = parser.add_argument_group("SV Postprocessing, QC and output parameters")
-        postprocess_args.add_argument("--output-rnames", help="Output names of all supporting reads for each SV in the RNAMEs info field", default=False, action="store_true")
+        postprocess_args.add_argument("--output-rnames", help=B("Output names of all supporting reads for each SV in the RNAMEs info field"), default=False, action="store_true")
         postprocess_args.add_argument("--no-consensus", help="Disable consensus sequence generation for insertion SV calls (may improve performance)", default=False, action="store_true")
-        postprocess_args.add_argument("--no-sort", help="Do not sort output VCF by genomic coordinates (may slightly improve performance)", default=False, action="store_true")
+        postprocess_args.add_argument("--no-sort", help=B("Do not sort output VCF by genomic coordinates (may slightly improve performance)"), default=False, action="store_true")
         postprocess_args.add_argument("--no-progress", help="Disable progress display", default=False, action="store_true")
         postprocess_args.add_argument("--quiet", help="Disable all logging, except errors", default=False, action="store_true")
-        postprocess_args.add_argument("--max-del-seq-len", metavar="N", type=int, help="Maximum deletion sequence length to be output. Deletion SVs longer than this value will be written to the output as symbolic SVs.", default=50000)
-        postprocess_args.add_argument("--symbolic", help="Output all SVs as symbolic, including insertions and deletions, instead of reporting nucleotide sequences.", default=False, action="store_true")
-        postprocess_args.add_argument("--allow-overwrite", help="Allow overwriting output files if already existing", default=False, action="store_true")
+        postprocess_args.add_argument("--max-del-seq-len", metavar="N", type=int, help=B("Maximum deletion sequence length to be output. Deletion SVs longer than this value will be written to the output as symbolic SVs."), default=50000)
+        postprocess_args.add_argument("--symbolic", help=B("Output all SVs as symbolic, including insertions and deletions, instead of reporting nucleotide sequences."), default=False, action="store_true")
+        postprocess_args.add_argument("--allow-overwrite", help=B("Allow overwriting output files if already existing"), default=False, action="store_true")
 
     mosaic: bool
     mosaic_af_max: float
@@ -276,15 +330,15 @@ class SnifflesConfig(argparse.Namespace):
     @staticmethod
     def add_mosaic_args(parser):
         mosaic_args = parser.add_argument_group("Mosaic calling mode parameters")
-        mosaic_args.add_argument("--mosaic", help="Set Sniffles run mode to detect rare, somatic and mosaic SVs", default=False, action="store_true")
+        mosaic_args.add_argument("--mosaic", help=B("Set Sniffles run mode to detect rare, somatic and mosaic SVs"), default=False, action="store_true")
         mosaic_args.add_argument("--mosaic-af-max", help="Maximum allele frequency for which SVs are considered mosaic", metavar="F", default=0.218, type=float)
-        mosaic_args.add_argument("--mosaic-af-min", help="Minimum allele frequency for mosaic SVs to be output", metavar="F", default=0.05, type=float)
+        mosaic_args.add_argument("--mosaic-af-min", help=B("Minimum allele frequency for mosaic SVs to be output"), metavar="F", default=0.05, type=float)
         mosaic_args.add_argument("--mosaic-qc-invdup-min-length", help="Minimum SV length for mosaic inversion and duplication SVs", metavar="N", default=500, type=int)
         mosaic_args.add_argument("--mosaic-qc-nm", default=True, action="store_true", help=argparse.SUPPRESS)
         mosaic_args.add_argument("--mosaic-qc-nm-mult", metavar="F", type=float, default=1.66, help=argparse.SUPPRESS)
         mosaic_args.add_argument("--mosaic-qc-coverage-max-change-frac", help="Maximum relative coverage change across SV breakpoints", metavar="F", type=float, default=-1)
         mosaic_args.add_argument("--mosaic-qc-strand", help="Apply filtering based on strand support of SV calls", metavar="True", type=tobool, default=True)
-        mosaic_args.add_argument("--mosaic-include-germline", help="Report germline SVs as well in mosaic mode", default=False, action="store_true")
+        mosaic_args.add_argument("--mosaic-include-germline", help=B("Report germline SVs as well in mosaic mode"), default=False, action="store_true")
 
     qc_nm: bool
     combine_consensus: bool
@@ -315,7 +369,7 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-seq-cache-maxlen", metavar="N", type=int, default=50000, help=argparse.SUPPRESS)
         developer_args.add_argument("--consensus-max-reads", metavar="N", type=int, default=20, help=argparse.SUPPRESS)
         developer_args.add_argument("--consensus-max-reads-bin", metavar="N", type=int, default=10, help=argparse.SUPPRESS)
-        developer_args.add_argument("--combine-consensus", help="Output the consensus genotype of all samples", default=False, action="store_true")
+        developer_args.add_argument("--combine-consensus", help=argparse.SUPPRESS, default=False, action="store_true")  # "Output the consensus genotype of all samples"
         developer_args.add_argument("--dev-dump-coverage", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-no-resplit", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-no-resplit-repeat", default=False, action="store_true", help=argparse.SUPPRESS)
@@ -324,7 +378,7 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--repeat", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--qc-nm", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--qc-nm-mult", metavar="F", type=float, default=1.66, help=argparse.SUPPRESS)
-        developer_args.add_argument("--qc-coverage-max-change-frac", help="Maximum relative coverage change across SV breakpoints", metavar="F", type=float, default=-1)
+        developer_args.add_argument("--qc-coverage-max-change-frac", help=argparse.SUPPRESS, metavar="F", type=float, default=-1)  # "Maximum relative coverage change across SV breakpoints"
         developer_args.add_argument("--coverage-updown-bins", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
         developer_args.add_argument("--coverage-shift-bins", metavar="N", type=int, default=3, help=argparse.SUPPRESS)
         developer_args.add_argument("--coverage-shift-bins-min-aln-length", metavar="N", type=int, default=1000, help=argparse.SUPPRESS)
@@ -349,7 +403,7 @@ class SnifflesConfig(argparse.Namespace):
     def __init__(self, *args, **kwargs):
         super().__init__(**kwargs)
 
-        parser = argparse.ArgumentParser(description="", epilog=self.example, formatter_class=lambda prog: ArgFormatter(prog, max_help_position=100, width=150), usage=self.usage)
+        parser = TwoLevelHelpArgParser(description="", epilog=self.example, usage=self.usage)
         parser.add_argument("--version", action="version", version=f"Sniffles2, Version {BUILD}")
 
         self.add_main_args(parser)
