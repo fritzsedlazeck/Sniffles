@@ -8,6 +8,7 @@
 # Maintainer:  Hermann Romanek
 # Contact:     sniffles@romanek.at
 #
+import logging
 from dataclasses import dataclass
 import itertools
 from typing import Optional, Iterator
@@ -23,6 +24,9 @@ import sys
 from sniffles import util
 from sniffles import sv
 from sniffles.region import Region
+
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -448,6 +452,7 @@ class LeadProvider:
 
             self.read_id += 1
             self.read_count += 1
+            self.coverage[read.reference_start:read.reference_end] += 1
 
             has_sa = read.has_tag("SA")
             use_clips = self.config.detect_large_ins and not read.is_supplementary and not has_sa
@@ -500,6 +505,8 @@ class LeadProvider:
                                 print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{region}] [{read.query_name}] new lead: {lead}")
                         yield lead
                 read_mq20 += 1 if read.mapping_quality >= 20 else 0
+
+        log.info(f'Processed {self.read_count} reads in region {region.contig}:{region.start}-{region.end}')
 
         self.config.average_regional_nm = nm_sum / float(max(1, nm_count))
         self.config.qc_nm_threshold = self.config.average_regional_nm
@@ -572,9 +579,7 @@ class LeadProvider:
                                None,
                                seq=None)
             pos_read += add_read * oplength
-            pos_ref_start = pos_ref
             pos_ref += add_ref * oplength
-            coverage[pos_ref_start:pos_ref] += dcov
 
     def dev_leadtab_filename(self, contig, start, end):
         scriptloc = os.path.dirname(os.path.realpath(sys.argv[0]))

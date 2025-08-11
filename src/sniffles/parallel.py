@@ -689,6 +689,7 @@ class SnifflesParentWorker(SnifflesWorker):
             result = task.execute(self)
             task.add_result(result)
             self.finished_tasks.append(task)
+        self.tasks.clear()
         self._log.info(f'All tasks done.')
 
         return False
