@@ -22,7 +22,7 @@ from sniffles import util
 from sniffles.region import Region
 
 VERSION = "Sniffles2"
-BUILD = "2.7.0b2"
+BUILD = "2.7.0b3"
 SNF_VERSION = "S2_rc4"
 
 
