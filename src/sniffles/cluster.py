@@ -73,7 +73,7 @@ def merge_inner(cluster, threshold):
 
         for to_merge in read_seq[qname][1:]:
             merge = (threshold == -1) or ((abs(to_merge.ref_start - last_ref_end) < threshold or abs(to_merge.ref_start - last_ref_start) < threshold) and (
-                        abs(to_merge.qry_start - last_qry_end) < threshold or abs(to_merge.qry_start - last_qry_start) < threshold))
+                        abs(to_merge.qry_start - last_qry_end) < threshold or abs(to_merge.qry_start - last_qry_start) < threshold)) and (curr_lead.strand == to_merge.strand)
             if merge:
                 curr_lead.svlen += to_merge.svlen
                 if to_merge.seq is None or curr_lead.seq is None:
