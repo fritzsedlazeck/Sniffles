@@ -28,7 +28,7 @@ from sniffles.region import Region
 
 @dataclass
 class Lead:
-    read_id: int = None
+    read_id: int = None  # or tuple[int, str, str] for phased reads, with (read_id, HP, PS)
     read_qname: str = None
     contig: str = None
     ref_start: int = None
@@ -440,7 +440,7 @@ def read_itersplits(read_id, read, contig, config, read_nm):
     if trace_read:
         print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] all_leads: {all_leads}")
 
-    sv.classify_splits(read, all_leads, config, contig)
+    all_leads = sv.classify_splits(read, all_leads, config, contig)
 
     if trace_read:
         print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] classify_splits(all_leads): {all_leads}")
