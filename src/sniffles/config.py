@@ -246,8 +246,7 @@ class SnifflesConfig(argparse.Namespace):
 
     mosaic_include_germline: bool
     mosaic_qc_nm: bool
-    # TODO some better rules here
-    mosaic_min_reads: int
+    mosaic_min_reads: int # remove hard-coded minimum reads
     mosaic_use_strand_thresholds: int = 10
 
     @staticmethod
