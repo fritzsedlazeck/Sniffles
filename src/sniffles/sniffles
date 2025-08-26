@@ -229,7 +229,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             if not config.sort:
                 util.fatal_error_main(".gz (bgzip) output is only supported with sorting enabled")
 
-        vcf_handle = open(config.vcf, "w")
+        vcf_handle = open(config.uncompressed_vcf_name, "w")
         vcf_out = vcf.VCF(config, vcf_handle)
 
         if config.mode == "call_sample" or config.mode == "combine":
@@ -525,7 +525,7 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             vcf_index_start_time = time.time()
             log.info(f"Generating index for {config.vcf}...")
             try:
-                filename = pysam.tabix_index(config.vcf, preset="vcf", force=True)
+                filename = pysam.tabix_index(config.uncompressed_vcf_name, preset="vcf", force=True)
             except:  # noqa
                 log.exception(f'Error indexing VCF.')
             else:

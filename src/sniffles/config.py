@@ -15,6 +15,7 @@ import datetime
 import argparse
 import tempfile
 from collections import defaultdict
+from functools import cached_property
 
 from typing import Union, Optional, Literal
 
@@ -162,6 +163,13 @@ class SnifflesConfig(argparse.Namespace):
             return ext == ".gz" or ext == ".bgz"
         else:
             return None
+
+    @cached_property
+    def uncompressed_vcf_name(self) -> str:
+        """
+        Output VCF filename without a compression suffix
+        """
+        return self.vcf.removesuffix('.gz').removesuffix('.bgz')
 
     @staticmethod
     def add_main_args(parser):
