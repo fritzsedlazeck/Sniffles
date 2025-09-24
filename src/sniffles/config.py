@@ -23,7 +23,7 @@ from sniffles import util
 from sniffles.region import Region
 
 VERSION = "Sniffles2"
-BUILD = "2.7.0b3"
+BUILD = "2.7.0b3+h"
 SNF_VERSION = "S2_rc4"
 
 
@@ -201,6 +201,7 @@ class SnifflesConfig(argparse.Namespace):
     long_inv_length: int
     long_dup_length: int
     max_unknown_pct: float
+    max_svlen_mosaic: int
     large_coverage_sample_interval: int
     pass_only: bool
 
@@ -233,6 +234,7 @@ class SnifflesConfig(argparse.Namespace):
         filter_args.add_argument("--detect-large-ins", help="Infer insertions that are longer than most reads and therefore are spanned by few alignments only.", metavar="True", type=tobool, default=True)
         filter_args.add_argument("--max-unknown-pct", help="Maximum percentage of N for an SV to be emitted.", metavar="0.5", type=float, default=0.5)
         filter_args.add_argument("--large-coverage-sample-interval", metavar="5000", type=int, help="Sampling interval for coverage calculation for large SVs", default=5000)
+        filter_args.add_argument("--max-svlen-mosaic", metavar="N", type=int, help="Maximum size of reprted mosaic SV", default=50000)
         # filter_args.add_argument("--large-ins-threshold", metavar="N", type=int, help="Minimum clipping at read ends to be considered a potential large insertion (only with --detect-large-ins)", default=5000)
 
     cluster_binsize: int
@@ -329,7 +331,6 @@ class SnifflesConfig(argparse.Namespace):
     mosaic_qc_coverage_max_change_frac: float
     mosaic_qc_strand: bool
     mosaic_include_germline: bool
-    mosaic_qc_nm: bool
     # TODO some better rules here
     mosaic_min_reads: int = 3
     mosaic_use_strand_thresholds: int = 10

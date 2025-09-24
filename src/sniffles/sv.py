@@ -142,6 +142,7 @@ class SVCall:
             return True, None
         return var < 0.3, float(var)
 
+
 @dataclass
 class SVGroup:
     """

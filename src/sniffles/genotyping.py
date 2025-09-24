@@ -59,7 +59,6 @@ class Genotype:
     UNKNOWN = UnknownGenotype()
 
 
-
 class Genotyper:
     """
     Generic genotyping

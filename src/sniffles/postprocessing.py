@@ -194,9 +194,11 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
                 svcall.filter = "STDEV_LEN"
                 return False
 
+    support_overwrite_svlen = 10
     if abs(svcall.svlen) < config.minsvlen:
-        svcall.filter = "SVLEN_MIN"
-        return False
+        if svcall.support < support_overwrite_svlen:
+            svcall.filter = "SVLEN_MIN"
+            return False
 
     if svcall.svtype == "BND":
         if config.qc_bnd_filter_strand and len(set(lead.strand for lead in svcall.postprocess.cluster.leads)) < 2:
@@ -347,9 +349,26 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average
         return False
 
     if config.mosaic and sv_is_mosaic:
-        if svcall.support < config.mosaic_min_reads:
+        # SUPPORT
+        stdev_pos = svcall.info["STDEV_POS"] if "STDEV_POS" in svcall.info else None
+        stdev_len = svcall.info["STDEV_LEN"] if "STDEV_LEN" in svcall.info else None
+        svlen = svcall.info["SVLEN"] if "SVLEN" in svcall.info else 1
+        min_mosaic_support = config.mosaic_min_reads
+        max_stdev_to_svlen_ratio = 0.1
+        max_stdev_pos_difference = 5
+        if stdev_pos is not None and stdev_len is not None:
+            filter_low_supp = ((not svcall.precise or stdev_len/abs(svcall.svlen) > max_stdev_to_svlen_ratio or
+                                stdev_pos > max_stdev_pos_difference) and abs(svlen) <= config.max_svlen_mosaic)
+            min_mosaic_support = config.mosaic_min_reads if (svcall.svtype in ["BND", "INV"] or filter_low_supp) \
+                else config.mosaic_min_reads-1
+        # if svcall.support < config.mosaic_min_reads:
+        if svcall.support < min_mosaic_support:
             svcall.filter = "SUPPORT_MIN"
             return False
+        # SVLEN
+        if "BND" != svcall.svtype:
+            if abs(svcall.svlen) > config.max_svlen_mosaic:
+                svcall.filter = "SVLEN_MIN_MOSAIC"
 
     if svcall.svtype != "BND":
         if not (config.mosaic and sv_is_mosaic) and config.qc_strand:
