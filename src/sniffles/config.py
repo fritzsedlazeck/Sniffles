@@ -201,7 +201,6 @@ class SnifflesConfig(argparse.Namespace):
     long_inv_length: int
     long_dup_length: int
     max_unknown_pct: float
-    max_svlen_mosaic: int
     large_coverage_sample_interval: int
     pass_only: bool
 
@@ -234,7 +233,6 @@ class SnifflesConfig(argparse.Namespace):
         filter_args.add_argument("--detect-large-ins", help="Infer insertions that are longer than most reads and therefore are spanned by few alignments only.", metavar="True", type=tobool, default=True)
         filter_args.add_argument("--max-unknown-pct", help="Maximum percentage of N for an SV to be emitted.", metavar="0.5", type=float, default=0.5)
         filter_args.add_argument("--large-coverage-sample-interval", metavar="5000", type=int, help="Sampling interval for coverage calculation for large SVs", default=5000)
-        filter_args.add_argument("--max-svlen-mosaic", metavar="N", type=int, help="Maximum size of reprted mosaic SV", default=50000)
         # filter_args.add_argument("--large-ins-threshold", metavar="N", type=int, help="Minimum clipping at read ends to be considered a potential large insertion (only with --detect-large-ins)", default=5000)
 
     cluster_binsize: int
@@ -334,8 +332,8 @@ class SnifflesConfig(argparse.Namespace):
     # TODO some better rules here
     mosaic_min_reads: int = 3
     mosaic_use_strand_thresholds: int = 10
+    max_svlen_mosaic: int
     
-
     @staticmethod
     def add_mosaic_args(parser):
         mosaic_args = parser.add_argument_group("Mosaic calling mode parameters")
@@ -348,6 +346,7 @@ class SnifflesConfig(argparse.Namespace):
         mosaic_args.add_argument("--mosaic-qc-coverage-max-change-frac", help="Maximum relative coverage change across SV breakpoints", metavar="F", type=float, default=-1)
         mosaic_args.add_argument("--mosaic-qc-strand", help="Apply filtering based on strand support of SV calls", metavar="True", type=tobool, default=True)
         mosaic_args.add_argument("--mosaic-include-germline", help=B("Report germline SVs as well in mosaic mode"), default=False, action="store_true")
+        mosaic_args.add_argument("--max-svlen-mosaic", metavar="N", type=int, help="Maximum size of reported mosaic SV", default=50000)
 
     qc_nm: bool
     combine_consensus: bool
@@ -366,7 +365,6 @@ class SnifflesConfig(argparse.Namespace):
         Developer arguments
         """
         developer_args = parser.add_argument_group("Developer parameters")
-
         developer_args.add_argument("--dev-emit-sv-lengths", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-cache", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-cache-dir", metavar="PATH", type=str, default=None, help=argparse.SUPPRESS)
@@ -404,6 +402,7 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-progress-log", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-population-snf", metavar="population.snf", type=str, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-population-min-gt", default=0.75, type=float, help=argparse.SUPPRESS)  # min
+        developer_args.add_argument("--dev-filter", default=False, action="store_true", help=argparse.SUPPRESS)  # appends all filters to a given SV,
         developer_args.add_argument("--dev-debug", default=0, type=int, help=argparse.SUPPRESS)  # Enable debug connection on the given port
         developer_args.add_argument("--exclude-flags", "--excl-flags", "-F", default=None, type=int, help=argparse.SUPPRESS)
 

@@ -128,12 +128,19 @@ def coverage(calls: list[SVCall], lead_provider: 'LeadProvider') -> float:
 def qc_sv_support(svcall, coverage_global, config) -> bool:
     if config.minsupport == "auto":
         if not qc_support_auto(svcall, coverage_global, config):
-            svcall.filter = "SUPPORT_MIN"
-            return False
+            svcall.filter = f'{svcall.filter}-SUPPORT_MIN' if config.dev_filter else "SUPPORT_MIN"
+            if not config.dev_filter:
+                return False
     else:
         if not qc_support_const(svcall, config):
-            svcall.filter = "SUPPORT_MIN"
-            return False
+            svcall.filter = f'{svcall.filter}-SUPPORT_MIN' if config.dev_filter else "SUPPORT_MIN"
+            if not config.dev_filter:
+                return False
+
+    if config.dev_filter and "PASS" != svcall.filter:
+        filter_list = svcall.filter.split("-")
+        if "PASS" == filter_list[0]:
+            svcall.filter = "-".join(filter_list[1:])
     return True
 
 
@@ -164,9 +171,9 @@ def qc_support_auto(svcall, coverage_global, config):
         if coverage_regional == 0:
             coverage_regional = coverage_global
     coverage_global_weight = (1.0 - config.minsupport_auto_regional_coverage_weight)
-    coverage = (coverage_regional * config.minsupport_auto_regional_coverage_weight +
-                coverage_global * coverage_global_weight)
-    min_support = round(config.minsupport_auto_base + config.minsupport_auto_mult * coverage)
+    coverage_ = (coverage_regional * config.minsupport_auto_regional_coverage_weight +
+                 coverage_global * coverage_global_weight)
+    min_support = round(config.minsupport_auto_base + config.minsupport_auto_mult * coverage_)
     return support >= min_support
 
 
@@ -179,31 +186,37 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
     if config.qc_stdev:
         stdev_pos = svcall.get_info("STDEV_POS")
         if stdev_pos > config.qc_stdev_abs_max:
-            svcall.filter = "STDEV_POS"
-            return False
+            svcall.filter = f'{svcall.filter}-STDEV_POS' if config.dev_filter else "STDEV_POS"
+            if not config.dev_filter:
+                return False
         if svcall.svtype != "BND" and stdev_pos / abs(svcall.svlen) > 2.0:
-            svcall.filter = "STDEV_POS"
-            return False
+            svcall.filter = f'{svcall.filter}-STDEV_POS' if config.dev_filter else "STDEV_POS"
+            if not config.dev_filter:
+                return False
 
         stdev_len = svcall.get_info("STDEV_LEN")
         if stdev_len is not None:
             if svcall.svtype != "BND" and stdev_len / abs(svcall.svlen) > 1.0:
-                svcall.filter = "STDEV_LEN"
-                return False
+                svcall.filter = f'{svcall.filter}-STDEV_LEN' if config.dev_filter else "STDEV_LEN"
+                if not config.dev_filter:
+                    return False
             if stdev_len > config.qc_stdev_abs_max:
-                svcall.filter = "STDEV_LEN"
-                return False
+                svcall.filter = f'{svcall.filter}-STDEV_LEN' if config.dev_filter else "STDEV_LEN"
+                if not config.dev_filter:
+                    return False
 
     support_overwrite_svlen = 10
     if abs(svcall.svlen) < config.minsvlen:
         if svcall.support < support_overwrite_svlen:
-            svcall.filter = "SVLEN_MIN"
-            return False
+            svcall.filter = f'{svcall.filter}-SVLEN_MIN' if config.dev_filter else "SVLEN_MIN"
+            if not config.dev_filter:
+                return False
 
     if svcall.svtype == "BND":
         if config.qc_bnd_filter_strand and len(set(lead.strand for lead in svcall.postprocess.cluster.leads)) < 2:
-            svcall.filter = "STRAND_BND"
-            return False
+            svcall.filter = f'{svcall.filter}-STRAND_BND' if config.dev_filter else "STRAND_BND"
+            if not config.dev_filter:
+                return False
 
     upstream_downstream_max_coverage_diff = 0.7  # 70%
     upstream_downstream_diff = 0.5  # add to config
@@ -214,24 +227,28 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
             # check if slopped coverage, that often happens over large spans
             if svcall.coverage_upstream > svcall.coverage_center > svcall.coverage_downstream:
                 if svcall.coverage_downstream/svcall.coverage_upstream < upstream_downstream_max_coverage_diff:
-                    svcall.filter = "COV_CHANGE_DEL"
-                    return False
+                    svcall.filter = f'{svcall.filter}-COV_CHANGE_DEL' if config.dev_filter else "COV_CHANGE_DEL"
+                    if not config.dev_filter:
+                        return False
             elif svcall.coverage_upstream < svcall.coverage_center < svcall.coverage_downstream:
                 if svcall.coverage_upstream/svcall.coverage_downstream < upstream_downstream_max_coverage_diff:
-                    svcall.filter = "COV_CHANGE_DEL"
-                    return False
+                    svcall.filter = f'{svcall.filter}-COV_CHANGE_DEL' if config.dev_filter else "COV_CHANGE_DEL"
+                    if not config.dev_filter:
+                        return False
             else:
                 pass
         if svcall.coverage_upstream > svcall.coverage_downstream:
             if (upstream_downstream_diff > svcall.coverage_downstream/svcall.coverage_upstream or
                     svcall.coverage_center > svcall.coverage_downstream):
-                svcall.filter = "COV_CHANGE_DEL"
-                return False
+                svcall.filter = f'{svcall.filter}-COV_CHANGE_DEL' if config.dev_filter else "COV_CHANGE_DEL"
+                if not config.dev_filter:
+                    return False
         elif svcall.coverage_upstream < svcall.coverage_downstream:
             if (upstream_downstream_diff > svcall.coverage_upstream/svcall.coverage_downstream or
                     svcall.coverage_upstream < svcall.coverage_center):
-                svcall.filter = "COV_CHANGE_DEL"
-                return False
+                svcall.filter = f'{svcall.filter}-COV_CHANGE_DEL' if config.dev_filter else "COV_CHANGE_DEL"
+                if not config.dev_filter:
+                    return False
         else:
             pass
     elif (svcall.svtype == "DUP" and config.long_dup_length != -1 and abs(svcall.svlen) >= config.long_dup_length and
@@ -241,36 +258,42 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
             # check if slopped coverage, that often happens over large spans
             if svcall.coverage_upstream > svcall.coverage_center > svcall.coverage_downstream:
                 if svcall.coverage_downstream/svcall.coverage_upstream < upstream_downstream_max_coverage_diff:
-                    svcall.filter = "COV_CHANGE_DUP"
-                    return False
+                    svcall.filter = f'{svcall.filter}-COV_CHANGE_DUP' if config.dev_filter else "COV_CHANGE_DUP"
+                    if not config.dev_filter:
+                        return False
             elif svcall.coverage_upstream < svcall.coverage_center < svcall.coverage_downstream:
                 if svcall.coverage_upstream/svcall.coverage_downstream < upstream_downstream_max_coverage_diff:
-                    svcall.filter = "COV_CHANGE_DUP"
-                    return False
+                    svcall.filter = f'{svcall.filter}-COV_CHANGE_DUP' if config.dev_filter else "COV_CHANGE_DUP"
+                    if not config.dev_filter:
+                        return False
             else:
                 pass
             if svcall.coverage_upstream > svcall.coverage_downstream:
                 if (upstream_downstream_diff > svcall.coverage_downstream / svcall.coverage_upstream or
                         svcall.coverage_center < svcall.coverage_downstream):
-                    svcall.filter = "COV_CHANGE_DUP"
-                    return False
+                    svcall.filter = f'{svcall.filter}-COV_CHANGE_DUP' if config.dev_filter else "COV_CHANGE_DUP"
+                    if not config.dev_filter:
+                        return False
             elif svcall.coverage_upstream < svcall.coverage_downstream:
                 if (upstream_downstream_diff > svcall.coverage_upstream / svcall.coverage_downstream or
                         svcall.coverage_upstream > svcall.coverage_center):
-                    svcall.filter = "COV_CHANGE_DUP"
-                    return False
+                    svcall.filter = f'{svcall.filter}-COV_CHANGE_DUP' if config.dev_filter else "COV_CHANGE_DUP"
+                    if not config.dev_filter:
+                        return False
             else:
                 pass
     elif svcall.svtype == "INS" and (svcall.coverage_upstream < config.qc_coverage or
                                      svcall.coverage_downstream < config.qc_coverage):
-        svcall.filter = "COV_CHANGE_INS"
-        return False
+        svcall.filter = f'{svcall.filter}-COV_CHANGE_INS' if config.dev_filter else "COV_CHANGE_INS"
+        if not config.dev_filter:
+            return False
 
     qc, val = svcall.qc_coverage_samples()
     svcall.set_info('COVERAGE_VAR', val)
     if not qc:
         svcall.filter = f'COV_VAR'
-        return False
+        if not config.dev_filter:
+            return False
 
     qc_coverage_max_change_frac = config.qc_coverage_max_change_frac
     # if config.mosaic and sv_is_mosaic:
@@ -302,21 +325,29 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
             d = 1.0
 
         if abs(u - s) / max(u, s) > qc_coverage_max_change_frac:
-            svcall.filter = "COV_CHANGE_FRAC_US"
-            return False
+            svcall.filter = f'{svcall.filter}-COV_CHANGE_FRAC_US' if config.dev_filter else "COV_CHANGE_FRAC_US"
+            if not config.dev_filter:
+                return False
 
         if abs(s - c) / max(s, c) > qc_coverage_max_change_frac:
-            svcall.filter = "COV_CHANGE_FRAC_SC"
-            return False
+            svcall.filter = f'{svcall.filter}-COV_CHANGE_FRAC_SC' if config.dev_filter else "COV_CHANGE_FRAC_SC"
+            if not config.dev_filter:
+                return False
 
         if abs(c - e) / max(c, e) > qc_coverage_max_change_frac:
-            svcall.filter = "COV_CHANGE_FRAC_CE"
-            return False
+            svcall.filter = f'{svcall.filter}-COV_CHANGE_FRAC_CE' if config.dev_filter else "COV_CHANGE_FRAC_CE"
+            if not config.dev_filter:
+                return False
 
         if abs(e - d) / max(e, d) > qc_coverage_max_change_frac:
-            svcall.filter = "COV_CHANGE_FRAC_ED"
-            return False
+            svcall.filter = f'{svcall.filter}-COV_CHANGE_FRAC_ED' if config.dev_filter else "COV_CHANGE_FRAC_ED"
+            if not config.dev_filter:
+                return False
 
+    if config.dev_filter and "PASS" != svcall.filter:
+        filter_list = svcall.filter.split("-")
+        if "PASS" == filter_list[0]:
+            svcall.filter = "-".join(filter_list[1:])
     return True
 
 
@@ -328,12 +359,14 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average
     if (svcall.coverage_center < config.qc_coverage and
             (len(svcall.genotypes) == 0 or (svcall.genotypes[0][0] != "." and
                                             svcall.genotypes[0][0] + svcall.genotypes[0][1] < 2))):
-        svcall.filter = "COV_MIN_GT"
-        return False
+        svcall.filter = f'{svcall.filter}-COV_MIN_GT' if config.dev_filter else "COV_MIN_GT"
+        if not config.dev_filter:
+            return False
 
     if config.mosaic and not sv_is_mosaic:
         if not qc_sv_support(svcall, coverage_average_total, config):
-            return False
+            if not config.dev_filter:
+                return False
 
     qc_nm = config.qc_nm
     qc_nm_threshold = config.qc_nm_threshold * config.qc_nm_mult
@@ -341,12 +374,14 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average
         qc_nm = config.mosaic_qc_nm
         qc_nm_threshold = config.qc_nm_threshold * config.qc_nm_mult
     if qc_nm and svcall.nm > qc_nm_threshold and (len(svcall.genotypes) == 0 or svcall.genotypes[0][1] == 0):
-        svcall.filter = "ALN_NM"
-        return False
+        svcall.filter = f'{svcall.filter}-ALN_NM' if config.dev_filter else "ALN_NM"
+        if not config.dev_filter:
+            return False
 
     if not config.mosaic and sv_is_mosaic:
-        svcall.filter = "MOSAIC_VAF"
-        return False
+        svcall.filter = f'{svcall.filter}-MOSAIC_VAF' if config.dev_filter else "MOSAIC_VAF"
+        if not config.dev_filter:
+            return False
 
     if config.mosaic and sv_is_mosaic:
         # SUPPORT
@@ -363,46 +398,59 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average
                 else config.mosaic_min_reads-1
         # if svcall.support < config.mosaic_min_reads:
         if svcall.support < min_mosaic_support:
-            svcall.filter = "SUPPORT_MIN"
-            return False
+            svcall.filter = f'{svcall.filter}-SUPPORT_MIN' if config.dev_filter else "SUPPORT_MIN"
+            if not config.dev_filter:
+                return False
         # SVLEN
         if "BND" != svcall.svtype:
             if abs(svcall.svlen) > config.max_svlen_mosaic:
-                svcall.filter = "SVLEN_MIN_MOSAIC"
+                svcall.filter = f'{svcall.filter}-SVLEN_MAX_MOSAIC' if config.dev_filter else "SVLEN_MAX_MOSAIC"
+                if not config.dev_filter:
+                    return False
 
     if svcall.svtype != "BND":
         if not (config.mosaic and sv_is_mosaic) and config.qc_strand:
             is_long_ins = (svcall.svtype == "INS" and svcall.svlen >= config.long_ins_length)
             if not is_long_ins and len(set(leads.strand for leads in svcall.postprocess.cluster.leads)) < 2:
-                svcall.filter = "STRAND"
-                return False
+                svcall.filter = f'{svcall.filter}-STRAND' if config.dev_filter else "STRAND"
+                if not config.dev_filter:
+                    return False
         elif (config.mosaic and sv_is_mosaic) and config.mosaic_qc_strand:
             is_long_ins = (svcall.svtype == "INS" and svcall.svlen >= config.long_ins_length)
             if (not is_long_ins and len(set(leads.strand for leads in svcall.postprocess.cluster.leads)) < 2
                     and svcall.support >= config.mosaic_use_strand_thresholds):
-                svcall.filter = "STRAND_MOSAIC"
-                return False
+                svcall.filter = f'{svcall.filter}-STRAND_MOSAIC' if config.dev_filter else "STRAND_MOSAIC"
+                if not config.dev_filter:
+                    return False
 
     if config.mosaic and sv_is_mosaic:
         if (svcall.svtype == "INV" or svcall.svtype == "DUP") and svcall.svlen < config.mosaic_qc_invdup_min_length:
-            svcall.filter = "SVLEN_MIN_MOSAIC"
-            return False
+            svcall.filter = f'{svcall.filter}-SVLEN_MIN_MOSAIC' if config.dev_filter else "SVLEN_MIN_MOSAIC"
+            if not config.dev_filter:
+                return False
 
     if svcall.coverage_center < config.qc_coverage and svcall.svtype not in ["DEL", "INS"]:
         if (svcall.svtype == "INV" and svcall.svlen) > config.long_inv_length and not (config.mosaic and sv_is_mosaic):
             pass
         else:
-            svcall.filter = "COV_MIN"
-            return False
+            svcall.filter = f'{svcall.filter}-COV_MIN' if config.dev_filter else "COV_MIN"
+            if not config.dev_filter:
+                return False
 
     if config.mosaic:
         if sv_is_mosaic and (af < config.mosaic_af_min or af > config.mosaic_af_max):
-            svcall.filter = "MOSAIC_VAF"
-            return False
+            svcall.filter = f'{svcall.filter}-MOSAIC_VAF' if config.dev_filter else "MOSAIC_VAF"
+            if not config.dev_filter:
+                return False
         elif not sv_is_mosaic and not config.mosaic_include_germline:
-            svcall.filter = "NOT_MOSAIC_VAF"
-            return False
+            svcall.filter = f'{svcall.filter}-NOT_MOSAIC_VAF' if config.dev_filter else "NOT_MOSAIC_VAF"
+            if not config.dev_filter:
+                return False
 
+    if config.dev_filter and "PASS" != svcall.filter:
+        filter_list = svcall.filter.split("-")
+        if "PASS" == filter_list[0]:
+            svcall.filter = "-".join(filter_list[1:])
     return True
 
 
