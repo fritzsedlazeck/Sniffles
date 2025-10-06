@@ -38,10 +38,12 @@ def unpack_phase(phase, svid="") -> tuple:
         hp_i, ps = phase
     except TypeError:
         if phase is None:
-            hp_i, ps = ".", "."
+            hp_i, ps = None, "."
         else:
             log.debug(f"Single not 'None'-valued phase: {phase}|{svid}")
             hp_i, ps = phase, phase
+    if hp_i is None or ps is None:
+        return None, "."
     ps = ps if ps is not None else "."
     return hp_i, ps
 
@@ -57,7 +59,7 @@ def format_genotype(gt, is_phased):
     if len(gt) == gt_multi_sample_fields:
         a, b, qual, dr, dv, phase = gt
         hp_i, ps = unpack_phase(phase)
-        if hp_i is not None and (a, b) == (0, 1) and is_phased:
+        if hp_i is not None and (a, b) in [(0, 1), (1, 1)] and is_phased:
             gt_sep = "|"
             if hp_i == 0:
                 a, b = b, a
@@ -67,7 +69,7 @@ def format_genotype(gt, is_phased):
     else:
         a, b, qual, dr, dv, phase, svid = gt
         hp_i, ps = unpack_phase(phase, svid)
-        if hp_i is not None and (a, b) == (0, 1) and is_phased:
+        if hp_i is not None and (a, b) == [(0, 1), (1, 1)]  and is_phased:
             gt_sep = "|"
             if hp_i == 0:
                 a, b = b, a

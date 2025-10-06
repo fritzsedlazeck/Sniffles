@@ -86,7 +86,8 @@ class Genotyper:
     def _calculate_coverage(self, support: int) -> int:
         return self._get_coverage_from_list()
 
-    def _calculate_af(self, support: int, coverage: int) -> float:
+    @staticmethod
+    def _calculate_af(support: int, coverage: int) -> float:
         """
         Calculate allele fraction
         """

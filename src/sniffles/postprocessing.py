@@ -545,6 +545,19 @@ def genotype_sv(svcall: SVCall, config, phase: tuple | None = None):
 
     GENOTYPER_BY_TYPE.get(svcall.svtype, Genotyper)(svcall, config, phase).calculate()
 
+    # post HP assessment for GT, hom alt should skip hp_filter, but gt is after phase
+    try:
+        a, b, gq, dr, dv, phase = svcall.genotypes[0]
+        if a == b and a == 1:
+            hp, ps, hp_supp, ps_supp, hp_filt, ps_filt = svcall.get_info("PHASE").split(",")
+            if "NULL" != hp and "NULL" != ps:
+                hp_filt, ps_filt = "PASS", "PASS"
+                phase = (hp, ps)
+                svcall.genotypes[0] = (a, b, gq, dr, dv, phase)
+                svcall.set_info("PHASE", f"{hp},{ps},{hp_supp},{ps_supp},{hp_filt},{ps_filt}")
+    except KeyError:
+        pass
+
 
 def phase_sv(svcall, config):
     reads_phases = {lead.read_id[0]: (lead.read_id[1], lead.read_id[2]) for lead in svcall.postprocess.cluster.leads}

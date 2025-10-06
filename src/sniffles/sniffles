@@ -229,6 +229,10 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             if not config.sort:
                 util.fatal_error_main(".gz (bgzip) output is only supported with sorting enabled")
 
+        parent_dir = os.path.dirname(os.path.abspath(config.uncompressed_vcf_name))
+        if not os.path.exists(parent_dir):
+            util.fatal_error_main(f"Directory {parent_dir} does not exists.")
+
         vcf_handle = open(config.uncompressed_vcf_name, "w")
         vcf_out = vcf.VCF(config, vcf_handle)
 
