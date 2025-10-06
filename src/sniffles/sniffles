@@ -79,6 +79,10 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             else:
                 logging.getLogger('sniffles.dev').info(f'Connected to PyCharm debugger.')
 
+    if config.no_progress:
+        logging.getLogger('sniffles.progress').setLevel(logging.CRITICAL)
+        logging.getLogger('sniffles.worker').setLevel(logging.CRITICAL)
+
     input_ext = [f.split(".")[-1].lower() for f in config.input]
 
     # needed for running on osx

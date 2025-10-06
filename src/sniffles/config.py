@@ -23,7 +23,7 @@ from sniffles import util
 from sniffles.region import Region
 
 VERSION = "Sniffles2"
-BUILD = "2.7.0b3+h"
+BUILD = "2.7.0rc1"
 SNF_VERSION = "S2_rc4"
 
 
@@ -304,6 +304,7 @@ class SnifflesConfig(argparse.Namespace):
         # multi_args.add_argument("--combine-with-missing", help="(DEV)", default=False, action="store_true")
 
     allow_overwrite: bool
+    no_progress: bool
 
     @staticmethod
     def add_postprocess_args(parser):

@@ -140,7 +140,8 @@ class TestVCFFormat(TestCase):
             self.assertEqual('TCG', ref)
             self.assertEqual('T', alt)
             _, info_fields = self.parse_info(info)
-            self.assertEqual(pos + abs(int(info_fields['SVLEN'])) - 1, int(info_fields['END']))
+            self.assertEqual('-2', info_fields['SVLEN'])
+            self.assertEqual('4', info_fields['END'])
 
         vcf = self.get_vcf('aTCGa')
         vcf.write_raw = Mock(side_effect=verify)
@@ -218,3 +219,41 @@ class TestVCFFormat(TestCase):
         ))
 
         vcf.write_raw.assert_called()
+
+    def test_del_end_issue580(self):
+        """
+        Verify that END is correctly set for deletions
+          See https://github.com/fritzsedlazeck/Sniffles/issues/580
+        """
+        def mock_fetch(refname, start, end):
+            """
+            Reference is extracted from:
+            reference_file = pysam.FastaFile('GRCh38_GIABv3_no_alt_analysis_set_maskedGRC_decoys_MAP2K3_KMT2C_KCNJ18.fasta.gz')
+            reference.fetch('chr1', 180400, 180600)
+            """
+            reference = 'TTAACCCCTAACCCTAACCCTTGACCCTAACCCTTGACCCTAACCCCTGACCCTGACCCTTAACCCTAACCCCTAACCCTTAACCCTTAAACCTTAACCCTCATCCTCACCCTCACCCTCACCCCTAACCCTAACCCCTAACCCCTAACCCAAACCCTAACCCTAAACCCTAACCCTAAACCCAACCCAAACCCTAACCT'
+            return reference[start-180400:end-180400]
+
+        vcf = VCF(self.get_config(), None)
+        vcf.reference_handle = Mock()
+        vcf.reference_handle.fetch = Mock(
+            side_effect=mock_fetch
+        )
+
+        def verify(*args, **kwargs):
+            pos, ref, alt, info = self.verify_common_fields(*args, **kwargs)
+            self.assertEqual(180431, pos)
+            self.assertEqual('CCCTTGACCCTAACCCCTGACCCTGACCCTTAACCCTAACCCCTAACCCTTAACCCTTAAACCTTAACCCTCATCCTCACCCTCACCCTCAC', ref)
+            self.assertEqual('C', alt)
+            self.assertIn('END=180522', info)
+
+        vcf.write_raw = Mock(side_effect=verify)
+        vcf.write_call(self.get_svcall(
+            svtype='DEL',
+            ref='N',
+            alt='<DEL>',
+            pos=180431,
+            svlen=-91,
+            end=180521,
+        ))
+

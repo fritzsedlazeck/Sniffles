@@ -210,6 +210,9 @@ class VCF:
         end = call.end
         pos = call.pos if call.pos > 0 else 1
 
+        if call.precise and call.svtype == 'DEL':
+            end = pos + abs(call.svlen)
+
         # Determine genotypes columns
         ac = 0  # Allele count
         supvec = []
@@ -265,10 +268,6 @@ class VCF:
             infos["SVLEN"] = None
             infos["SVLENGTHS"] = None
             infos["END"] = None
-
-        if call.svtype == "DEL":
-            # END is POS + length of REF allele - 1
-            infos["END"] = end - 1
 
         infos_ordered = ["PRECISE" if call.precise else "IMPRECISE"]
         af = call.get_info("VAF")
