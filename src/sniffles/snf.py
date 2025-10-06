@@ -243,42 +243,23 @@ class SNFileBase:
 
 
 class SNFile(SNFileBase):
-    def annotate_block_coverages(self, lead_provider, resolution=500):
-        config = self.config
-        start_bin = lead_provider.covrtab_min_bin
-        end_bin = int(lead_provider.end / config.coverage_binsize) * config.coverage_binsize
-        coverage_fwd = 0
-        coverage_rev = 0
-
-        coverage_sum = 0
-        bin_count = 0
-
+    def annotate_block_coverages(self, lead_provider):
+        """
+        Add (downsampled) coverage information to all blocks.
+        """
         coverage_binsize_combine = self.config.coverage_binsize_combine
-        snf_block_size = config.snf_block_size
+        snf_block_size = self.config.snf_block_size
+        samples_per_block = snf_block_size // coverage_binsize_combine
 
-        for bin in range(start_bin, end_bin + config.coverage_binsize, config.coverage_binsize):
-            if bin in lead_provider.covrtab_fwd:
-                coverage_fwd += lead_provider.covrtab_fwd[bin]
+        downsampled_coverage = lead_provider.coverage[
+            :len(lead_provider.coverage) // coverage_binsize_combine * coverage_binsize_combine
+        ].reshape(-1, coverage_binsize_combine).mean(axis=1)
 
-            if bin in lead_provider.covrtab_rev:
-                coverage_rev += lead_provider.covrtab_rev[bin]
-
-            coverage_sum += coverage_fwd + coverage_rev
-            bin_count += 1
-
-            if bin % coverage_binsize_combine == 0:
-                block_index = int(bin / snf_block_size) * snf_block_size
-
-                coverage_total_curr = math.ceil(coverage_sum / float(bin_count))
-                if coverage_total_curr > 0:
-                    if block_index not in self.blocks:
-                        self.blocks[block_index] = {svtype: [] for svtype in sv.TYPES}
-                        self.blocks[block_index]["_COVERAGE"] = {}
-
-                    self.blocks[block_index]["_COVERAGE"][bin] = coverage_total_curr
-
-                coverage_sum = 0
-                bin_count = 0
+        for block_offset in self.blocks.keys():
+            block_index = block_offset // snf_block_size
+            self.blocks[block_offset]['_COVERAGE'] = {
+                block_offset + i * coverage_binsize_combine: round(downsampled_coverage[block_index * samples_per_block + i]) for i in range(samples_per_block)
+            }
 
 
 class RemoteIndexSNFile(SNFile):
