@@ -17,6 +17,8 @@ import math
 from functools import cached_property
 from typing import Optional
 
+import numpy as np
+
 from sniffles import sv
 from sniffles.config import SnifflesConfig
 
@@ -251,9 +253,8 @@ class SNFile(SNFileBase):
         snf_block_size = self.config.snf_block_size
         samples_per_block = snf_block_size // coverage_binsize_combine
 
-        downsampled_coverage = lead_provider.coverage[
-            :len(lead_provider.coverage) // coverage_binsize_combine * coverage_binsize_combine
-        ].reshape(-1, coverage_binsize_combine).mean(axis=1)
+        padding_length = -len(lead_provider.coverage) % coverage_binsize_combine
+        downsampled_coverage = np.pad(lead_provider.coverage, (0, padding_length), mode='constant').reshape(-1, coverage_binsize_combine).mean(axis=1)
 
         for block_offset in self.blocks.keys():
             block_index = block_offset // snf_block_size
