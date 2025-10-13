@@ -177,9 +177,9 @@ class SVCall:
             if self.svtype == 'INS' and (loc := cluster.get_break()):
                 return self.svtype, '-', self.contig, str(loc), '', '', '', self.filter, str(support_inline), str(support_splits), str(support_ref)
             elif self.svtype == 'SINGLE_LEFT':
-                return '', '-', self.contig, str(self.pos), '', '', '', self.filter, str(support_inline), str(support_splits), str(support_ref)
+                return self.svtype, '-', self.contig, str(self.pos), '', '', '', self.filter if self.filter != 'SINGLE_BREAK' else '', str(support_inline), str(support_splits), str(support_ref)
             elif self.svtype == 'SINGLE_RIGHT':
-                return '', '+', self.contig, str(self.pos), '', '', '', self.filter, str(support_inline), str(support_splits), str(support_ref)
+                return self.svtype, '+', self.contig, str(self.pos), '', '', '', self.filter if self.filter != 'SINGLE_BREAK' else '', str(support_inline), str(support_splits), str(support_ref)
             else:
                 return None
         else:

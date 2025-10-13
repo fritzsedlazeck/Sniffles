@@ -17,13 +17,17 @@ import tempfile
 from collections import defaultdict
 from functools import cached_property
 
-from typing import Union, Optional, Literal
+from typing import Union, Optional, Literal, TYPE_CHECKING
 
 from sniffles import util
 from sniffles.region import Region
 
+if TYPE_CHECKING:
+    from sniffles.snfp import PopulationSNF
+
+
 VERSION = "Sniffles2"
-BUILD = "2.7.0rc1"
+BUILD = "2.7.0rc2"
 SNF_VERSION = "S2_rc4"
 
 
@@ -274,7 +278,7 @@ class SnifflesConfig(argparse.Namespace):
     combine_pctseq: float
     combine_max_inmemory_results: int
     combine_support_threshold: int
-    combine_population: str
+    combine_population: Union[str, 'PopulationSNF']
 
     @classmethod
     def add_multi_args(cls, parser):
@@ -362,6 +366,7 @@ class SnifflesConfig(argparse.Namespace):
     dev_output_candidates: str = None
     dev_single_break_count: int
     dev_single_break_dist: int
+    dev_filter: bool  # Stores & outputs all failed filters on an SV
 
     @staticmethod
     def add_developer_args(parser):

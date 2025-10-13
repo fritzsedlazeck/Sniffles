@@ -12,7 +12,7 @@ import logging
 import logging.config
 import multiprocessing
 from collections import deque
-from typing import Optional, Literal
+from typing import Optional
 
 from sniffles.utils.resmon import ResourceMonitor
 

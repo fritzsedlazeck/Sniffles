@@ -16,10 +16,9 @@ import multiprocessing
 import os
 import threading
 import time
-from argparse import Namespace
 from collections import deque
 from dataclasses import dataclass
-from typing import Optional, Union, Callable
+from typing import Optional, Union, Callable, TYPE_CHECKING
 
 import pysam
 
@@ -32,6 +31,9 @@ from sniffles.region import Region
 from sniffles.result import Result, ErrorResult, CallResult, GenotypeResult, CombineResult
 from sniffles.snfp import PopulationSNF
 
+if TYPE_CHECKING:
+    from sniffles.config import SnifflesConfig
+
 
 @dataclass
 class Task:
@@ -43,7 +45,7 @@ class Task:
     contig: str
     start: int
     end: int
-    config: Namespace
+    config: 'SnifflesConfig'
     assigned_process_id: Optional[int] = None
     lead_provider: leadprov.LeadProvider = None
     bam: object = None
@@ -511,7 +513,7 @@ class SnifflesWorker:
         Indicates this worker process should shut down
         """
 
-    def __init__(self, process_id: int, config: Namespace, tasks: deque[Task], recycle_hint: Union[bool, Callable] = None):
+    def __init__(self, process_id: int, config: 'SnifflesConfig', tasks: deque[Task], recycle_hint: Union[bool, Callable] = None):
         self.id = process_id
         self.config = config
         self.tasks = tasks
@@ -685,7 +687,7 @@ class SnifflesParentWorker(SnifflesWorker):
     """
     id: int = 0
 
-    def __init__(self, config: Namespace, tasks: deque[Task], **kwargs):  # noqa
+    def __init__(self, config: 'SnifflesConfig', tasks: deque[Task], **kwargs):  # noqa
         self.tasks = tasks
         self.task = None
         self.config = config
