@@ -262,7 +262,8 @@ class SNFile(SNFileBase):
                 try:
                     self.blocks[block_offset]['_COVERAGE'][block_offset + i * coverage_binsize_combine] = round(downsampled_coverage[block_index * samples_per_block + i])
                 except IndexError as ex:
-                    log.error(f"Index out of range: block_offset={block_offset} block_index={block_index} len(downsampled_coverage)={len(downsampled_coverage)} i={i} padding_length={padding_length} len(coverage)={len(lead_provider.coverage)}: {ex}")
+                    # Handle contig length not being padded to a multiple of block size
+                    log.debug(f"Index out of range: block_offset={block_offset} block_index={block_index} len(downsampled_coverage)={len(downsampled_coverage)} i={i} padding_length={padding_length} len(coverage)={len(lead_provider.coverage)}: {ex}")
 
 
 class RemoteIndexSNFile(SNFile):
