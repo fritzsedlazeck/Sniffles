@@ -229,7 +229,7 @@ def resolve(svtype, leadtab_provider, config, tr) -> Generator[Cluster | Any, No
             leads = leadtab[seed]
             leads_long = None
 
-        if len(leads) >= 3:
+        if len(leads) >= config.dev_min_leads_cluster:
             cluster = Cluster(id=f"CL.{svtype}.{leadtab_provider.contig}.{leadtab_provider.start}.{seed_index}",
                               svtype=svtype,
                               contig=leadtab_provider.contig,

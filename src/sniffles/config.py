@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 VERSION = "Sniffles2"
-BUILD = "2.7.0"
+BUILD = "2.7.1-b1"
 SNF_VERSION = "S2_rc4"
 
 
@@ -366,6 +366,7 @@ class SnifflesConfig(argparse.Namespace):
     dev_output_candidates: str = None
     dev_single_break_count: int
     dev_single_break_dist: int
+    dev_min_leads_cluster: int
     dev_filter: bool  # Stores & outputs all failed filters on an SV
 
     @staticmethod
@@ -417,6 +418,7 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-output-candidates", metavar="OUTPUT.csv", type=str, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-single-break-count", default=3, type=int, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-single-break-dist", default=50, type=int, help=argparse.SUPPRESS)
+        developer_args.add_argument("--dev-min-leads-cluster", default=-1, type=int, help=argparse.SUPPRESS)  # default is context dependant and user values always overwrite default
 
         # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 
@@ -559,5 +561,14 @@ class SnifflesConfig(argparse.Namespace):
             self.qc_nm_measure = self.qc_nm_measure or self.mosaic_qc_nm
             # config.qc_nm_mult=config.mosaic_qc_nm_mult
             # config.qc_strand=config.mosaic_qc_strand
+
+        # min leads cluster (default is -1, changed context dependant)
+        if -1 == self.dev_min_leads_cluster:
+            if self.no_qc:
+                self.dev_min_leads_cluster = 1
+            elif self.mosaic:
+                self.dev_min_leads_cluster = 2
+            else:
+                self.dev_min_leads_cluster = 3
 
         SnifflesConfig.GLOBAL = self
