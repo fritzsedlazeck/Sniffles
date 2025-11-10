@@ -162,7 +162,9 @@ class VCF:
         self.write_header_line('FILTER=<ID=STRAND_MOSAIC,Description="Strand support filter for mosaic SVs">')
         self.write_header_line('FILTER=<ID=SVLEN_MIN,Description="SV length filter">')
         self.write_header_line('FILTER=<ID=SVLEN_MIN_MOSAIC,Description="SV length filter for mosaic SVs">')
+        self.write_header_line('FILTER=<ID=SVLEN_MAX_MOSAIC,Description="SV length filter for mosaic SVs">')
         self.write_header_line('FILTER=<ID=SINGLE_BREAK,Description="A single break point was detected but not classified as an SV.">')
+
         self.write_header_line('INFO=<ID=PRECISE,Number=0,Type=Flag,Description="Structural variation with precise breakpoints">')
         self.write_header_line('INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description="Structural variation with imprecise breakpoints">')
         self.write_header_line('INFO=<ID=MOSAIC,Number=0,Type=Flag,Description="Structural variation classified as putative mosaic">')
