@@ -49,7 +49,6 @@ https://www.nature.com/articles/s41592-018-0001-7
 * To output deletion (DEL SV) sequences, the reference genome (.fasta) must be specified using e.g. `--reference reference.fasta`.
 * Sniffles2 is fully parallelized and uses 4 threads by default. This value can be adapted using e.g. `--threads 4` as option. Memory requirements will increase with the number of threads used.
 * To output read names in SNF and VCF files, the `--output-rnames` option is required.
-* Note: From version v2.7.0 using tandem repeat region annotations is no longer suggested
 
 ### B. Multi-Sample SV Calling (Trios, Populations)
 Multi-sample SV calling using Sniffles2 population mode works in two steps:
