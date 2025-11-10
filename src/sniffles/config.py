@@ -116,9 +116,6 @@ class SnifflesConfig(argparse.Namespace):
        ... OR, simultaneously producing a single-sample VCF and SNF file for later multi-sample calling:
          sniffles --input sample1.bam --vcf sample1.vcf.gz --snf sample1.snf
 
-       ... OR, with additional options to specify tandem repeat annotations (for improved call accuracy), reference (for DEL sequences) and mosaic mode for detecting rare SVs:
-         sniffles --input sample1.bam --vcf sample1.vcf.gz --tandem-repeats tandem_repeats.bed --reference genome.fa --mosaic
-
     Usage example B - Multi-sample calling:
        Step 1. Create .snf for each sample: sniffles --input sample1.bam --snf sample1.snf
        Step 2. Combined calling: sniffles --input sample1.snf sample2.snf ... sampleN.snf --vcf multisample.vcf
@@ -182,7 +179,6 @@ class SnifflesConfig(argparse.Namespace):
         main_args.add_argument("-v", "--vcf", metavar="OUT.vcf", type=str, help=B("VCF output filename to write the called and refined SVs to. If the given filename ends with .gz, the VCF file will be automatically bgzipped and a .tbi index built for it."), required=False)
         main_args.add_argument("--snf", metavar="OUT.snf", type=str, help=B("Sniffles2 file (.snf) output filename to store candidates for later multi-sample calling"), required=False)
         main_args.add_argument("--reference", metavar="reference.fasta", type=str, help=B("(Optional) Reference sequence the reads were aligned against. To enable output of deletion SV sequences, this parameter must be set."), default=None)
-        main_args.add_argument("--tandem-repeats", metavar="IN.bed", type=str, help=B("(Optional) Input .bed file containing tandem repeat annotations for the reference genome."), default=None)
         main_args.add_argument("--phase", help=B("Determine phase for SV calls (requires the input alignments to be phased)"), default=False, action="store_true")
         main_args.add_argument("-t", "--threads", metavar="N", type=int, help=B("Number of parallel threads to use (speed-up for multi-core CPUs)"), default=4)
         main_args.add_argument("-c", "--contig", default=None, type=str, help=B("(Optional) Only process the specified contigs. May be given more than once."), action="append")
@@ -375,6 +371,7 @@ class SnifflesConfig(argparse.Namespace):
         Developer arguments
         """
         developer_args = parser.add_argument_group("Developer parameters")
+        developer_args.add_argument("--tandem-repeats", metavar="IN.bed", type=str, help=B("(Optional) Input .bed file containing tandem repeat annotations for the reference genome."), default=None)
         developer_args.add_argument("--dev-emit-sv-lengths", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-cache", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-cache-dir", metavar="PATH", type=str, default=None, help=argparse.SUPPRESS)
