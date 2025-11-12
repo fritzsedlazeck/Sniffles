@@ -234,7 +234,7 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
                     svcall.filter = "STDEV_LEN"
                     return False
 
-    if svcall.is_single_break:
+    if svcall.is_single_break and not config.dev_output_candidates:
         svcall.filter = 'SINGLE_BREAK'
         return False
 

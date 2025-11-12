@@ -10,7 +10,6 @@
 #
 import logging
 import os
-import pickle
 
 from sniffles.config import SnifflesConfig
 from sniffles.snf import SNFile

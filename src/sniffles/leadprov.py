@@ -583,6 +583,22 @@ class LeadProvider:
                                "INS",
                                None,
                                seq=None)
+                elif op in (pysam.CSOFT_CLIP, pysam.CHARD_CLIP):
+                    yield Lead(read_id,
+                               qname,
+                               contig,
+                               pos_ref,
+                               pos_ref,
+                               pos_read,
+                               pos_read + oplength,
+                               strand,
+                               mapq,
+                               read_nm,
+                               "INLINE",
+                               "SINGLE_LEFT" if pos_ref == read.reference_start else "SINGLE_RIGHT",
+                               0,
+                               seq=None)
+
             pos_read += add_read * oplength
             pos_ref += add_ref * oplength
 

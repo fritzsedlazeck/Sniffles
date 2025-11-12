@@ -209,6 +209,9 @@ class VCF:
         # pysam coordinates are 0-based, VCF 1-based
         # but VCF also requires the index of the base before the SV to be reported,
         # so we are fine without offsetting
+        if call.is_single_break:
+            return 0
+
         end = call.end
         pos = call.pos if call.pos > 0 else 1
 
