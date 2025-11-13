@@ -235,8 +235,11 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
                     return False
 
     if svcall.is_single_break and not config.dev_output_candidates:
-        svcall.filter = 'SINGLE_BREAK'
-        return False
+        if config.dev_filter:
+            dev_sv_filter.append("SINGLE_BREAK")
+        else:
+            svcall.filter = "SINGLE_BREAK"
+            return False
 
     support_overwrite_svlen = 10
     if abs(svcall.svlen) < config.minsvlen:
@@ -346,8 +349,10 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
     qc, val = svcall.qc_coverage_samples()
     svcall.set_info('COVERAGE_VAR', val)
     if not qc:
-        svcall.filter = f'COV_VAR'
-        if not config.dev_filter:
+        if config.dev_filter:
+            dev_sv_filter.append("COV_VAR")
+        else:
+            svcall.filter = "COV_VAR"
             return False
 
     qc_coverage_max_change_frac = config.qc_coverage_max_change_frac
@@ -538,8 +543,15 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average
                 svcall.filter = "NOT_MOSAIC_VAF"
                 return False
 
-    if config.dev_filter and "PASS" != svcall.filter:
-        svcall.filter = "-".join(dev_sv_filter)
+    if config.dev_filter:
+        if len(dev_sv_filter) > 1:
+            if "PASS" == dev_sv_filter[0]:
+                svcall.filter = "-".join(dev_sv_filter[1:])
+            else:
+                svcall.filter = "-".join(dev_sv_filter)
+        else:
+            svcall.filter = dev_sv_filter[0]
+        logging.debug(f'{svcall.id} => {svcall.filter} | {dev_sv_filter}')
     return True
 
 

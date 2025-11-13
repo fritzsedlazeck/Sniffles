@@ -133,10 +133,6 @@ class Task:
 
             svcall.qc = svcall.qc and postprocessing.qc_sv_post_annotate(svcall, config, self.coverage_average_total)
 
-            if config.dev_filter:
-                if "-" in svcall.filter:
-                    svcall.filter = "-".join(svcall.filter.split("-")[1:])
-
             if config.dev_trace_read:
                 cluster_has_read = False
                 for ld in svcall.postprocess.cluster.leads:
