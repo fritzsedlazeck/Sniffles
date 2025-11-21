@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 VERSION = "Sniffles2"
-BUILD = "2.7.2b1"
+BUILD = "2.7.2b2"
 SNF_VERSION = "S2_rc4"
 
 
@@ -237,6 +237,7 @@ class SnifflesConfig(argparse.Namespace):
 
     cluster_binsize: int
     cluster_binsize_combine_mult: int
+    cluster_merge_len: float
 
     @staticmethod
     def add_cluster_args(parser):
@@ -246,7 +247,7 @@ class SnifflesConfig(argparse.Namespace):
         cluster_args.add_argument("--cluster-repeat-h", metavar="H", type=float, help="Multiplier for mean SV length criterion for tandem repeat cluster merging", default=1.5)
         cluster_args.add_argument("--cluster-repeat-h-max", metavar="N", type=float, help="Max. merging distance based on SV length criterion for tandem repeat cluster merging", default=1000)
         cluster_args.add_argument("--cluster-merge-pos", metavar="N", type=int, help="Max. merging distance for insertions and deletions on the same read and cluster in non-repeat regions", default=150)
-        cluster_args.add_argument("--cluster-merge-len", metavar="F", type=float, help="Max. size difference for merging SVs as fraction of SV length", default=0.33)
+        cluster_args.add_argument("--cluster-merge-len", metavar="F", type=float, help="Max. size difference for merging SVs as fraction of SV length. Germline and mosaic have different threholds", default=0.22)  # oddly specific, tested
         cluster_args.add_argument("--cluster-merge-bnd", metavar="N", type=int, help="Max. merging distance for breakend SV candidates.", default=1000)
 
     genotype_ploidy: int
@@ -364,6 +365,7 @@ class SnifflesConfig(argparse.Namespace):
     dev_single_break_dist: int
     dev_min_leads_cluster: int
     dev_filter: bool  # Stores & outputs all failed filters on an SV
+    dev_trace_read: str | list
 
     @staticmethod
     def add_developer_args(parser):
@@ -398,7 +400,7 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--coverage-shift-bins-min-aln-length", metavar="N", type=int, default=1000, help=argparse.SUPPRESS)
         developer_args.add_argument("--cluster-binsize-combine-mult", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
         developer_args.add_argument("--cluster-resplit-binsize", metavar="N", type=int, default=20, help=argparse.SUPPRESS)
-        developer_args.add_argument("--dev-trace-read", default=False, metavar="read_id", type=str, help=argparse.SUPPRESS)
+        developer_args.add_argument("--dev-trace-read", default=False, metavar="read_id", type=str, help=argparse.SUPPRESS)  # accepts multiple reads ',' comma separated
         developer_args.add_argument("--dev-split-max-query-distance-mult", metavar="N", type=int, default=5, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-no-qc", default=False, action="store_true", help=argparse.SUPPRESS)  # noqc + mapq0 + minAlnLen0
         developer_args.add_argument("--dev-disable-interblock-threads", default=False, help=argparse.SUPPRESS, action="store_true")
@@ -415,7 +417,7 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-output-candidates", metavar="OUTPUT.csv", type=str, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-single-break-count", default=3, type=int, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-single-break-dist", default=50, type=int, help=argparse.SUPPRESS)
-        developer_args.add_argument("--dev-min-leads-cluster", default=-1, type=int, help=argparse.SUPPRESS)  # default is context dependant and user values always overwrite default
+        developer_args.add_argument("--dev-min-leads-cluster", default=-1, type=int, help=argparse.SUPPRESS)  # default is 2 for both gemrline and mosaic, noqc takes 1
 
         # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 
@@ -558,14 +560,16 @@ class SnifflesConfig(argparse.Namespace):
             self.qc_nm_measure = self.qc_nm_measure or self.mosaic_qc_nm
             # config.qc_nm_mult=config.mosaic_qc_nm_mult
             # config.qc_strand=config.mosaic_qc_strand
+            self.cluster_merge_len = 0.27  # oddly specific, tested
 
         # min leads cluster (default is -1, changed context dependant)
         if -1 == self.dev_min_leads_cluster:
             if self.no_qc:
                 self.dev_min_leads_cluster = 1
-            elif self.mosaic:
-                self.dev_min_leads_cluster = 2
             else:
-                self.dev_min_leads_cluster = 3
+                self.dev_min_leads_cluster = 2
+
+        if self.dev_trace_read:
+            self.dev_trace_read = self.dev_trace_read.split(",")
 
         SnifflesConfig.GLOBAL = self

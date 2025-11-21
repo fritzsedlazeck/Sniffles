@@ -425,12 +425,19 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
 
             if config.sort:
                 log.warning(
-                    f'''Sniffles currently does not support sorting on a number of input files exceeding --combine-max-inmemory-results'''
-                    f''' (currently set to {config.combine_max_inmemory_results}). Unsorted calls will be written to '''
-                    f'''result-{config.run_id}-*-unsorted.part.vcf. Please use either --no-sort or increase the number of in-memory results.'''
+                    f'Sniffles currently does not support sorting on a number of input files exceeding'
+                    f'--combine-max-inmemory-results (currently set to {config.combine_max_inmemory_results}).' 
+                    f'Unsorted calls will be written to result-{config.run_id}-*-unsorted.part.vcf. '
+                    f'Result will be unsorted and uncompressed. To avoid this message please use either --no-sort ' 
+                    f'or increase the number of in-memory results.'
                 )
                 if config.vcf_output_bgz:
-                    util.fatal_error_main('BGZ files require sorting, and thus are currently not supported for the given number of input files.')
+                    config.vcf = config.uncompressed_vcf_name
+                    config.no_sort = True
+                    vcf_output_info_str += " WARN: unsorted and not indexed"
+                    log.warning(f'Result will be unsorted and uncompressed')
+                    # util.fatal_error_main('BGZ files require sorting, and thus are currently not
+                    #                       supported for the given number of input files.')
 
         if config.dev_population_snf:
             from sniffles.result import CombineResultTmpFilePopulationSNF

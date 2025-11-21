@@ -8,13 +8,16 @@
 # Maintainer:  Hermann Romanek
 # Contact:     sniffles@romanek.at
 #
-
+import logging
 from dataclasses import dataclass
 import statistics
 import math
 from typing import Optional, Any, Generator
 
 from sniffles import sv
+
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -117,6 +120,7 @@ def resplit(cluster, prop, binsize, merge_threshold_min, merge_threshold_frac):
         else:
             bins_leads[bin].append(lead)
 
+    initial_clust = f'{len(bins_leads)}'
     new_clusters = list(sorted(bins_leads.keys()))
     i = 1
     while len(new_clusters) > 1 and i < len(new_clusters):
@@ -131,6 +135,7 @@ def resplit(cluster, prop, binsize, merge_threshold_min, merge_threshold_frac):
         else:
             i += 1
 
+    log.debug(f"resplit: {cluster.id}|{len(cluster.leads)}|{initial_clust}|{len(new_clusters)}")
     for cluster_index in new_clusters:
         new_cluster = Cluster(id=cluster.id + f".{cluster_index}",
                               svtype=cluster.svtype,
@@ -279,11 +284,11 @@ def resolve(svtype, leadtab_provider, config, tr) -> Generator[Cluster | Any, No
     if config.dev_trace_read:
         for c in clusters:
             for ld in c.leads:
-                if ld.read_qname == config.dev_trace_read:
-                    print(f"[DEV_TRACE_READ [2/4] [cluster.resolve] Read lead {ld} is in cluster {c.id}, containing a total of {len(c.leads)} leads")
+                if ld.read_qname in config.dev_trace_read:
+                    print(f"[DEV_TRACE_READ] [2/4] [cluster.resolve] Read lead {ld} is in cluster {c.id}, containing a total of {len(c.leads)} leads. {c.leads}")
 
     if config.dev_dump_clusters:
-        filename = f"{config.input}.clusters.{svtype}.{leadtab_provider.contig}.{leadtab_provider.start}.{leadtab_provider.end}.bed"
+        filename = f"{config.vcf}.clusters.{svtype}.{leadtab_provider.contig}.{leadtab_provider.start}.{leadtab_provider.end}.bed"
         print(f"Dumping clusters to {filename}")
         with open(filename, "w") as h:
             for c in clusters:

@@ -224,7 +224,7 @@ def read_itersplits(read_id, read, contig, config, read_nm):
     # SA:refname,pos,strand,CIGAR,MAPQ,NM
     all_leads = []
     supps = [part.split(",") for part in read.get_tag("SA").split(";") if len(part) > 0]
-    trace_read = config.dev_trace_read != False and config.dev_trace_read == read.query_name
+    trace_read = config.dev_trace_read is not False and read.query_name in config.dev_trace_read
 
     if len(supps) > config.max_splits_base + config.max_splits_kb * (read.query_length / 1000.0):
         return
@@ -312,7 +312,7 @@ def read_itersplits(read_id, read, contig, config, read_nm):
     """
     if config.dev_trace_read != False:
         print(read.query_name)
-        if read.query_name == config.dev_trace_read:
+        if read.query_name in config.dev_trace_read:
             for lead_i, lead in enumerate(all_leads):
                 for svtype, svstart, arg in lead.svtypes_starts_lens:
                     min_mapq=min(lead.mapq,all_leads[max(0,lead_i-1)].mapq)

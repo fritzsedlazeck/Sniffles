@@ -95,7 +95,8 @@ class SNFileBase:
             self.blocks[block_index]["_COVERAGE"] = {}
         if not self.config.output_rnames:
             svcand.rnames = None
-        self.blocks[block_index][svcand.svtype].append(svcand)
+        if svcand.svtype in sv.TYPES:
+            self.blocks[block_index][svcand.svtype].append(svcand)
 
     def serialize_block(self, block_id):
         return pickle.dumps(self.blocks[block_id])

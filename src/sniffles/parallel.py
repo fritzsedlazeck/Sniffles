@@ -100,17 +100,20 @@ class Task:
         candidates = []
         for svtype in sv.ALL_TYPES:
             for svcluster in cluster.resolve(svtype, self.lead_provider, config, self.tandem_repeats):
+                traced_reads = []
                 for svcall in sv.call_from(svcluster, config, keep_qc_fails, self):
                     if config.dev_trace_read is not False:
                         cluster_has_read = False
                         for ld in svcluster.leads:
-                            if ld.read_qname == config.dev_trace_read:
+                            if ld.read_qname in config.dev_trace_read:
                                 cluster_has_read = True
+                                traced_reads.append(ld.read_qname)
                         if cluster_has_read:
+                            traced_reads_str = ",".join(traced_reads)
                             import copy
                             svcall_copy = copy.deepcopy(svcall)
                             svcall_copy.postprocess = None
-                            print(f"[DEV_TRACE_READ] [3/4] [Task.call_candidates] Read {config.dev_trace_read} -> Cluster {svcluster.id} -> preliminary SVCall {svcall_copy}")
+                            print(f"[DEV_TRACE_READ] [3/4] [Task.call_candidates] Read {traced_reads_str} -> Cluster {svcluster.id} -> preliminary SVCall {svcall_copy}")
                     candidates.append(svcall)
 
         self.coverage_average_total = postprocessing.coverage(candidates, self.lead_provider)
@@ -135,14 +138,17 @@ class Task:
 
             if config.dev_trace_read:
                 cluster_has_read = False
+                traced_reads = []
                 for ld in svcall.postprocess.cluster.leads:
-                    if ld.read_qname == config.dev_trace_read:
+                    if ld.read_qname in config.dev_trace_read:
                         cluster_has_read = True
+                        traced_reads.append(ld.read_qname)
                 if cluster_has_read:
+                    traced_reads_str = ",".join(traced_reads)
                     import copy
                     svcall_copy = copy.deepcopy(svcall)
                     svcall_copy.postprocess = None
-                    print(f"[DEV_TRACE_READ] [4/4] [Task.finalize_candidates] Read {config.dev_trace_read} -> Cluster {svcall.postprocess.cluster.id} -> finalized SVCall, QC={svcall_copy.qc}: {svcall_copy}")
+                    print(f"[DEV_TRACE_READ] [4/4] [Task.finalize_candidates] Read {traced_reads_str} -> Cluster {svcall.postprocess.cluster.id} -> finalized SVCall, QC={svcall_copy.qc}: {svcall_copy}")
 
             if config.dev_output_candidates:
                 try:
