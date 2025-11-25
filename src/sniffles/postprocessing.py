@@ -130,8 +130,8 @@ def qc_sv_support(svcall, coverage_global, config) -> bool:
     dev_sv_filter: list = []
     if config.dev_filter:
         if type(svcall.filter) is type(""):
-            if "-" in svcall.filter:
-                dev_sv_filter = svcall.filter.split("-")
+            if ";" in svcall.filter:
+                dev_sv_filter = svcall.filter.split(";")
             else:
                 dev_sv_filter = [svcall.filter]
 
@@ -151,7 +151,7 @@ def qc_sv_support(svcall, coverage_global, config) -> bool:
                 return False
 
     if config.dev_filter:
-        svcall.filter = "-".join(dev_sv_filter)
+        svcall.filter = ";".join(dev_sv_filter)
     return True
 
 
@@ -197,8 +197,8 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
     dev_sv_filter: list = []
     if config.dev_filter:
         if type(svcall.filter) is type(""):
-            if "-" in svcall.filter:
-                dev_sv_filter = svcall.filter.split("-")
+            if ";" in svcall.filter:
+                dev_sv_filter = svcall.filter.split(";")
             else:
                 dev_sv_filter = [svcall.filter]
 
@@ -216,7 +216,7 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
             else:
                 svcall.filter = "STDEV_POS"
         if svcall.svtype not in ("BND", "SINGLE_LEFT", "SINGLE_RIGHT") and stdev_pos / abs(svcall.svlen) > 2.0:
-            svcall.filter = f'{svcall.filter}-STDEV_POS' if config.dev_filter else "STDEV_POS"
+            svcall.filter = f'{svcall.filter};STDEV_POS' if config.dev_filter else "STDEV_POS"
             if not config.dev_filter:
                 return False
 
@@ -414,7 +414,7 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
                 return False
 
     if config.dev_filter:
-        svcall.filter = "-".join(dev_sv_filter)
+        svcall.filter = ";".join(dev_sv_filter)
     return True
 
 
@@ -422,8 +422,8 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average
     dev_sv_filter: list = []
     if config.dev_filter:
         if type(svcall.filter) is type(""):
-            if "-" in svcall.filter:
-                dev_sv_filter = svcall.filter.split("-")
+            if ";" in svcall.filter:
+                dev_sv_filter = svcall.filter.split(";")
             else:
                 dev_sv_filter = [svcall.filter]
 
@@ -554,9 +554,9 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average
     if config.dev_filter:
         if len(dev_sv_filter) > 1:
             if "PASS" == dev_sv_filter[0]:
-                svcall.filter = "-".join(dev_sv_filter[1:])
+                svcall.filter = ";".join(dev_sv_filter[1:])
             else:
-                svcall.filter = "-".join(dev_sv_filter)
+                svcall.filter = ";".join(dev_sv_filter)
         else:
             svcall.filter = dev_sv_filter[0]
         logging.debug(f'qc_sv_post: {svcall.id} => {svcall.filter} | {dev_sv_filter}')
