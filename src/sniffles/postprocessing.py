@@ -431,9 +431,10 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average
     af = af if af is not None else 0
     sv_is_mosaic = af <= config.mosaic_af_max
 
-    if (svcall.coverage_center < config.qc_coverage and
+    if ((svcall.coverage_center < config.qc_coverage and
             (len(svcall.genotypes) == 0 or (svcall.genotypes[0][0] != "." and
-                                            svcall.genotypes[0][0] + svcall.genotypes[0][1] < 2))):
+                                            svcall.genotypes[0][0] + svcall.genotypes[0][1] < 2))) and
+            ("DEL" != svcall.svtype and abs(svcall.svlen) > config.long_del_length)):
         if config.dev_filter:
             dev_sv_filter.append("COV_MIN_GT")
         else:
