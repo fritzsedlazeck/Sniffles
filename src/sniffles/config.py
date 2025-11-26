@@ -223,9 +223,9 @@ class SnifflesConfig(argparse.Namespace):
         filter_args.add_argument("--long-inv-length", help="Inversion SVs longer than this value are not subjected to central coverage drop-based filtering", metavar="10000", type=int, default=10000)
         filter_args.add_argument("--long-del-coverage", help="Long deletions with central coverage (in relation to upstream/downstream coverage) higher than this value will be filtered (Not applicable for --mosaic)", metavar="0.66", type=float, default=0.66)
         filter_args.add_argument("--long-dup-length", help="Duplication SVs longer than this value are subjected to central coverage increase-based filtering (Not applicable for --mosaic)", metavar="50000", type=int, default=50000)
+        filter_args.add_argument("--long-dup-coverage", help="Long duplications with central coverage (in relation to upstream/downstream coverage) lower than this value will be filtered (Not applicable for --mosaic)", metavar="1.33", type=float, default=1.33)
         filter_args.add_argument("--qc-bnd-filter-strand", help="Filter breakends that do not have support for both strands", type=tobool, default=True)
         filter_args.add_argument("--bnd-min-split-length", help="Minimum length of read splits to be considered for breakends", type=int, default=1000)
-        filter_args.add_argument("--long-dup-coverage", help="Long duplications with central coverage (in relation to upstream/downstream coverage) lower than this value will be filtered (Not applicable for --mosaic)", metavar="1.33", type=float, default=1.33)
         filter_args.add_argument("--max-splits-kb", metavar="N", type=float, help="Additional number of splits per kilobase read sequence allowed before reads are ignored", default=0.1)
         filter_args.add_argument("--max-splits-base", metavar="N", type=int, help="Base number of splits allowed before reads are ignored (in addition to --max-splits-kb)", default=3)
         filter_args.add_argument("--min-alignment-length", metavar="N", type=int, help="Reads with alignments shorter than this length (in bp) will be ignored", default=argparse.SUPPRESS)
@@ -366,6 +366,9 @@ class SnifflesConfig(argparse.Namespace):
     dev_min_leads_cluster: int
     dev_filter: bool  # Stores & outputs all failed filters on an SV
     dev_trace_read: str | list
+    dev_min_dup_vaf: float
+    dev_longer_dup: int
+    dev_longer_del: int
 
     @staticmethod
     def add_developer_args(parser):
@@ -418,6 +421,9 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-single-break-count", default=3, type=int, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-single-break-dist", default=50, type=int, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-min-leads-cluster", default=-1, type=int, help=argparse.SUPPRESS)  # default is 2 for both gemrline and mosaic, noqc takes 1
+        developer_args.add_argument("--dev-min-dup-vaf", default=0.166666667, type=float, help=argparse.SUPPRESS)  # 1/2 of the expected value for 3x/2x DUP VAF which is 1/3 =~ 1/6
+        developer_args.add_argument("--dev-longer-del", default=200000, type=int, help=argparse.SUPPRESS)  # ignore COV_CHANGE_DEL for very long DUP ~4x long-del-length | need to be used as abs
+        developer_args.add_argument("--dev-longer-dup", default=200000, type=int, help=argparse.SUPPRESS)  # ignore COV_CHANGE_DUP for very long DUP ~4x long-dup-length
 
         # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 
@@ -520,6 +526,9 @@ class SnifflesConfig(argparse.Namespace):
         self.long_ins_rescale_base = 1.66
         self.long_ins_rescale_mult = 0.33
 
+        # LArge DUP
+        self.dev_longer_dup = min(self.long_dup_length * 4, self.dev_longer_dup)
+        self.dev_longer_del = min(self.long_del_length * 4, self.dev_longer_del)
         # BND
         self.bnd_cluster_length = 1000
 

@@ -262,7 +262,7 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
     upstream_downstream_max_coverage_diff = 0.7  # 70%
     upstream_downstream_diff = 0.5  # add to config
     if (svcall.svtype == "DEL" and config.long_del_length != -1 and abs(svcall.svlen) >= config.long_del_length and
-            not config.mosaic):
+            not config.mosaic and abs(svcall.svlen) <= config.dev_longer_del):
         scaled_long_del_coverage = config.long_del_coverage/2.0   # 0.66/2 = 0.33
         if svcall.coverage_center > (svcall.coverage_upstream + svcall.coverage_downstream) * scaled_long_del_coverage:
             # check if slopped coverage, that often happens over large spans
@@ -301,7 +301,7 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
         else:
             pass
     elif (svcall.svtype == "DUP" and config.long_dup_length != -1 and abs(svcall.svlen) >= config.long_dup_length and
-          not config.mosaic):
+          not config.mosaic) and abs(svcall.svlen) <= config.dev_longer_dup:
         scaled_long_dup_coverage = config.long_dup_coverage / 2.0
         if svcall.coverage_center < (svcall.coverage_upstream + svcall.coverage_downstream) * scaled_long_dup_coverage:
             # check if slopped coverage, that often happens over large spans
@@ -459,9 +459,9 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average
 
     if not config.mosaic and sv_is_mosaic:
         # we expect the change in a single DUP is ~1/3 overall, so we need to reduce
-        # the mosaic threshold. Currently, it is a fixed value
-        min_vaf_dup = config.mosaic_af_max  # 0.15
-        apply_to_dup = "DUP" == svcall.svtype and af >= min_vaf_dup
+        # the mosaic threshold. Currently, it is a fixed value which is half the
+        # expected one 1/3 / 2 ~ 1/6
+        apply_to_dup = "DUP" == svcall.svtype and af >= config.dev_min_dup_vaf
 
         if not apply_to_dup:
             if config.dev_filter:
@@ -559,7 +559,7 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average
                 svcall.filter = ";".join(dev_sv_filter)
         else:
             svcall.filter = dev_sv_filter[0]
-        logging.debug(f'qc_sv_post: {svcall.id} => {svcall.filter} | {dev_sv_filter}')
+        log.debug(f'qc_sv_post: {svcall.id} => {svcall.filter} | {dev_sv_filter}')
     return True
 
 
