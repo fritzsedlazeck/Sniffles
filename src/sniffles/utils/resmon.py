@@ -58,7 +58,8 @@ class ResourceMonitor:
             self._running = True
 
             if config.dev_monitor_memory:
-                self._filename = filename = f'memory-{config.run_id}.csv'
+                file_prefix = config.dev_monitor_filename if config.dev_monitor_filename is not None else "memory"
+                self._filename = filename = f'{file_prefix}-{config.run_id}.csv'
                 try:
                     self._file = open(filename, "w")
                     self._file.write(self._generate_header())

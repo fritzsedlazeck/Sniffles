@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 VERSION = "Sniffles2"
-BUILD = "2.7.2b2"
+BUILD = "2.7.2b3"
 SNF_VERSION = "S2_rc4"
 
 
