@@ -281,7 +281,7 @@ class SnifflesConfig(argparse.Namespace):
     def add_multi_args(cls, parser):
         """
         Arguments for multi-sample calling
-        """        
+        """
         multi_args = parser.add_argument_group("Multi-Sample Calling / Combine parameters")
         multi_args.add_argument("--combine-high-confidence", metavar="F", type=float, help="Minimum fraction of samples in which a SV needs to have individually passed QC for it to be reported in combined output (a value of zero will report all SVs that pass QC in at least one of the input samples)", default=0.0)
         multi_args.add_argument("--combine-low-confidence", metavar="F", type=float, help="Minimum fraction of samples in which a SV needs to be present (failed QC) for it to be reported in combined output", default=0.2)
