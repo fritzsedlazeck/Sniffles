@@ -166,6 +166,8 @@ class SVCall:
             o1, o2 = '+', '-'
         elif self.svtype == "DUP":
             o1, o2 = '-', '+'
+        elif self.svtype == "BND":
+            o1, o2 = ('+', '-') if self.bnd_info.is_first else ('-', '+')
         else:
             o1, o2 = '=', '='
 
