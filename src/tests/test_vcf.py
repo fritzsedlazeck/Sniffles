@@ -8,7 +8,7 @@
 # Maintainer:  Hermann Romanek
 # Contact:     sniffles@romanek.at
 #
-from typing import Tuple, Callable
+from typing import Tuple
 from unittest import TestCase
 from unittest.mock import Mock
 
@@ -256,4 +256,3 @@ class TestVCFFormat(TestCase):
             svlen=-91,
             end=180521,
         ))
-
