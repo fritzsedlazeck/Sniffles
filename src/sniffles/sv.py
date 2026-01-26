@@ -599,7 +599,7 @@ def merge_inner_bounds(leads, config):
     return pos, svlen, util.stdev(util.trim((v for k, v in read_starts.items()))), util.stdev(util.trim((v for k, v in read_svlengths.items())))
 
 
-def resolve_bnd(svcall: 'SVCall', cluster: 'Cluster') -> None:
+def resolve_bnd(svcall: SVCall, cluster: Cluster, config) -> None:
     mate_contig = util.most_common_top([lead.bnd_info.mate_contig for lead in cluster.leads])
     selected = [lead for lead in cluster.leads if lead.bnd_info.mate_contig == mate_contig]
     mate_ref_start = util.center([lead.bnd_info.mate_ref_start for lead in selected])
