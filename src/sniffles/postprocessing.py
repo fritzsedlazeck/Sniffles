@@ -462,9 +462,9 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average
         # we expect the change in a single DUP is ~1/3 overall, so we need to reduce
         # the mosaic threshold. Currently, it is a fixed value which is half the
         # expected one 1/3 / 2 ~ 1/6
-        apply_to_dup = "DUP" == svcall.svtype and af >= config.dev_min_dup_vaf
+        skip_this_dup = "DUP" == svcall.svtype and af >= config.dev_min_dup_vaf
 
-        if not apply_to_dup:
+        if not skip_this_dup:
             if config.dev_filter:
                 dev_sv_filter.append("MOSAIC_VAF")
             else:

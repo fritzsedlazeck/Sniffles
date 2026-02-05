@@ -167,12 +167,16 @@ class Genotyper:
         qz = [q for gt, q in normalized_likelihoods if gt == (0, 0)][0]
         genotype_z_score = min(60, int((-10) * likelihood_ratio(qz, q1)))
         genotype_quality = min(60, int((-10) * likelihood_ratio(q2, q1)))
+        update_this_dup = "DUP" == svcall.svtype and af >= self.config.dev_min_dup_vaf
 
         if svcall.filter == "PASS" and self._filter_by_z_score(genotype_z_score):
-            svcall.filter = "GT"
+            # except some DUPs
+            svcall.filter = "GT" if not update_this_dup else "PASS"
             svcall.qc = not config.pass_only  # Fail QC if we only want PASS calls
 
         a, b = gt1
+        if update_this_dup and (0, 0) == gt1:
+            a, b = (0, 1)
         svcall.genotypes[0] = (a, b, genotype_quality, coverage - support, support, self.phase)
         svcall.set_info("VAF", af)
 
