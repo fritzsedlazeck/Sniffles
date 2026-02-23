@@ -3,7 +3,7 @@ from typing import Tuple
 from unittest import TestCase
 from unittest.mock import MagicMock
 
-from sniffles.cluster import Cluster
+from sniffles.cluster import Cluster, resplit_bnd
 from sniffles.leadprov import Lead
 from sniffles.sv import SVCall, SVCallBNDInfo, resolve_bnd
 
@@ -134,3 +134,63 @@ class TestBND(TestCase):
                     csv_fields[:7],
                     ('BND', ti.expected_orientation[0], ti.contig, str(ti.pos), ti.expected_orientation[1], ti.mate_contig, str(ti.mate_pos))
                 )
+
+
+class TestBNDCusterSplit(TestCase):
+
+    def test_SingleCluster(self) -> None:
+        """
+        Test that a single cluster with a few exact leads is kept
+        """
+        cluster = Cluster(
+            id='1',
+            svtype='BND',
+            contig='chr1',
+            start=10_000,
+            end=10_000,
+            seed=10_000,
+            leads=[
+                Lead(
+                    read_id=1,
+                    read_qname='read1',
+                    contig='chr1',
+                    ref_start=10_000,
+                    ref_end=10_000,
+                    qry_start=1000,
+                    qry_end=1000,
+                    strand='+',
+                    mapq=60,
+                    nm=100,
+                    bnd_info=SVCallBNDInfo(
+                        'chr2', 20_000, True, False
+                    ),
+                ),
+                Lead(
+                    read_id=2,
+                    read_qname='read2',
+                    contig='chr1',
+                    ref_start=10_000,
+                    ref_end=10_000,
+                    qry_start=2000,
+                    qry_end=2000,
+                    strand='+',
+                    mapq=60,
+                    nm=100,
+                    bnd_info=SVCallBNDInfo(
+                        'chr2', 20_000, True, False
+                    ),
+                )
+            ],
+            repeat=False,
+            leads_long=None
+        )
+
+        res = list(resplit_bnd(cluster, 1000))
+
+        self.assertEqual(len(res), 1)
+        new_cluster = res[0]
+        self.assertEqual(len(new_cluster.leads), 2)
+        self.assertEqual(new_cluster.leads[0].bnd_info.mate_contig, 'chr2')
+        self.assertEqual(new_cluster.leads[0].bnd_info.mate_ref_start, 20_000)
+        self.assertEqual(new_cluster.leads[0].bnd_info.is_first, True)
+        self.assertEqual(new_cluster.leads[0].bnd_info.is_reverse, False)
