@@ -657,7 +657,7 @@ class SnifflesWorker:
                         self._logger.debug(f'No more tasks to do for {self.id}')
                     else:
                         self.pipe_main.send(self.task)
-                        self._logger.info(f'Dispatched task #{self.task.id} to worker {self.id} '
+                        self._logger.info(f'Dispatched task #{self.task.id}|{self.task.contig} to worker {self.id} '
                                           f'({len(self.tasks)}  tasks left)')
                 else:
                     # ...and no more work available, so we shut down this worker
@@ -691,14 +691,14 @@ class SnifflesWorker:
                         ...
                     if self.process.exitcode is not None:
                         # if we got an exitcode, the process really was killed
-                        self._logger.warning(f'Worker {self.id} found dead (code {self.process.exitcode})!')
+                        self._logger.warning(f'Worker {self.id}|{self.pid} found dead (code {self.process.exitcode})!')
                         # if we were working on a task, requeue it to have it picked up by another worker...
                         if self.task:
                             self.tasks.appendleft(self.task)
                         self.running = False  # ...and shut down
         except:
             self._logger.exception(f'Unhandled error in worker {self.id}. '
-                                   f'This may result in an orphened worker process.')
+                                   f'This may result in an orphaned worker process.')
             try:
                 self.process.kill()
             except:

@@ -16,6 +16,7 @@ import os
 import time
 from dataclasses import dataclass
 from threading import Thread
+from datetime import datetime
 
 from sniffles.config import SnifflesConfig
 
@@ -107,7 +108,8 @@ class ResourceMonitor:
         }
 
         if self._file:
-            self._file.write(f'''{','.join(self.generate())}\n''')
+            current_datetime = datetime.now()
+            self._file.write(f'''{current_datetime}|{','.join(self.generate())}\n''')
             self._file.flush()
 
         # print(f'Memory usage: {self.total / 1024:.2f} KiB')

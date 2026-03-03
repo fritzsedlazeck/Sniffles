@@ -139,7 +139,7 @@ def resplit(cluster, prop, binsize, merge_threshold_min, merge_threshold_frac):
         else:
             i += 1
 
-    log.debug(f"resplit: {cluster.id}|{len(cluster.leads)}|{initial_clust}|{len(new_clusters)}")
+    # log.debug(f"resplit: {cluster.id}|{len(cluster.leads)}|{initial_clust}|{len(new_clusters)}")
     for cluster_index in new_clusters:
         new_cluster = Cluster(id=cluster.id + f".{cluster_index}",
                               svtype=cluster.svtype,
