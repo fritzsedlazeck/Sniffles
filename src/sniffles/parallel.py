@@ -691,7 +691,7 @@ class SnifflesWorker:
                         ...
                     if self.process.exitcode is not None:
                         # if we got an exitcode, the process really was killed
-                        self._logger.warning(f'Worker {self.id} found dead!')
+                        self._logger.warning(f'Worker {self.id} found dead (code {self.process.exitcode})!')
                         # if we were working on a task, requeue it to have it picked up by another worker...
                         if self.task:
                             self.tasks.appendleft(self.task)
