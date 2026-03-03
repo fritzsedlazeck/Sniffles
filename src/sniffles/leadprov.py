@@ -25,7 +25,7 @@ import sys
 from sniffles import util
 from sniffles import sv
 from sniffles.region import Region
-
+from sniffles.sv import SVCallBNDInfo
 
 log = logging.getLogger(__name__)
 UNSIGEND_SHORT = 'H'
@@ -48,11 +48,94 @@ class Lead:
     svlen: Optional[int] = None
     seq: Optional[str] = None
     svtypes_starts_lens: list = None
+    bnd_info: Optional[SVCallBNDInfo] = None
     hap: str = "0"
     phase_set: str = None
 
+    @classmethod
+    def for_bnd(cls, read_id: int, read: pysam.AlignedSegment) -> Optional['Lead']:
+        """
+        Generate a Lead based on the supplementary alignment (SA tag) of the given read.
+        """
+        # determine side of supplementary alignment
+        # only works properly for a single SA
+        left = 0
+        right = 0
+        if read.cigartuples[0][0] in (pysam.CSOFT_CLIP, pysam.CHARD_CLIP):
+            left = read.cigartuples[0][1]
+        if read.cigartuples[-1][0] in (pysam.CSOFT_CLIP, pysam.CHARD_CLIP):
+            right = read.cigartuples[-1][1]
 
-def CIGAR_analyze(cigar):
+        if left > right:
+            ref_start = read.reference_start + 1
+            is_first = False
+        else:
+            ref_start = read.reference_end
+            is_first = True
+
+        read_strand = "-" if read.is_reverse else "+"
+
+        for sa in read.get_tag("SA").split(";"):
+            if len(sa) > 0:
+                refname, pos, strand, cigar, mapq, nm = sa.split(",")
+                pos = int(pos) - 1  # position in SA tag is 1-based, convert to 0-based
+                # determine left/right on SA based on cigar string
+                left, right, refspan, readspan = CIGAR_analyze(cigar)
+                is_reverse = right > left and read_strand != strand
+                if is_reverse:
+                    if is_first:
+                        mate_ref_start = pos + refspan
+                    else:
+                        mate_ref_start = pos + refspan
+                else:
+                    if is_first:
+                        mate_ref_start = pos + 1
+                    else:
+                        if strand == read_strand:
+                            mate_ref_start = pos + refspan
+                        else:
+                            mate_ref_start = pos + 2
+
+                return cls(
+                    read_id=read_id,
+                    read_qname=read.query_name,
+                    contig=read.reference_name,
+                    ref_start=ref_start,
+                    ref_end=ref_start,
+                    qry_start=read.query_alignment_start,
+                    qry_end=read.query_alignment_end,
+                    strand="-" if read.is_reverse else "+",
+                    mapq=read.mapping_quality,
+                    nm=int(nm) if read.has_tag("NM") else None,
+                    source="BND_SA",
+                    svtype="BND",
+                    svlen=0,
+                    seq=None,
+                    bnd_info=SVCallBNDInfo(
+                        mate_contig=refname,
+                        mate_ref_start=mate_ref_start,
+                        is_first=is_first,
+                        is_reverse=is_reverse,
+                    )
+                )
+
+        return None
+
+    def classify(self):
+        """
+        Determine a potentially more descriptive classification of this BND lead (e.g. INV)
+        """
+        if self.svtype != 'BND' or self.bnd_info is None:
+            return
+
+
+
+
+def CIGAR_analyze(cigar) -> tuple[int, int, int, int]:
+    """
+    Analyze CIGAR string to determine clips on start/end
+    :returns 4-tuple of (clipping at the start, clipping at the end, refspan, readspan)
+    """
     buf = ""
     readspan = 0
     refspan = 0
@@ -131,108 +214,10 @@ def get_cigar_indels(read: pysam.AlignedSegment, minoplen: int = 10) -> tuple[in
     return ins_sum, del_sum, large_ins_sum, large_del_sum
 
 
-def read_itersplits_bnd(read_id, read, contig, config, read_nm, read_hap, read_ps):
+def read_itersplits(read_id, read, contig, config, read_nm):
     """
-    Iterate over supplementary alignments of a read and yield leads for BND events.
+    Iterate over supplementary alignments of a primary read
     """
-    assert read.is_supplementary
-    # SA:refname,pos,strand,CIGAR,MAPQ,NM
-    all_leads = []
-    supps = [part.split(",") for part in read.get_tag("SA").split(";") if len(part) > 0]
-
-    if len(supps) > config.max_splits_base + config.max_splits_kb * (read.query_length / 1000.0):
-        return
-
-    if read.is_reverse:
-        qry_start = read.query_length - read.query_alignment_end
-    else:
-        qry_start = read.query_alignment_start
-
-    curr_lead = Lead(read_id,
-                     read.query_name,
-                     contig,
-                     read.reference_start,
-                     read.reference_start + read.reference_length,
-                     qry_start,
-                     qry_start + read.query_alignment_length,
-                     "-" if read.is_reverse else "+",
-                     read.mapping_quality,
-                     read_nm,
-                     "SPLIT_SUP",
-                     "?",
-                     hap=str(read_hap), phase_set=str(read_ps))
-    all_leads.append(curr_lead)
-
-    prim_refname, prim_pos, prim_strand, prim_cigar, prim_mapq, prim_nm = supps[0]
-    if prim_refname == contig:
-        # Primary alignment is on this chromosome, no need to parse the supplementary,
-        # but only if mapping quality of primary is sufficient
-        if int(prim_mapq) >= config.mapq:
-            # Skip if primary alignment is of sufficient quality
-            return
-
-    minpos_curr_chr = min(itertools.chain([read.reference_start], (int(pos) for refname, pos, strand, cigar, mapq, nm in supps if refname == contig)))
-    if minpos_curr_chr < read.reference_start:
-        # Only process splits once per chr (there may be multiple supplementary alignments on the same chr)
-        return
-
-    for refname, pos, strand, cigar, mapq, nm in supps:
-        mapq = int(mapq)
-        nm = int(nm)
-        # if not config.dev_keep_lowqual_splits and mapq < config.mapq:
-        #    continue
-
-        is_rev = (strand == "-")
-
-        try:
-            readstart_fwd, readstart_rev, refspan, readspan = CIGAR_analyze(cigar)
-        except Exception as e:
-            util.error(f"Malformed CIGAR '{cigar}' with pos {pos} of read '{read.query_name}' ({e}). Skipping.")
-            return
-
-        pos_zero = int(pos) - 1
-        split_qry_start = readstart_rev if is_rev else readstart_fwd
-
-        all_leads.append(Lead(read_id,
-                              read.query_name,
-                              refname,
-                              pos_zero,
-                              pos_zero + refspan,
-                              split_qry_start,
-                              split_qry_start + readspan,
-                              strand,
-                              mapq,
-                              read_nm,
-                              "SPLIT_SUP",
-                              "?",
-                              hap=str(read_hap), phase_set=str(read_ps)))
-
-    sv.classify_splits(read, all_leads, config, contig)
-
-    for lead in all_leads:
-        for svtype, svstart, arg in lead.svtypes_starts_lens:
-            if svtype == "BND":
-                bnd = Lead(read_id=lead.read_id,
-                           read_qname=lead.read_qname,
-                           contig=lead.contig,
-                           ref_start=svstart,
-                           ref_end=svstart,
-                           qry_start=lead.qry_start,
-                           qry_end=lead.qry_end,
-                           strand=lead.strand,
-                           mapq=lead.mapq,
-                           nm=lead.nm,
-                           source=lead.source,
-                           svtype=svtype,
-                           svlen=config.bnd_cluster_length,
-                           seq=None,
-                           hap=str(read_hap), phase_set=str(read_ps))
-                bnd.bnd_info = arg
-                # print(lead.contig,svstart,bnd.bnd_info)
-                yield bnd
-
-
-def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps):
     # SA:refname,pos,strand,CIGAR,MAPQ,NM
     all_leads = []
     supps = [part.split(",") for part in read.get_tag("SA").split(";") if len(part) > 0]
@@ -244,22 +229,8 @@ def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps):
     if trace_read:
         print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] passed max_splits check")
 
-    # QC on: 18Aug21, HG002.ont.chr22; O.K.
-    # cigarl=CIGAR_tolist(read.cigarstring)
-    # if read.is_reverse:
-    #    cigarl.reverse()
-
-    # if read.is_reverse:
-    #    assert(read.query_length-read.query_alignment_end == CIGAR_listreadstart(cigarl))
-    # else:
-    #    assert(read.query_alignment_start == CIGAR_listreadstart(cigarl))
-
-    # assert(CIGAR_listrefspan(cigarl)==read.reference_length)
-    # assert(CIGAR_listreadspan(cigarl)==read.query_alignment_length)
-    # End QC
-
     if read.is_reverse:
-        qry_start = read.query_length - read.query_alignment_end
+        qry_start = read.query_alignment_end
     else:
         qry_start = read.query_alignment_start
 
@@ -278,17 +249,10 @@ def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps):
                      hap=str(read_hap), phase_set=str(read_ps))
     all_leads.append(curr_lead)
 
-    # QC on: 18Aug21; O.K.
-    # assert(read.reference_length == CIGAR_listrefspan(CIGAR_tolist(read.cigarstring)))
-    # assert(read.query_alignment_start == CIGAR_listreadstart(CIGAR_tolist(read.cigarstring)))
-    # assert(read.query_alignment_length == CIGAR_listreadspan(CIGAR_tolist(read.cigarstring)))
-    # End QC
-
+    # unterschied zu _bnd: alle supplementary alignments werden verarbeitet
     for refname, pos, strand, cigar, mapq, nm in supps:
         mapq = int(mapq)
         nm = int(nm)
-        # if not config.dev_keep_lowqual_splits and mapq < config.mapq:
-        #    continue
 
         is_rev = (strand == "-")
 
@@ -542,29 +506,22 @@ class LeadProvider:
 
             # Extract read splits
             if has_sa:
-                if read.is_supplementary:
-                    if trace_read:
-                        if read.query_name in trace_read:
-                            print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits_bnd] [{region}] "
-                                  f"[{read.query_name}] is entering read_itersplits_bnd")
-                    for lead in read_itersplits_bnd(curr_read_id, read, region.contig, self.config, read_nm=nm,
-                                                    read_hap=hp, read_ps=ps):
-                        if trace_read is not False:
-                            if read.query_name in trace_read:
-                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits_bnd] [{region}] "
-                                      f"[{read.query_name}] new lead: {lead}")
-                        yield lead
-                else:
-                    if trace_read:
-                        if read.query_name in trace_read:
-                            print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{region}] [{read.query_name}] "
-                                  f"is entering read_itersplits")
-                    for lead in read_itersplits(curr_read_id, read, region.contig, self.config, read_nm=nm, read_hap=hp,
-                                                read_ps=ps):
+                # New version for BNDs:
+                if lead := Lead.for_bnd(curr_read_id, read):
+                    yield lead
+
+                # Old version for everything else:
+                # TODO: may yield duplicates of events called as generic BNDs on top
+                if not read.is_supplementary:
+                    if trace_read is not False:
+                        if trace_read == read.query_name:
+                            print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{region}] [{read.query_name}] is entering read_itersplits")
+                    for lead in read_itersplits(
+                            curr_read_id, read, region.contig, self.config, read_nm=nm, read_hap=hp, read_ps=ps
+                    ):
                         if trace_read:
                             if read.query_name in trace_read:
-                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{region}] "
-                                      f"[{read.query_name}] new lead: {lead}")
+                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{region}] [{read.query_name}] new lead: {lead}")
                         yield lead
                 read_mq20 += 1 if read.mapping_quality >= self.config.mapq else 0
 

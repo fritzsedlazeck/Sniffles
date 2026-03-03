@@ -12,9 +12,12 @@ import logging
 from dataclasses import dataclass
 import statistics
 import math
-from typing import Optional, Any, Generator
+from typing import Optional, Any, Generator, Iterator, TYPE_CHECKING
 
 from sniffles import sv
+
+if TYPE_CHECKING:
+    from sniffles import leadprov
 
 
 log = logging.getLogger(__name__)
@@ -151,7 +154,10 @@ def resplit(cluster, prop, binsize, merge_threshold_min, merge_threshold_frac):
         yield new_cluster
 
 
-def resplit_bnd(cluster, merge_threshold):
+def resplit_bnd(cluster: 'Cluster', merge_threshold: int) -> Iterator['Cluster']:
+    """
+    Takes an unrefined cluster (all events within a region) and groups them by mate contig and mate ref start, then merges groups that are close to each other.
+    """
     contigs_leads = {}
 
     # Split by mate contig and mate ref start
@@ -159,22 +165,23 @@ def resplit_bnd(cluster, merge_threshold):
         if not lead.bnd_info.mate_contig in contigs_leads:
             contigs_leads[lead.bnd_info.mate_contig] = {}
 
-        bin = int(lead.bnd_info.mate_ref_start / merge_threshold) * merge_threshold if merge_threshold > 0 else 0
-        if not bin in contigs_leads[lead.bnd_info.mate_contig]:
-            contigs_leads[lead.bnd_info.mate_contig][bin] = [lead]
+        pos_bin = int(lead.bnd_info.mate_ref_start / merge_threshold) * merge_threshold if merge_threshold > 0 else 0
+        if not pos_bin in contigs_leads[lead.bnd_info.mate_contig]:
+            contigs_leads[lead.bnd_info.mate_contig][pos_bin] = [lead]
         else:
-            contigs_leads[lead.bnd_info.mate_contig][bin].append(lead)
+            contigs_leads[lead.bnd_info.mate_contig][pos_bin].append(lead)
 
     for contig in contigs_leads:
         bins = sorted(contigs_leads[contig])
         curr_leads = [] + contigs_leads[contig][bins[0]]
         last_bin = bins[0]
-        for bin in bins[1:]:
-            if bin - last_bin <= merge_threshold:
-                curr_leads.extend(contigs_leads[contig][bin])
+        position_bin = 0
+        for position_bin in bins[1:]:
+            if position_bin - last_bin <= merge_threshold:
+                curr_leads.extend(contigs_leads[contig][position_bin])
             else:
                 if len(curr_leads):
-                    new_cluster = Cluster(id=cluster.id + f".CHR2.{contig}.POS2.{bin}",
+                    new_cluster = Cluster(id=cluster.id + f".CHR2.{contig}.POS2.{position_bin}",
                                           svtype=cluster.svtype,
                                           contig=cluster.contig,
                                           start=cluster.start,
@@ -185,10 +192,10 @@ def resplit_bnd(cluster, merge_threshold):
                                           leads_long=None,
                                           hap_counts=cluster.hap_counts)
                     yield new_cluster
-                curr_leads = [] + contigs_leads[contig][bin]
-            last_bin = bin
+                curr_leads = [] + contigs_leads[contig][position_bin]
+            last_bin = position_bin
         if len(curr_leads):
-            new_cluster = Cluster(id=cluster.id + f".CHR2.{contig}.POS2.{bin}",
+            new_cluster = Cluster(id=cluster.id + f".CHR2.{contig}.POS2.{position_bin}",
                                   svtype=cluster.svtype,
                                   contig=cluster.contig,
                                   start=cluster.start,

@@ -14,12 +14,10 @@ from functools import cached_property
 from typing import Optional, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from pysam import AlignedSegment
     from sniffles.cluster import Cluster
-
-import numpy as np
-
-if TYPE_CHECKING:
-    from sniffles.cluster import Cluster
+    from sniffles.leadprov import Lead
+    from sniffles.config import SnifflesConfig
 
 
 try:
@@ -39,7 +37,9 @@ ALL_TYPES = TYPES + SINGLE_TYPES
 class SVCallBNDInfo:
     mate_contig: str
     mate_ref_start: int
+    #  True for N..., False for ...N
     is_first: bool
+    # True for ]...], False for [...[
     is_reverse: bool
 
 
@@ -102,7 +102,7 @@ class SVCall:
 
     precise: bool
     support: int
-    rnames: list[str]
+    rnames: list[str] | None
 
     qc: bool
     nm: float
@@ -122,6 +122,9 @@ class SVCall:
 
     sample_internal_id: int = None
     bnd_info: SVCallBNDInfo = None
+
+    support_inline: int = None
+    support_splits: int = None
 
     raw_vcf_line: Optional[str] = None
     raw_vcf_line_index: Optional[int] = None
@@ -182,6 +185,9 @@ class SVCall:
             o1, o2 = '+', '-'
         elif self.svtype == "DUP":
             o1, o2 = '-', '+'
+        elif self.svtype == "BND":
+            o1 = '+' if self.bnd_info.is_first else '-'
+            o2 = '+' if self.bnd_info.is_reverse else '-'
         else:
             o1, o2 = '=', '='
 
@@ -201,6 +207,9 @@ class SVCall:
         else:
             if self.is_single_break:
                 return None
+
+        if self.svtype == 'BND':
+            return self.svtype, o1, self.contig, str(self.pos), o2, self.bnd_info.mate_contig, str(self.bnd_info.mate_ref_start), self.filter, str(support_inline), str(support_splits), str(support_ref)
 
         return self.svtype, o1, self.contig, str(self.pos), o2, self.contig, str(self.end), self.filter, str(support_inline), str(support_splits), str(support_ref)
 
@@ -499,8 +508,9 @@ def call_from(cluster, config, keep_qc_fails, task):
     else:
         svlens = None
 
-    if not svtype.startswith("SINGLE_"):
+    if not svtype.startswith("SINGLE_") and svtype != 'BND':
         # Check length only for actual SVs, not single breaks
+        # BNDs don't have a length either
         if abs(svlen) < config.minsvlen_screen:
             return
 
@@ -612,7 +622,7 @@ def merge_inner_bounds(leads, config):
     return pos, svlen, util.stdev(util.trim((v for k, v in read_starts.items()))), util.stdev(util.trim((v for k, v in read_svlengths.items())))
 
 
-def resolve_bnd(svcall, cluster, config):
+def resolve_bnd(svcall: 'SVCall', cluster: 'Cluster', config = None) -> None:
     mate_contig = util.most_common_top([lead.bnd_info.mate_contig for lead in cluster.leads])
     selected = [lead for lead in cluster.leads if lead.bnd_info.mate_contig == mate_contig]
     mate_ref_start = util.center([lead.bnd_info.mate_ref_start for lead in selected])
@@ -636,9 +646,10 @@ def call_groups(svgroups: list[SVGroup], config, task):
             yield svcall
 
 
-def classify_splits(read, leads, config, main_contig) -> list:
+def classify_splits(read: 'AlignedSegment', leads: list['Lead'], config: 'SnifflesConfig', main_contig: str) -> list:
     """
     Determines the SV type of a split read (read with supplementary alignments). Returns (possibly changed) list of leads.
+    :param main_contig: contig of the primary read
     """
     minsvlen_screen = config.minsvlen_screen
     min_split_len_bnd = config.bnd_min_split_length
@@ -755,32 +766,10 @@ def classify_splits(read, leads, config, main_contig) -> list:
                         hints += 1
         else:
             #
-            # BND
+            # BNDs are handled in Lead.for_bnd
             #
-            if curr.contig == main_contig:
-                a, b = curr, last
-            else:
-                a, b = last, curr
+            ...
 
-            if a.contig == main_contig and abs(last.qry_end - last.qry_start) >= min_split_len_bnd and abs(curr.qry_end - curr.qry_start) >= min_split_len_bnd:
-                is_first = a.qry_start < b.qry_start
-                if is_first:
-                    if a.strand == "+":
-                        svstart = a.ref_end
-                    else:
-                        svstart = a.ref_start
-                else:
-                    if a.strand == "+":
-                        svstart = a.ref_start
-                    else:
-                        svstart = a.ref_end
-                a.svtypes_starts_lens.append(("BND",
-                                              svstart,
-                                              SVCallBNDInfo(b.contig,
-                                                            b.ref_start,
-                                                            is_first,
-                                                            a.strand != b.strand)))
-                hints += 1
         last = curr
 
     if not hints and len(leads) > 2:

@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 VERSION = "Sniffles2"
-BUILD = "2.7.2"
+BUILD = "2.8.0a1"
 SNF_VERSION = "S2_rc4"
 
 
@@ -198,6 +198,14 @@ class SnifflesConfig(argparse.Namespace):
     long_del_length: int
     long_inv_length: int
     long_dup_length: int
+    long_del_coverage: float
+    long_dup_coverage: float
+    bnd_min_split_length: int
+    max_splits_kb: float
+    max_splits_base: int
+    min_alignment_length: int
+    phase_conflict_threshold: float
+    detect_large_ins: bool
     max_unknown_pct: float
     large_coverage_sample_interval: int
     pass_only: bool
@@ -236,6 +244,7 @@ class SnifflesConfig(argparse.Namespace):
     cluster_binsize: int
     cluster_binsize_combine_mult: int
     cluster_merge_len: float
+    cluster_merge_bnd: int  # in bp, default 1k
     default_cluster_merge_len: float = 0.22
     default_cluster_merge_len_mosaic: float = 0.27
 
