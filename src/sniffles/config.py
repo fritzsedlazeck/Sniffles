@@ -132,8 +132,6 @@ class SnifflesConfig(argparse.Namespace):
 
     quiet: bool
 
-    dev_call_region: Union[str, dict]
-
     @property
     def sort(self):
         """
@@ -238,6 +236,8 @@ class SnifflesConfig(argparse.Namespace):
     cluster_binsize: int
     cluster_binsize_combine_mult: int
     cluster_merge_len: float
+    default_cluster_merge_len: float = 0.22
+    default_cluster_merge_len_mosaic: float = 0.27
 
     @staticmethod
     def add_cluster_args(parser):
@@ -365,10 +365,12 @@ class SnifflesConfig(argparse.Namespace):
     dev_single_break_dist: int
     dev_min_leads_cluster: int
     dev_filter: bool  # Stores & outputs all failed filters on an SV
-    dev_trace_read: str | list
+    dev_trace_read: bool | str | list
     dev_min_dup_vaf: float
     dev_longer_dup: int
     dev_longer_del: int
+    dev_minreads_extra: int
+    dev_maxsvlen_extra: int
 
     @staticmethod
     def add_developer_args(parser):
@@ -382,7 +384,6 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-cache-dir", metavar="PATH", type=str, default=None, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-debug-svtyping", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-keep-lowqual-splits", default=False, action="store_true", help=argparse.SUPPRESS)
-        developer_args.add_argument("--dev-call-region", metavar="REGION", type=str, default=None, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-dump-clusters", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-merge-inline", default=False, action="store_true", help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-seq-cache-maxlen", metavar="N", type=int, default=50000, help=argparse.SUPPRESS)
@@ -424,6 +425,10 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-min-dup-vaf", default=0.166666667, type=float, help=argparse.SUPPRESS)  # 1/2 of the expected value for 3x/2x DUP VAF which is 1/3 =~ 1/6
         developer_args.add_argument("--dev-longer-del", default=200000, type=int, help=argparse.SUPPRESS)  # ignore COV_CHANGE_DEL for very long DUP ~4x long-del-length | need to be used as abs
         developer_args.add_argument("--dev-longer-dup", default=200000, type=int, help=argparse.SUPPRESS)  # ignore COV_CHANGE_DUP for very long DUP ~4x long-dup-length
+        developer_args.add_argument("--dev-minreads-extra", default=5, type=int, help=argparse.SUPPRESS)  # for both mosaic rescue for alellic imbalance SVs AND local assembly
+        developer_args.add_argument("--dev-maxsvlen-extra", default=10000, type=int, help=argparse.SUPPRESS)  # for both mosaic rescue for alellic imbalance SVs AND local assembly
+        developer_args.add_argument("--dev-locasm-skip-mosaic", default=False, action="store_true", help=argparse.SUPPRESS)  # skip the MOSAIC_VAF filter, default use
+        developer_args.add_argument("--dev-locasm-do", default=False, action="store_true", help=argparse.SUPPRESS)  # changed from skip to perform
 
         # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 
@@ -459,11 +464,6 @@ class SnifflesConfig(argparse.Namespace):
         self.build = BUILD
         self.snf_format_version = SNF_VERSION
         self.command = " ".join(sys.argv)
-
-        if self.dev_call_region is not None:
-            region_contig, region_startend = self.dev_call_region.replace(",", "").split(":")
-            start, end = region_startend.split("-")
-            self.dev_call_region = dict(contig=region_contig, start=int(start), end=int(end))
 
         if self.contig and self.regions:
             util.fatal_error('Please provide either --contig or --regions, not both.')
@@ -569,7 +569,9 @@ class SnifflesConfig(argparse.Namespace):
             self.qc_nm_measure = self.qc_nm_measure or self.mosaic_qc_nm
             # config.qc_nm_mult=config.mosaic_qc_nm_mult
             # config.qc_strand=config.mosaic_qc_strand
-            self.cluster_merge_len = 0.27  # oddly specific, tested
+            # mosaic cluster_merge_len is oddly specific, tested
+            self.cluster_merge_len = self.default_cluster_merge_len_mosaic \
+                if self.cluster_merge_len == self.default_cluster_merge_len else self.cluster_merge_len
 
         # min leads cluster (default is -1, changed context dependant)
         if -1 == self.dev_min_leads_cluster:
@@ -578,7 +580,10 @@ class SnifflesConfig(argparse.Namespace):
             else:
                 self.dev_min_leads_cluster = 2
 
-        if self.dev_trace_read:
-            self.dev_trace_read = self.dev_trace_read.split(",")
+        # providing an empty string may turn on read tracing and cause issues. Default value of dev_trace_read is False
+        if self.dev_trace_read or not isinstance(self.dev_trace_read, bool):
+            self.dev_trace_read = [read for read in self.dev_trace_read.split(",") if len(read) > 0]
+            if len(self.dev_trace_read) == 0:
+                self.dev_trace_read = False
 
         SnifflesConfig.GLOBAL = self

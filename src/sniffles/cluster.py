@@ -31,6 +31,7 @@ class Cluster:
     leads: list['leadprov.Lead']
     repeat: bool
     leads_long: Optional[list]
+    hap_counts: tuple
 
     @property
     def span(self) -> Optional[int]:
@@ -145,7 +146,8 @@ def resplit(cluster, prop, binsize, merge_threshold_min, merge_threshold_frac):
                               seed=cluster.seed,
                               leads=bins_leads[cluster_index],
                               repeat=cluster.repeat,
-                              leads_long=cluster.leads_long)
+                              leads_long=cluster.leads_long,
+                              hap_counts=cluster.hap_counts)
         yield new_cluster
 
 
@@ -180,7 +182,8 @@ def resplit_bnd(cluster, merge_threshold):
                                           seed=cluster.seed,
                                           leads=[k for k in curr_leads],
                                           repeat=cluster.repeat,
-                                          leads_long=None)
+                                          leads_long=None,
+                                          hap_counts=cluster.hap_counts)
                     yield new_cluster
                 curr_leads = [] + contigs_leads[contig][bin]
             last_bin = bin
@@ -193,7 +196,8 @@ def resplit_bnd(cluster, merge_threshold):
                                   seed=cluster.seed,
                                   leads=[k for k in curr_leads],
                                   repeat=cluster.repeat,
-                                  leads_long=None)
+                                  leads_long=None,
+                                  hap_counts=cluster.hap_counts)
             curr_leads = []
             yield new_cluster
 
@@ -201,11 +205,14 @@ def resplit_bnd(cluster, merge_threshold):
 def resolve(svtype, leadtab_provider, config, tr) -> Generator[Cluster | Any, None, list[Any] | None]:
     leadtab = leadtab_provider.leadtab[svtype]
     seeds = sorted(leadtab_provider.leadtab[svtype])
+    hap_counts = leadtab_provider.leadhapcount[svtype]
+    hap_ref = leadtab_provider.leadhapcount["REF"]
 
     if len(seeds) == 0:
         return []
 
     # Initialize tandem repeat region handling
+    tr_index = 0
     if tr is not None:
         tr_index = 0
         if len(tr) == 0:
@@ -215,9 +222,6 @@ def resolve(svtype, leadtab_provider, config, tr) -> Generator[Cluster | Any, No
 
     clusters = []
     for seed_index, seed in enumerate(seeds):
-        if config.dev_call_region != None:
-            if seed < config.dev_call_region["start"] or seed > config.dev_call_region["end"]:
-                continue
 
         within_tr = False
         if tr is not None and tr_index < len(tr):
@@ -228,11 +232,18 @@ def resolve(svtype, leadtab_provider, config, tr) -> Generator[Cluster | Any, No
                 within_tr = True
 
         if svtype == "INS":
-            leads = [lead for lead in leadtab[seed] if lead.svlen != None]
-            leads_long = [lead for lead in leadtab[seed] if lead.svlen == None]
+            leads = [lead for lead in leadtab[seed] if lead.svlen is not  None]
+            leads_long = [lead for lead in leadtab[seed] if lead.svlen is None]
         else:
             leads = leadtab[seed]
             leads_long = None
+
+        sv0, sv1, sv2 = hap_counts[seed]
+        if seed in hap_ref:
+            hp0, hp1, hp2 = hap_ref[seed]
+            hapl_count_full = (sv0, sv1, sv2, hp0, hp1, hp2)
+        else:
+            hapl_count_full = (sv0, sv1, sv2, 0, 0, 0)
 
         if len(leads) >= config.dev_min_leads_cluster:
             cluster = Cluster(id=f"CL.{svtype}.{leadtab_provider.contig}.{leadtab_provider.start}.{seed_index}",
@@ -243,7 +254,8 @@ def resolve(svtype, leadtab_provider, config, tr) -> Generator[Cluster | Any, No
                               seed=seed,
                               leads=leads,
                               repeat=within_tr or config.repeat,
-                              leads_long=leads_long)
+                              leads_long=leads_long,
+                              hap_counts=hapl_count_full)
 
             cluster.compute_metrics()
             clusters.append(cluster)

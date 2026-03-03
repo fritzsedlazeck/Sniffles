@@ -15,6 +15,7 @@ from typing import Optional, Iterator
 
 import numpy as np
 import pysam
+import array
 
 # for: --dev-cache
 import os
@@ -27,6 +28,7 @@ from sniffles.region import Region
 
 
 log = logging.getLogger(__name__)
+UNSIGEND_SHORT = 'H'
 
 
 @dataclass
@@ -46,6 +48,8 @@ class Lead:
     svlen: Optional[int] = None
     seq: Optional[str] = None
     svtypes_starts_lens: list = None
+    hap: str = "0"
+    phase_set: str = None
 
 
 def CIGAR_analyze(cigar):
@@ -98,7 +102,7 @@ for k, v in OPTAB.items():
     OPLIST[int(k)] = v
 
 
-def get_cigar_indels(read) -> tuple[int, int]:
+def get_cigar_indels(read: pysam.AlignedSegment, minoplen: int = 10) -> tuple[int, int, int, int]:
     """
     Counts the number of inserted and deleted bases in a read.
     """
@@ -107,6 +111,8 @@ def get_cigar_indels(read) -> tuple[int, int]:
 
     ins_sum = 0
     del_sum = 0
+    large_ins_sum = 0
+    large_del_sum = 0
 
     pos_read = 0
     pos_ref = read.reference_start
@@ -115,15 +121,17 @@ def get_cigar_indels(read) -> tuple[int, int]:
         if event:
             if op == cins:
                 ins_sum += oplength
+                large_ins_sum += oplength if oplength > minoplen else 0
             elif op == cdel:
                 del_sum += oplength
+                large_del_sum += oplength if oplength > minoplen else 0
         pos_read += add_read * oplength
         pos_ref += add_ref * oplength
 
-    return ins_sum, del_sum
+    return ins_sum, del_sum, large_ins_sum, large_del_sum
 
 
-def read_itersplits_bnd(read_id, read, contig, config, read_nm):
+def read_itersplits_bnd(read_id, read, contig, config, read_nm, read_hap, read_ps):
     """
     Iterate over supplementary alignments of a read and yield leads for BND events.
     """
@@ -151,12 +159,14 @@ def read_itersplits_bnd(read_id, read, contig, config, read_nm):
                      read.mapping_quality,
                      read_nm,
                      "SPLIT_SUP",
-                     "?")
+                     "?",
+                     hap=str(read_hap), phase_set=str(read_ps))
     all_leads.append(curr_lead)
 
     prim_refname, prim_pos, prim_strand, prim_cigar, prim_mapq, prim_nm = supps[0]
     if prim_refname == contig:
-        # Primary alignment is on this chromosome, no need to parse the supplementary, but only if mapping quality of primary is sufficient
+        # Primary alignment is on this chromosome, no need to parse the supplementary,
+        # but only if mapping quality of primary is sufficient
         if int(prim_mapq) >= config.mapq:
             # Skip if primary alignment is of sufficient quality
             return
@@ -194,7 +204,8 @@ def read_itersplits_bnd(read_id, read, contig, config, read_nm):
                               mapq,
                               read_nm,
                               "SPLIT_SUP",
-                              "?"))
+                              "?",
+                              hap=str(read_hap), phase_set=str(read_ps)))
 
     sv.classify_splits(read, all_leads, config, contig)
 
@@ -214,17 +225,18 @@ def read_itersplits_bnd(read_id, read, contig, config, read_nm):
                            source=lead.source,
                            svtype=svtype,
                            svlen=config.bnd_cluster_length,
-                           seq=None)
+                           seq=None,
+                           hap=str(read_hap), phase_set=str(read_ps))
                 bnd.bnd_info = arg
                 # print(lead.contig,svstart,bnd.bnd_info)
                 yield bnd
 
 
-def read_itersplits(read_id, read, contig, config, read_nm):
+def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps):
     # SA:refname,pos,strand,CIGAR,MAPQ,NM
     all_leads = []
     supps = [part.split(",") for part in read.get_tag("SA").split(";") if len(part) > 0]
-    trace_read = config.dev_trace_read is not False and read.query_name in config.dev_trace_read
+    trace_read = config.dev_trace_read and read.query_name in config.dev_trace_read
 
     if len(supps) > config.max_splits_base + config.max_splits_kb * (read.query_length / 1000.0):
         return
@@ -262,7 +274,8 @@ def read_itersplits(read_id, read, contig, config, read_nm):
                      read.mapping_quality,
                      read_nm,
                      "SPLIT_PRIM",
-                     "?")
+                     "?",
+                     hap=str(read_hap), phase_set=str(read_ps))
     all_leads.append(curr_lead)
 
     # QC on: 18Aug21; O.K.
@@ -299,7 +312,8 @@ def read_itersplits(read_id, read, contig, config, read_nm):
                               mapq,
                               read_nm,
                               "SPLIT_SUP",
-                              "?"))
+                              "?",
+                              hap=str(read_hap), phase_set=str(read_ps)))
 
     if trace_read:
         print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] all_leads: {all_leads}")
@@ -307,7 +321,8 @@ def read_itersplits(read_id, read, contig, config, read_nm):
     all_leads = sv.classify_splits(read, all_leads, config, contig)
 
     if trace_read:
-        print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] classify_splits(all_leads): {all_leads}")
+        print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] "
+              f"classify_splits(all_leads): {all_leads}")
 
     """
     if config.dev_trace_read != False:
@@ -342,7 +357,8 @@ def read_itersplits(read_id, read, contig, config, read_nm):
                            source=lead.source,
                            svtype=svtype,
                            svlen=config.bnd_cluster_length,
-                           seq=None)
+                           seq=None,
+                           hap=str(read_hap), phase_set=str(read_ps))
                 bnd.bnd_info = arg
                 yield bnd
 
@@ -362,7 +378,8 @@ def read_itersplits(read_id, read, contig, config, read_nm):
                            source=lead.source,
                            svtype=svtype,
                            svlen=svlen,
-                           seq=lead.seq if svtype == "INS" else None)
+                           seq=lead.seq if svtype == "INS" else None,
+                           hap=str(read_hap), phase_set=str(read_ps))
 
 
 class LeadProvider:
@@ -373,10 +390,13 @@ class LeadProvider:
 
         self.leadtab = {}
         self.leadcounts = {}
+        self.leadhapcount = {}
 
         for svtype in sv.ALL_TYPES:
             self.leadtab[svtype] = {}
             self.leadcounts[svtype] = 0
+            self.leadhapcount[svtype] = {}
+        self.leadhapcount["REF"] = {}  # we need to count the haps in ref too,
 
         self.covrtab_fwd = {}
         self.covrtab_rev = {}
@@ -389,16 +409,30 @@ class LeadProvider:
         self.start = None
         self.end = None
 
+    def record_hap_ref(self, hp_index, pos_leadtab, end_leadtab, step):
+        leadtab_hapc = self.leadhapcount["REF"]
+        for this_pos in range(pos_leadtab, end_leadtab, step):
+            if this_pos in leadtab_hapc:
+                leadtab_hapc[this_pos][hp_index] += 1
+            else:
+                leadtab_hapc[this_pos] = array.array(UNSIGEND_SHORT, 3*[0])
+                leadtab_hapc[this_pos][hp_index] = 1
+
     def record_lead(self, ld, pos_leadtab):
         leadtab_svtype = self.leadtab[ld.svtype]
+        leadtab_hapc = self.leadhapcount[ld.svtype]
+        hp_index = int(ld.hap)
         if pos_leadtab in leadtab_svtype:
             leadtab_svtype[pos_leadtab].append(ld)
             lead_count = len(leadtab_svtype[pos_leadtab])
             if lead_count > self.config.consensus_max_reads_bin:
                 ld.seq = None
+            leadtab_hapc[pos_leadtab][hp_index] += 1
         else:
             leadtab_svtype[pos_leadtab] = [ld]
             lead_count = 1
+            leadtab_hapc[pos_leadtab] = array.array(UNSIGEND_SHORT, 3*[0])
+            leadtab_hapc[pos_leadtab][hp_index] = 1
         self.leadcounts[ld.svtype] += 1
 
     def build_leadtab(self, regions: list[Region], bam):
@@ -416,13 +450,21 @@ class LeadProvider:
             self.covrtab_min_bin = int(self.start / self.config.coverage_binsize) * self.config.coverage_binsize
 
             for ld in self.iter_region(bam, region):
-                ld_contig, ld_ref_start = ld.contig, ld.ref_start
+                if isinstance(ld, Lead):
+                    ld_contig, ld_ref_start = ld.contig, ld.ref_start
 
-                if region.contig == ld_contig and region.start <= ld_ref_start < region.end:
-                    pos_leadtab = int(ld_ref_start / ld_binsize) * ld_binsize
-                    self.record_lead(ld, pos_leadtab)
+                    if region.contig == ld_contig and region.start <= ld_ref_start < region.end:
+                        pos_leadtab = int(ld_ref_start / ld_binsize) * ld_binsize
+                        self.record_lead(ld, pos_leadtab)
+                    else:
+                        externals.append(ld)
                 else:
-                    externals.append(ld)
+                    # we record counts for each lead-tab for all haplotype count appearances
+                    hap, ld_contig, ld_ref_start, ld_ref_end = ld
+                    pos_leadtab = int(ld_ref_start / ld_binsize) * ld_binsize
+                    end_leadtab = int(ld_ref_end / ld_binsize) * ld_binsize
+                    if region.contig == ld_contig and region.start <= ld_ref_start < region.end:
+                        self.record_hap_ref(hap, pos_leadtab, end_leadtab, ld_binsize)
 
         return externals
 
@@ -439,10 +481,12 @@ class LeadProvider:
         self.coverage = np.zeros(bam.get_reference_length(region.contig), dtype=np.uint16)
 
         read_mq20 = 0
+        read: pysam.AlignedSegment
         for read in bam.fetch(region.contig, region.start, region.end, until_eof=False):
-            if trace_read is not False:
-                if trace_read == read.query_name:
-                    print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{region}] [{read.query_name}] has been fetched and is entering pre-filtering")
+            if trace_read:
+                if read.query_name in trace_read:
+                    print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{region}] [{read.query_name}] "
+                          f"has been fetched and is entering pre-filtering")
 
             alen = read.query_alignment_length
             if read.mapping_quality < mapq_min or read.is_secondary or alen < alen_min:
@@ -455,6 +499,9 @@ class LeadProvider:
             if read.reference_start < region.start or read.reference_start >= region.end:
                 continue
 
+            hp = read.get_tag("HP") if read.has_tag("HP") else 0
+            ps = read.get_tag("PS") if read.has_tag("PS") else "NULL"
+
             self.read_id += 1
             self.read_count += 1
             self.coverage[read.reference_start:read.reference_end] += 1
@@ -465,59 +512,72 @@ class LeadProvider:
             nm = -1
             curr_read_id = self.read_id
             if advanced_tags:
-                if qc_nm:
+                if qc_nm or True:  # always save
                     if read.has_tag("NM"):
                         nm_raw = read.get_tag("NM")
-                        ins_sum, del_sum = get_cigar_indels(read)
-                        nm_adj = (nm_raw - (ins_sum + del_sum))
-                        nm_adj_ratio = nm_adj / float(read.query_alignment_length + 1)
-                        nm = nm_adj_ratio
+                        ins_sum, del_sum, *largeop = get_cigar_indels(read)
+                        # NOTE: previously all INS/DEL events sizes were summed up and removed from NM (nm_adj)
+                        #       now only those above a given threshold (default = 10 bases)
+                        nm = (nm_raw - sum(largeop)) / float(read.query_alignment_length + 1)
                         nm_sum += nm
                         nm_count += 1
+                        # nm_adj = (nm_raw - (ins_sum + del_sum))
+                        # nm_adj_ratio = nm_adj / float(read.query_alignment_length + 1)
+                        # nm = nm_adj_ratio
+                        # adjNMv2: large ops only
 
-                if phase:
-                    curr_read_id = (self.read_id, str(read.get_tag("HP")) if read.has_tag("HP") else "NULL", str(read.get_tag("PS")) if read.has_tag("PS") else "NULL")
-
-            if trace_read is not False:
-                if trace_read == read.query_name:
-                    print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{region}] [{read.query_name}] passed pre-filtering (whole-read), begin to extract leads")
+            if trace_read:
+                if read.query_name in trace_read:
+                    print(f"[DEV_TRACE_READ] [0b/4] [LeadProvider.iter_region] [{region}] [{read.query_name}] "
+                          f"passed pre-filtering (whole-read), begin to extract leads")
 
             # Extract small indels and record coverage for this read
-            for lead in self.read_iterindels(curr_read_id, read, region.contig, use_clips, read_nm=nm):
-                if trace_read is not False:
-                    if trace_read == read.query_name:
-                        print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_iterindels] [{region}] [{read.query_name}] new lead: {lead}")
+            for lead in self.read_iterindels(curr_read_id, read, region.contig, use_clips, read_nm=nm, read_hap=hp,
+                                             read_ps=ps):
+                if trace_read:
+                    if read.query_name in trace_read:
+                        print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_iterindels] [{region}] [{read.query_name}] "
+                              f"new lead: {lead}")
                 yield lead
 
             # Extract read splits
             if has_sa:
                 if read.is_supplementary:
-                    if trace_read is not False:
-                        if trace_read == read.query_name:
-                            print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits_bnd] [{region}] [{read.query_name}] is entering read_itersplits_bnd")
-                    for lead in read_itersplits_bnd(curr_read_id, read, region.contig, self.config, read_nm=nm):
+                    if trace_read:
+                        if read.query_name in trace_read:
+                            print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits_bnd] [{region}] "
+                                  f"[{read.query_name}] is entering read_itersplits_bnd")
+                    for lead in read_itersplits_bnd(curr_read_id, read, region.contig, self.config, read_nm=nm,
+                                                    read_hap=hp, read_ps=ps):
                         if trace_read is not False:
-                            if trace_read == read.query_name:
-                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits_bnd] [{region}] [{read.query_name}] new lead: {lead}")
+                            if read.query_name in trace_read:
+                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits_bnd] [{region}] "
+                                      f"[{read.query_name}] new lead: {lead}")
                         yield lead
                 else:
-                    if trace_read is not False:
-                        if trace_read == read.query_name:
-                            print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{region}] [{read.query_name}] is entering read_itersplits")
-                    for lead in read_itersplits(curr_read_id, read, region.contig, self.config, read_nm=nm):
-                        if trace_read is not False:
-                            if trace_read == read.query_name:
-                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{region}] [{read.query_name}] new lead: {lead}")
+                    if trace_read:
+                        if read.query_name in trace_read:
+                            print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{region}] [{read.query_name}] "
+                                  f"is entering read_itersplits")
+                    for lead in read_itersplits(curr_read_id, read, region.contig, self.config, read_nm=nm, read_hap=hp,
+                                                read_ps=ps):
+                        if trace_read:
+                            if read.query_name in trace_read:
+                                print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{region}] "
+                                      f"[{read.query_name}] new lead: {lead}")
                         yield lead
-                read_mq20 += 1 if read.mapping_quality >= 20 else 0
+                read_mq20 += 1 if read.mapping_quality >= self.config.mapq else 0
+
+            yield hp, region.contig, read.reference_start, read.reference_end
 
         log.debug(f'Processed {self.read_count} reads in region {region.contig}:{region.start}-{region.end}')
 
         self.config.average_regional_nm = nm_sum / float(max(1, nm_count))
         self.config.qc_nm_threshold = self.config.average_regional_nm
-        # print(f"Contig {contig} avg. regional NM={self.config.average_regional_nm}, threshold={self.config.qc_nm_threshold}")
+        # print(f"Contig {contig} avg. regional NM={self.config.average_regional_nm},
+        # threshold={self.config.qc_nm_threshold}")
 
-    def read_iterindels(self, read_id: int, read, contig, use_clips, read_nm) -> Iterator[Lead]:
+    def read_iterindels(self, read_id: int, read, contig, use_clips, read_nm, read_hap, read_ps) -> Iterator[Lead]:
         """
         Extracts Leads from insertions/deletions.
         """
@@ -553,7 +613,8 @@ class LeadProvider:
                                "INLINE",
                                "INS",
                                oplength,
-                               seq=read.query_sequence[pos_read:pos_read + oplength] if oplength <= seq_cache_maxlen else None)
+                               seq=read.query_sequence[pos_read:pos_read + oplength] if oplength <= seq_cache_maxlen else None,
+                               hap=str(read_hap), phase_set=str(read_ps))
                 elif op == CDEL:
                     yield Lead(read_id,
                                qname,
@@ -567,7 +628,8 @@ class LeadProvider:
                                read_nm,
                                "INLINE",
                                "DEL",
-                               -oplength)
+                               -oplength,
+                               hap=str(read_hap), phase_set=str(read_ps))
                 elif use_clips and op == CSOFT_CLIP and oplength >= longinslen:
                     yield Lead(read_id,
                                qname,
@@ -582,7 +644,8 @@ class LeadProvider:
                                "INLINE",
                                "INS",
                                None,
-                               seq=None)
+                               seq=None,
+                               hap=str(read_hap), phase_set=str(read_ps))
                 elif op in (pysam.CSOFT_CLIP, pysam.CHARD_CLIP):
                     yield Lead(read_id,
                                qname,
@@ -597,7 +660,8 @@ class LeadProvider:
                                "INLINE",
                                "SINGLE_LEFT" if pos_ref == read.reference_start else "SINGLE_RIGHT",
                                0,
-                               seq=None)
+                               seq=None,
+                               hap=str(read_hap), phase_set=str(read_ps))
 
             pos_read += add_read * oplength
             pos_ref += add_ref * oplength

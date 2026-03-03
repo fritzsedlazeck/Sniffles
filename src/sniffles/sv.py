@@ -128,6 +128,22 @@ class SVCall:
 
     _counter = 0
 
+    def __repr__(self):
+        coverage = (f'({self.coverage_upstream}, {self.coverage_start}, {self.coverage_center}, '
+                    f'{self.coverage_end}, {self.coverage_downstream})')
+        return (
+            f'SVCall=(\n'
+            f'    {self.contig}, {self.pos}, {self.id}, {self.ref}, {self.alt}, {self.qual}, {self.filter}, '
+            f'{self.svtype}, {self.svlen}, {self.end}, {self.precise}, {self.support}, {self.qc}, {self.nm}, '
+            f'{self.genotypes}, \n'
+            f'    info={self.info}, \n'
+            f'    rnames=[""], \n'
+            f'    {self.postprocess}, \n'
+            f'    fwd={self.fwd}, rev={self.rev}, coverage={coverage}, {self.svlens}, {self.sample_internal_id}, {self.bnd_info}, '
+            f'{self.raw_vcf_line_index}, {self.forward_difference_sampler}\n)'
+                )
+        # f'    rnames={self.rnames}, \n'
+
     def set_info(self, k, v):
         self.info[k] = v
 
@@ -320,7 +336,8 @@ class SVGroup:
             else:
                 return None
 
-        rnames = [] if config.output_rnames else None
+        # always save read names, just drop then when reporting, needed for local assembly
+        rnames = []  # if config.output_rnames else None
         genotypes = {}
 
         for cand in self.candidates:
@@ -524,10 +541,12 @@ def call_from(cluster, config, keep_qc_fails, task):
 
     svpi = SVCallPostprocessingInfo(cluster=cluster)
 
-    if config.output_rnames or config.snf is not None:
-        rnames = list(support_set)
-    else:
-        rnames = None
+    # always saved, only not reported needed for local asm
+    rnames = list(support_set)
+    # if config.output_rnames or config.snf is not None:
+    #     rnames = list(support_set)
+    # else:
+    #     rnames = None
 
     svcall = SVCall(contig=cluster.contig,
                     pos=svstart,

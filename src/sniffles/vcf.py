@@ -30,6 +30,8 @@ def format_info(k, v):
     elif v is None:
         v = '.'
 
+    if isinstance(v, bool) and v:
+        return f"{k}"
     return f"{k}={v}"
 
 
@@ -40,11 +42,9 @@ def unpack_phase(phase, svid="") -> tuple:
         if phase is None:
             hp_i, ps = None, "."
         else:
-            log.debug(f"Single not 'None'-valued phase: {phase}|{svid}")
-            hp_i, ps = phase, phase
-    if hp_i is None or ps is None:
-        return None, "."
-    ps = ps if ps is not None else "."
+            log.warning(f"Single not 'None'-valued phase: {phase}|{svid}")
+            hp_i, ps = phase, "."
+    ps = ps if (ps is not None and ps != "NULL") else "."
     return hp_i, ps
 
 
@@ -69,7 +69,7 @@ def format_genotype(gt, is_phased):
     else:
         a, b, qual, dr, dv, phase, svid = gt
         hp_i, ps = unpack_phase(phase, svid)
-        if hp_i is not None and (a, b) == [(0, 1), (1, 1)]  and is_phased:
+        if hp_i is not None and (a, b) == [(0, 1), (1, 1)] and is_phased:
             gt_sep = "|"
             if hp_i == 0:
                 a, b = b, a
@@ -190,6 +190,7 @@ class VCF:
         self.write_header_line('INFO=<ID=COVERAGE_VAR,Number=1,Type=Float,Description="Variance of coverage across large events">')
         self.write_header_line('INFO=<ID=NM,Number=.,Type=Float,Description="Mean number of query alignment length adjusted mismatches of supporting reads">')
         self.write_header_line('INFO=<ID=PHASE,Number=.,Type=String,Description="Phasing information derived from supporting reads, represented as list of: HAPLOTYPE,PHASESET,HAPLOTYPE_SUPPORT,PHASESET_SUPPORT,HAPLOTYPE_FILTER,PHASESET_FILTER">')
+        self.write_header_line('INFO=<ID=LASM,Number=0,Type=Flag,Description="Local assembly used to detect the structural variant">')
 
         if self.config.combine_population:
             self.write_header_line('INFO=<ID=POPULATION_AF,Number=1,Type=Float,Description="Population Allele Frequency">')

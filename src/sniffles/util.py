@@ -137,7 +137,8 @@ def load_tandem_repeats(filename, padding):
                 contigs_tr[contig].append((max(0, int(start) - padding), int(end) + padding))
 
     if unsorted:
-        print("Info: The tandem repeat annotations file was not sorted. Sorting it in-memory after loading... (please sort the .bed file once before to save time when running multiple samples)")
+        print("Info: The tandem repeat annotations file was not sorted. Sorting it in-memory after loading... "
+              "(please sort the .bed file once before to save time when running multiple samples)")
         sort_start = time.time()
         for contig in contigs_tr:
             contigs_tr[contig].sort()
@@ -156,7 +157,7 @@ def should_process_contig(contig: str, length: int, config: 'SnifflesConfig') ->
     if config.regions_by_contig and contig not in config.regions_by_contig:
         return False
 
-    # Exclude contigs shorter than 1Mbp if not explicitly requested by either -c or by being included in the input bed file
+    # Exclude contigs shorter than 1Mbp if not explicitly requested by: -c or by being included in the region bed file
     if not config.all_contigs and length < 1_000_000:
         return (config.contig and contig in config.contig) or (contig in config.regions_by_contig)
 

@@ -30,6 +30,7 @@ from sniffles import sv
 from sniffles.region import Region
 from sniffles.result import Result, ErrorResult, CallResult, GenotypeResult, CombineResult
 from sniffles.snfp import PopulationSNF
+from sniffles.local_asm import LocalAsm
 
 if TYPE_CHECKING:
     from sniffles.config import SnifflesConfig
@@ -113,7 +114,8 @@ class Task:
                             import copy
                             svcall_copy = copy.deepcopy(svcall)
                             svcall_copy.postprocess = None
-                            print(f"[DEV_TRACE_READ] [3/4] [Task.call_candidates] Read {traced_reads_str} -> Cluster {svcluster.id} -> preliminary SVCall {svcall_copy}")
+                            print(f"[DEV_TRACE_READ] [3/4] [Task.call_candidates] Read {traced_reads_str} -> Cluster "
+                                  f"{svcluster.id} -> preliminary SVCall {svcall_copy}")
                     candidates.append(svcall)
 
         self.coverage_average_total = postprocessing.coverage(candidates, self.lead_provider)
@@ -122,15 +124,18 @@ class Task:
     def finalize_candidates(self, candidates: list['sv.SVCall'], keep_qc_fails, config):
         passed = []
         for svcall in candidates:
+
             svcall.qc = svcall.qc and postprocessing.qc_sv(svcall, config)
             if not keep_qc_fails and not svcall.qc:
-                continue
+                pass  # does nothing
+                # continue
 
-            if not config.mosaic:
+            if not config.mosaic and svcall.qc:
                 svcall.qc = svcall.qc and postprocessing.qc_sv_support(svcall, self.coverage_average_total, config)
 
             if not keep_qc_fails and not svcall.qc:
-                continue
+                pass  # does nothing
+                # continue
 
             postprocessing.annotate_sv(svcall, config)
 
@@ -148,7 +153,8 @@ class Task:
                     import copy
                     svcall_copy = copy.deepcopy(svcall)
                     svcall_copy.postprocess = None
-                    print(f"[DEV_TRACE_READ] [4/4] [Task.finalize_candidates] Read {traced_reads_str} -> Cluster {svcall.postprocess.cluster.id} -> finalized SVCall, QC={svcall_copy.qc}: {svcall_copy}")
+                    print(f"[DEV_TRACE_READ] [4/4] [Task.finalize_candidates] Read {traced_reads_str} -> Cluster "
+                          f"{svcall.postprocess.cluster.id} -> finalized SVCall, QC={svcall_copy.qc}: {svcall_copy}")
 
             if config.dev_output_candidates:
                 try:
@@ -158,11 +164,81 @@ class Task:
                     logging.getLogger('sniffles.csv').exception(f'Error generating CSV line for {svcall}')
 
             if not keep_qc_fails and not svcall.qc:
-                continue
+                pass  # does nothing
+                # continue
 
-            svcall.finalize()  # Remove internal information (not written to output) before sending to mainthread for VCF writing
+            # resque SVCandidates that have a filter (i.e. MOSAIC_VAF, SUPPORT) but are actually a HET based on phasing
+            # and just have allelic imbalance or not all reads where phased
+            # local assembly here
+            phasing_rescue = (svcall.svtype not in ["BND"] and abs(svcall.svlen) <= config.dev_maxsvlen_extra and
+                              svcall.support >= int(config.dev_minreads_extra*0.60))
+            if self.config.phase and not svcall.qc and phasing_rescue:
+                _ = self.rescue_phasing(svcall)
+
+            skip_filters = ["PASS", "GT"] if not config.dev_locasm_skip_mosaic else ["PASS", "GT", "MOSAIC_VAF"]
+            apply_to_svtypes = ["INS", "DEL"]
+            do_local_asm = (svcall.filter not in skip_filters and svcall.svtype in apply_to_svtypes and
+                            config.dev_locasm_do and not svcall.qc and abs(svcall.svlen) <= config.dev_maxsvlen_extra
+                            and (svcall.support >= config.dev_minreads_extra or
+                                 len(svcall.rnames) > config.dev_minreads_extra))
+            if do_local_asm:
+                logging.getLogger('sniffles.local_asm').debug(f'{svcall.id},{svcall.support},{svcall.svlen},'
+                                                              f'{svcall.filter},{svcall.support >= config.dev_minreads_extra}')
+                loc_asm = LocalAsm(svcall)
+                _ = loc_asm.assembly(self.config)
+
+            # Remove internal information (not written to output) before sending to mainthread for VCF writing
+            svcall.finalize()
             passed.append(svcall)
         return passed
+
+    def rescue_phasing(self, svcall: sv.SVCall, min_rnames_in_phase: float = 0.75, min_reads_cover: int = 3) -> bool:
+        if "call_sample" == self.config.mode:
+            """
+            We need:
+                1) the alignment
+                2) the region where the SV is called (based on the Cluster/bin
+                3) the SV phasing information, if HP-failed, break
+            """
+            import numpy as np
+            nm_vals = [this_lead.nm for this_lead in svcall.postprocess.cluster.leads]
+            n_leads = len(nm_vals)
+            sv_nm = np.nanmean(nm_vals)
+            if sv_nm > self.config.genotype_error or n_leads <= min_reads_cover:
+                return False
+            if "PHASE" in svcall.info:
+                hp, _, hp_reads, _, hp_filter, _ = svcall.info["PHASE"].split(",")
+                if "PASS" != hp_filter:
+                    return False
+                hp = int(hp)
+            else:
+                return False
+
+            _, sv1, sv2, _, hap1, hap2 = svcall.postprocess.cluster.hap_counts
+            if hp == 1:
+                all_reads_phase, sv_reads_phase = hap1, sv1
+            elif hp == 2:
+                all_reads_phase, sv_reads_phase = hap2, sv2
+            else:
+                return False
+
+            if 0 == all_reads_phase:
+                return False
+
+            if float(sv_reads_phase)/float(all_reads_phase) >= min_rnames_in_phase:
+                if "MOSAIC_VAF" == svcall.filter:
+                    svcall.filter = "PASS"
+                    gt = svcall.genotypes[0]
+                    a, b, gq, dr, dv, p = gt
+                    svcall.genotypes[0] = (a, 1, gq, dr, dv, p)
+                    svcall.qc = True
+                    msg_debug = f'{svcall.contig}\t{svcall.pos}\t{svcall.end}\t{svcall.id}|{svcall.svlen}|'\
+                                f'{sv_reads_phase}|{all_reads_phase}|{sv_nm:0.4f}'
+                    logging.getLogger('sniffles.rescue_phasing').debug(msg_debug)
+                    return True
+                return False
+            return False
+        return False
 
 
 class CallTask(Task):
@@ -260,8 +336,7 @@ class GenotypeTask(Task):
                 for genotype_sv in genotype_svs_svtypes_bins[cand.svtype][bin]:
                     dist = abs(genotype_sv.pos - cand.pos) + abs(abs(genotype_sv.svlen) - abs(cand.svlen))
                     minlen = float(min(abs(genotype_sv.svlen), abs(cand.svlen)))
-                    if minlen > 0 and dist < genotype_sv.genotype_match_dist and dist <= config.combine_match * math.sqrt(
-                            minlen) and dist <= config.combine_match_max:
+                    if minlen > 0 and dist < genotype_sv.genotype_match_dist and dist <= config.combine_match * math.sqrt(minlen) and dist <= config.combine_match_max:
                         genotype_sv.genotype_match_sv = cand
                         genotype_sv.genotype_match_dist = dist
 
@@ -312,11 +387,13 @@ class CombineTask(Task):
                 block_indices |= set(range(start, r.end + self.config.snf_block_size, self.config.snf_block_size))
             self.block_indices = list(sorted(block_indices))
         else:
-            self.block_indices = list(range(self.start, self.end + self.config.snf_block_size, self.config.snf_block_size))
+            self.block_indices = list(range(self.start, self.end + self.config.snf_block_size,
+                                            self.config.snf_block_size))
 
     def __str__(self):
         if len(self.block_indices) > 0:
-            return f'''Task {self.id} Contig {self.contig} [{self.start} ({self.block_indices[0]}) .. {self.end} ({self.block_indices[-1]})]'''
+            return (f'Task {self.id} Contig {self.contig} [{self.start} ({self.block_indices[0]}) .. '
+                    f'{self.end} ({self.block_indices[-1]})]')
         else:
             return f'Task {self.id} [no blocks available]'
 
@@ -386,7 +463,8 @@ class CombineTask(Task):
         calls = []
 
         for cur, block_index in enumerate(self.block_indices):  # iterate over all blocks
-            self.logger.info(f'Processing block {cur + 1}/{len(self.block_indices)} (active calls: {sv.SVCall._counter} groups: {sv.SVGroup._counter})')
+            self.logger.info(f'Processing block {cur + 1}/{len(self.block_indices)} (active calls: '
+                             f'{sv.SVCall._counter} groups: {sv.SVGroup._counter})')
             samples_blocks = {}
             if calls:
                 result.store_calls(calls)
@@ -579,7 +657,8 @@ class SnifflesWorker:
                         self._logger.debug(f'No more tasks to do for {self.id}')
                     else:
                         self.pipe_main.send(self.task)
-                        self._logger.info(f'Dispatched task #{self.task.id} to worker {self.id} ({len(self.tasks)}  tasks left)')
+                        self._logger.info(f'Dispatched task #{self.task.id} to worker {self.id} '
+                                          f'({len(self.tasks)}  tasks left)')
                 else:
                     # ...and no more work available, so we shut down this worker
                     self._logger.info(f'Worker {self.id} shutting down...')
@@ -613,11 +692,13 @@ class SnifflesWorker:
                     if self.process.exitcode is not None:
                         # if we got an exitcode, the process really was killed
                         self._logger.warning(f'Worker {self.id} found dead!')
-                        if self.task:  # if we were working on a task, requeue it to have it picked up by another worker...
+                        # if we were working on a task, requeue it to have it picked up by another worker...
+                        if self.task:
                             self.tasks.appendleft(self.task)
                         self.running = False  # ...and shut down
         except:
-            self._logger.exception(f'Unhandled error in worker {self.id}. This may result in an orphened worker process.')
+            self._logger.exception(f'Unhandled error in worker {self.id}. '
+                                   f'This may result in an orphened worker process.')
             try:
                 self.process.kill()
             except:
