@@ -214,7 +214,7 @@ def get_cigar_indels(read: pysam.AlignedSegment, minoplen: int = 10) -> tuple[in
     return ins_sum, del_sum, large_ins_sum, large_del_sum
 
 
-def read_itersplits(read_id, read, contig, config, read_nm):
+def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps):
     """
     Iterate over supplementary alignments of a primary read
     """
