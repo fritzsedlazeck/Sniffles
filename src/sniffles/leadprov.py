@@ -96,6 +96,9 @@ class Lead:
                         else:
                             mate_ref_start = pos + 2
 
+                if not is_first:
+                    is_reverse = not is_reverse
+
                 return cls(
                     read_id=read_id,
                     read_qname=read.query_name,
