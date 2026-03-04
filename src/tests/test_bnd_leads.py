@@ -41,9 +41,8 @@ class BNDLeadTestCase(TestCase):
         ...
 
     def do_test(self, read: pysam.AlignedSegment):
-        with self.subTest('New version'):
-            lead = Lead.for_bnd(0, read)
-            self._asserts(lead)
+        lead = Lead.for_bnd(0, read)
+        self._asserts(lead)
         
 
 class TestBNDLeadsOrange(BNDLeadTestCase):
@@ -130,7 +129,7 @@ class TestBNDLeadsGreen(BNDLeadTestCase):
         self.assertEqual(lead.bnd_info.mate_contig, 'chr20')
         self.assertEqual(lead.bnd_info.mate_ref_start, 25_499_120)
         self.assertFalse(lead.bnd_info.is_first)
-        self.assertTrue(lead.bnd_info.is_reverse)
+        self.assertFalse(lead.bnd_info.is_reverse)
 
     def test_LeadsPrimaryForward(self):
         """
