@@ -15,6 +15,7 @@ from sniffles import util
 from sniffles import consensus
 from sniffles.config import SnifflesConfig
 from sniffles.leadprov import LeadProvider
+from sniffles.leadprov import Lead
 from sniffles.sv import SVCall
 
 log = logging.getLogger('sniffles.postprocessing')
@@ -551,6 +552,21 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average
             else:
                 svcall.filter = "NOT_MOSAIC_VAF"
                 return False
+        if sv_is_mosaic and svcall.svtype not in ("BND", "SINGLE_LEFT", "SINGLE_RIGHT"):
+            l: Lead
+            # NOTE: prototype
+            max_close_edge_dist = 500
+            max_read_close_edge_prop = 0.75
+            read_close_edge_count = 0
+            for sv_start_read, read_len in [(l.qry_start, l.read_len) for l in svcall.postprocess.cluster.leads]:
+                if sv_start_read <= max_close_edge_dist or abs(read_len - sv_start_read) <= max_close_edge_dist:
+                    read_close_edge_count += 1
+            if float(read_close_edge_count)/svcall.support >= max_read_close_edge_prop:
+                if config.dev_filter:
+                    dev_sv_filter.append("SV_CLOSE_EDGE")
+                else:
+                    svcall.filter = "SV_CLOSE_EDGE"
+                    return False
 
     if config.dev_filter:
         if len(dev_sv_filter) > 1:

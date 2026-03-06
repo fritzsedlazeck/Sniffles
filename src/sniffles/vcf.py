@@ -164,6 +164,7 @@ class VCF:
         self.write_header_line('FILTER=<ID=SVLEN_MIN_MOSAIC,Description="SV length filter for mosaic SVs (min)">')
         self.write_header_line('FILTER=<ID=SVLEN_MAX_MOSAIC,Description="SV length filter for mosaic SVs (max)">')
         self.write_header_line('FILTER=<ID=SINGLE_BREAK,Description="A single break point was detected but not classified as an SV.">')
+        self.write_header_line('FILTER=<ID=SV_CLOSE_EDGE,Description="For mosaic SVs, the location is close to the end of the read (either end)">')
 
         self.write_header_line('INFO=<ID=PRECISE,Number=0,Type=Flag,Description="Structural variation with precise breakpoints">')
         self.write_header_line('INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description="Structural variation with imprecise breakpoints">')

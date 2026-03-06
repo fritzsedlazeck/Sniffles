@@ -51,6 +51,7 @@ class Lead:
     bnd_info: Optional[SVCallBNDInfo] = None
     hap: str = "0"
     phase_set: str = None
+    read_len: int = 0
 
     @classmethod
     def for_bnd(cls, read_id: int, read: pysam.AlignedSegment) -> Optional['Lead']:
@@ -571,7 +572,7 @@ class LeadProvider:
                                "INS",
                                oplength,
                                seq=read.query_sequence[pos_read:pos_read + oplength] if oplength <= seq_cache_maxlen else None,
-                               hap=str(read_hap), phase_set=str(read_ps))
+                               hap=str(read_hap), phase_set=str(read_ps), read_len=read.infer_read_length())
                 elif op == CDEL:
                     yield Lead(read_id,
                                qname,
@@ -586,7 +587,7 @@ class LeadProvider:
                                "INLINE",
                                "DEL",
                                -oplength,
-                               hap=str(read_hap), phase_set=str(read_ps))
+                               hap=str(read_hap), phase_set=str(read_ps), read_len=read.infer_read_length())
                 elif use_clips and op == CSOFT_CLIP and oplength >= longinslen:
                     yield Lead(read_id,
                                qname,
@@ -602,7 +603,7 @@ class LeadProvider:
                                "INS",
                                None,
                                seq=None,
-                               hap=str(read_hap), phase_set=str(read_ps))
+                               hap=str(read_hap), phase_set=str(read_ps), read_len=read.infer_read_length())
                 elif op in (pysam.CSOFT_CLIP, pysam.CHARD_CLIP):
                     yield Lead(read_id,
                                qname,
@@ -618,7 +619,7 @@ class LeadProvider:
                                "SINGLE_LEFT" if pos_ref == read.reference_start else "SINGLE_RIGHT",
                                0,
                                seq=None,
-                               hap=str(read_hap), phase_set=str(read_ps))
+                               hap=str(read_hap), phase_set=str(read_ps), read_len=read.infer_read_length())
 
             pos_read += add_read * oplength
             pos_ref += add_ref * oplength
