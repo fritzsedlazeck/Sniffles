@@ -35,6 +35,7 @@ class Cluster:
     repeat: bool
     leads_long: Optional[list]
     hap_counts: tuple
+    sa_counts: tuple = (0, 0.0)  # count and proportion compared to all leads (including long)
 
     @property
     def span(self) -> Optional[int]:
@@ -73,6 +74,11 @@ class Cluster:
                 return None
         else:
             return None
+
+    def get_sa_count(self):
+        all_leads = self.leads + self.leads_long if self.leads_long is not None else self.leads
+        sa_count = sum([1 for lead in all_leads if lead.source in ["SLIP_PRIM", "SPLIT_SUP"] ])
+        self.sa_counts = (sa_count, sa_count/float(len(all_leads)))
 
 
 def merge_inner(cluster, threshold):
