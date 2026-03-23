@@ -1,5 +1,5 @@
 """
-These tests check Sniffles BND calls/leads against the HG008 dataset.
+These tests check Sniffles BND calls/leads against the HG008 and HG002 dataset.
 
 Requires the BAM file to be present at the path specified in BNDLeadTestCase.bam_file. The BAM file should be indexed and contain the necessary tags (e.g. NM).
 """
@@ -9,14 +9,14 @@ from unittest import TestCase
 import pysam
 
 from sniffles.config import SnifflesConfig
-from sniffles.leadprov import read_itersplits, read_itersplits_bnd, Lead
+from sniffles.leadprov import Lead
 
 
 class BNDLeadTestCase(TestCase):
     """
     Base class for testing leads of BNDs.
     """
-    bam_file = '/data/HG008-T_GRCh38_GIABv3_ONT-UL-R10.4.1-dorado0.4.3_sup4.2.0_5mCG_5hmCG_54x_UCSC_20231031.bam'
+    bam_file = 'data/hg008.bam'
 
     @classmethod
     def _get_common_args(cls) -> Tuple:
@@ -31,30 +31,18 @@ class BNDLeadTestCase(TestCase):
         cls.bam = pysam.AlignmentFile(cls.bam_file)
 
     def _get_read(self, contig: str, pos: int, query_name: str) -> pysam.AlignedSegment:
-        region = f'{contig}:{pos}-{pos+1}'
+        region = f'{contig}:{pos}-{pos+1}' if not self.bam_file.endswith('.sam') else None
         for read in self.bam.fetch(region=region):
             if read.query_name == query_name:
                 return read
         raise ValueError(f'Read {query_name} not found in region {region}')
 
-    def _get_lead(self, read: pysam.AlignedSegment):
-        # return Lead.for_bnd(0, read)
-        fn = read_itersplits if not read.is_supplementary else read_itersplits_bnd
-        res = [l for l in fn('test', read, read.reference_name, self.config, read.get_tag('NM')) if l.svtype == 'BND']
-        self.assertEqual(1, len(res), f'Expected exactly one lead for read {read.query_name}, got {len(res)}')
-        return res[0]
-
     def _asserts(self, lead: Lead):
         ...
 
     def do_test(self, read: pysam.AlignedSegment):
-        # with self.subTest('Old version'):
-        #     lead = self._get_lead(read)
-        #     self._asserts(lead)
-
-        with self.subTest('New version'):
-            lead = Lead.for_bnd(0, read)
-            self._asserts(lead)
+        lead = Lead.for_bnd(0, read)
+        self._asserts(lead)
         
 
 class TestBNDLeadsOrange(BNDLeadTestCase):
@@ -288,7 +276,7 @@ class TestBNDLeadsRedRight(BNDLeadTestCase):
         self.assertEqual(lead.bnd_info.mate_contig, 'chr18')
         self.assertEqual(lead.bnd_info.mate_ref_start, 28_481_424)
         self.assertFalse(lead.bnd_info.is_first)
-        self.assertFalse(lead.bnd_info.is_reverse)
+        self.assertTrue(lead.bnd_info.is_reverse)
 
     def test_LeadsPrimaryForward(self):
         read = self._get_read(
@@ -331,7 +319,7 @@ class TestBNDLeadsRedRight(BNDLeadTestCase):
 
     def test_LeadsSupplementaryReverse(self):
         """
-         Lead for a supplementary read on the reverse strand
+        Lead for a supplementary read on the reverse strand
         """
         read = self._get_read(
             'chrX',
@@ -340,5 +328,37 @@ class TestBNDLeadsRedRight(BNDLeadTestCase):
         )
         self.assertTrue(read.is_supplementary)
         self.assertTrue(read.is_reverse)
+
+        self.do_test(read)
+
+
+class TestBNDLeadsRedRightHG002(BNDLeadTestCase):
+    """
+    Test a BND lead in the HG002 dataset, case red right
+        chr1:72.346.157
+    """
+    bam_file = 'data/hg002.bam'
+
+    def _asserts(self, lead):
+        print(lead)
+        print(lead.bnd_info)
+        self.assertEqual(lead.contig, 'chr1')
+        self.assertEqual(lead.ref_start, 72_346_157)
+        self.assertEqual(lead.bnd_info.mate_contig, 'chr1')
+        self.assertEqual(lead.bnd_info.mate_ref_start, 72_300_641)
+        self.assertFalse(lead.bnd_info.is_first)
+        self.assertTrue(lead.bnd_info.is_reverse)
+
+    def test_LeadsPrimaryForward(self):
+        """
+        Lead for a primary read on the forward strand
+        """
+        read = self._get_read(
+            'chr1',
+            72_346_157,
+            '1a370ebb-0928-48e1-b8d3-ae8473e35654'
+        )
+        self.assertFalse(read.is_supplementary)
+        self.assertFalse(read.is_reverse)
 
         self.do_test(read)

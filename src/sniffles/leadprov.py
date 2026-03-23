@@ -81,7 +81,7 @@ class Lead:
                 pos = int(pos) - 1  # position in SA tag is 1-based, convert to 0-based
                 # determine left/right on SA based on cigar string
                 left, right, refspan, readspan = CIGAR_analyze(cigar)
-                is_reverse = right > left and read_strand != strand
+                is_reverse = right > left
                 if is_reverse:
                     if is_first:
                         mate_ref_start = pos + refspan
