@@ -85,8 +85,8 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
 
     input_ext = [f.split(".")[-1].lower() for f in config.input]
 
-    # needed for running on osx
-    if sys.platform == "darwin":
+    # needed for running on osx or Python 3.14+ on Linux
+    if sys.platform in ("darwin", "linux"):
         multiprocessing.set_start_method("fork")
 
     if len(set(input_ext)) > 1:
