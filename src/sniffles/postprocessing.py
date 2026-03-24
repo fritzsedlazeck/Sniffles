@@ -242,8 +242,8 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
             svcall.filter = "SINGLE_BREAK"
             return False
 
-    support_overwrite_svlen = 10
-    if abs(svcall.svlen) < config.minsvlen:
+    support_overwrite_svlen = 10  # number of supporting reads above which we do not filter on SVLEN
+    if abs(svcall.svlen) < config.minsvlen and svcall.svtype != 'BND':
         if svcall.support < support_overwrite_svlen:
             if config.dev_filter:
                 dev_sv_filter.append("SVLEN_MIN")
@@ -573,14 +573,14 @@ def genotype_sv(svcall: SVCall, config, phase: tuple | None = None):
 
     GENOTYPER_BY_TYPE.get(svcall.svtype, Genotyper)(svcall, config, phase).calculate()
 
-    # post HP assessment for GT, hom alt should skip hp_filter, but gt is after phase
+    # post haplotype assessment for genotype, hom-alt should skip hp_filter, but gt is after phase
     try:
         a, b, gq, dr, dv, phase = svcall.genotypes[0]
-        if a == b and a == 1 and (phase := svcall.get_info("PHASE")):
-            hp, ps, hp_supp, ps_supp, hp_filt, ps_filt = phase.split(",")
-            if "NULL" != hp and "NULL" != ps:
-                hp_filt, ps_filt = "PASS", "PASS"
-                phase = (hp, ps)
+        if a == b and a == 1 and (phase_info := svcall.get_info("PHASE")):
+            hp, ps, hp_supp, ps_supp, hp_filt, ps_filt = phase_info.split(",")
+            if "0" != hp:
+                hp_filt = "PASS"
+                phase = (config.phase_identifiers.index(hp), ps if ps != "NULL" else None)
                 svcall.genotypes[0] = (a, b, gq, dr, dv, phase)
                 svcall.set_info("PHASE", f"{hp},{ps},{hp_supp},{ps_supp},{hp_filt},{ps_filt}")
     except KeyError:
@@ -588,7 +588,7 @@ def genotype_sv(svcall: SVCall, config, phase: tuple | None = None):
 
 
 def phase_sv(svcall, config):
-    reads_phases = {lead.read_id[0]: (lead.read_id[1], lead.read_id[2]) for lead in svcall.postprocess.cluster.leads}
+    reads_phases = {lead.read_id: (lead.hap, lead.phase_set) for lead in svcall.postprocess.cluster.leads}
     hp_list = util.most_common(hp for hp, ps in reads_phases.values())
     ps_list = util.most_common(ps for hp, ps in reads_phases.values())
 
@@ -613,6 +613,6 @@ def phase_sv(svcall, config):
         ps_filter = "PASS"
 
     svcall.set_info("PHASE", f"{hp},{ps},{hp_support},{ps_support},{hp_filter},{ps_filter}")
-    hp_return = config.phase_identifiers.index(hp) if hp in config.phase_identifiers and hp_filter == "PASS" else None
+    hp_return = hp if hp in config.phase_identifiers and hp_filter == "PASS" else None
     ps_return = ps if "PASS" == ps_filter else None
     return hp_return, ps_return
