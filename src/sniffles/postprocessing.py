@@ -580,7 +580,7 @@ def genotype_sv(svcall: SVCall, config, phase: tuple | None = None):
             hp, ps, hp_supp, ps_supp, hp_filt, ps_filt = phase_info.split(",")
             if "0" != hp:
                 hp_filt = "PASS"
-                phase = (hp, ps)
+                phase = (config.phase_identifiers.index(hp), ps if ps != "NULL" else None)
                 svcall.genotypes[0] = (a, b, gq, dr, dv, phase)
                 svcall.set_info("PHASE", f"{hp},{ps},{hp_supp},{ps_supp},{hp_filt},{ps_filt}")
     except KeyError:
