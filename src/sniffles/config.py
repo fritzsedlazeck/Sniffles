@@ -144,7 +144,7 @@ class SnifflesConfig(argparse.Namespace):
     snf: str
     reference: str
     tandem_repeats: str
-    phase: bool
+    phase: bool = True
     threads: int
     contig: Optional[str]
     all_contigs: bool
@@ -177,7 +177,7 @@ class SnifflesConfig(argparse.Namespace):
         main_args.add_argument("-v", "--vcf", metavar="OUT.vcf", type=str, help=B("VCF output filename to write the called and refined SVs to. If the given filename ends with .gz, the VCF file will be automatically bgzipped and a .tbi index built for it."), required=False)
         main_args.add_argument("--snf", metavar="OUT.snf", type=str, help=B("Sniffles2 file (.snf) output filename to store candidates for later multi-sample calling"), required=False)
         main_args.add_argument("--reference", metavar="reference.fasta", type=str, help=B("(Optional) Reference sequence the reads were aligned against. To enable output of deletion SV sequences, this parameter must be set."), default=None)
-        main_args.add_argument("--phase", help=B("Determine phase for SV calls (requires the input alignments to be phased)"), default=False, action="store_true")
+        main_args.add_argument("--phase", help=B("Determine phase for SV calls (requires the input alignments to be phased)"), default=argparse.SUPPRESS, action="store_true")
         main_args.add_argument("-t", "--threads", metavar="N", type=int, help=B("Number of parallel threads to use (speed-up for multi-core CPUs)"), default=4)
         main_args.add_argument("-c", "--contig", default=None, type=str, help=B("(Optional) Only process the specified contigs. May be given more than once."), action="append")
         main_args.add_argument("--regions", metavar="REGIONS.bed", type=str, help=B("(Optional) Only process the specified regions."), default=None)
