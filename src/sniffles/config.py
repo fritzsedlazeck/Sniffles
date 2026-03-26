@@ -438,6 +438,7 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-maxsvlen-extra", default=10000, type=int, help=argparse.SUPPRESS)  # for both mosaic rescue for alellic imbalance SVs AND local assembly
         developer_args.add_argument("--dev-locasm-skip-mosaic", default=False, action="store_true", help=argparse.SUPPRESS)  # skip the MOSAIC_VAF filter, default use
         developer_args.add_argument("--dev-locasm-do", default=False, action="store_true", help=argparse.SUPPRESS)  # changed from skip to perform
+        developer_args.add_argument("--dev-inline-sa-support-max", default=0.80, type=float, help=argparse.SUPPRESS)  # Maximum proportion of SA reads that can support a INLINE/CIGAR-based SV
 
         # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 

@@ -102,8 +102,9 @@ class Task:
         for svtype in sv.ALL_TYPES:
             for svcluster in cluster.resolve(svtype, self.lead_provider, config, self.tandem_repeats):
                 traced_reads = []
+                svcluster.get_sa_count()
                 for svcall in sv.call_from(svcluster, config, keep_qc_fails, self):
-                    if config.dev_trace_read is not False:
+                    if config.dev_trace_read:
                         cluster_has_read = False
                         for ld in svcluster.leads:
                             if ld.read_qname in config.dev_trace_read:

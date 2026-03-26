@@ -51,6 +51,7 @@ class Lead:
     bnd_info: Optional[SVCallBNDInfo] = None
     hap: str = "0"
     phase_set: str = None
+    is_sa: bool = False
 
     @classmethod
     def for_bnd(cls, read_id: int, read: pysam.AlignedSegment) -> Optional['Lead']:
@@ -246,7 +247,7 @@ def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps):
                      read_nm,
                      "SPLIT_PRIM",
                      "?",
-                     hap=str(read_hap), phase_set=str(read_ps))
+                     hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary)
     all_leads.append(curr_lead)
 
     # unterschied zu _bnd: alle supplementary alignments werden verarbeitet
@@ -277,7 +278,7 @@ def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps):
                               read_nm,
                               "SPLIT_SUP",
                               "?",
-                              hap=str(read_hap), phase_set=str(read_ps)))
+                              hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary))
 
     if trace_read:
         print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] all_leads: {all_leads}")
@@ -322,7 +323,7 @@ def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps):
                            svtype=svtype,
                            svlen=config.bnd_cluster_length,
                            seq=None,
-                           hap=str(read_hap), phase_set=str(read_ps))
+                           hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary)
                 bnd.bnd_info = arg
                 yield bnd
 
@@ -343,7 +344,7 @@ def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps):
                            svtype=svtype,
                            svlen=svlen,
                            seq=lead.seq if svtype == "INS" else None,
-                           hap=str(read_hap), phase_set=str(read_ps))
+                           hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary)
 
 
 class LeadProvider:
@@ -479,16 +480,15 @@ class LeadProvider:
                 if qc_nm or True:  # always save
                     if read.has_tag("NM"):
                         nm_raw = read.get_tag("NM")
-                        ins_sum, del_sum, *largeop = get_cigar_indels(read)
+                        ins_sum, del_sum, *large_op = get_cigar_indels(read)
                         # NOTE: previously all INS/DEL events sizes were summed up and removed from NM (nm_adj)
                         #       now only those above a given threshold (default = 10 bases)
-                        nm = (nm_raw - sum(largeop)) / float(read.query_alignment_length + 1)
+                        nm = (nm_raw - sum(large_op)) / float(read.query_alignment_length + 1)
                         nm_sum += nm
                         nm_count += 1
                         # nm_adj = (nm_raw - (ins_sum + del_sum))
                         # nm_adj_ratio = nm_adj / float(read.query_alignment_length + 1)
                         # nm = nm_adj_ratio
-                        # adjNMv2: large ops only
 
             if trace_read:
                 if read.query_name in trace_read:
@@ -513,7 +513,7 @@ class LeadProvider:
                 # Old version for everything else:
                 # TODO: may yield duplicates of events called as generic BNDs on top
                 if not read.is_supplementary:
-                    if trace_read is not False:
+                    if trace_read:
                         if trace_read == read.query_name:
                             print(f"[DEV_TRACE_READ] [1/4] [leadprov.read_itersplits] [{region}] [{read.query_name}] is entering read_itersplits")
                     for lead in read_itersplits(
@@ -531,6 +531,7 @@ class LeadProvider:
 
         self.config.average_regional_nm = nm_sum / float(max(1, nm_count))
         self.config.qc_nm_threshold = self.config.average_regional_nm
+
         # print(f"Contig {contig} avg. regional NM={self.config.average_regional_nm},
         # threshold={self.config.qc_nm_threshold}")
 
@@ -571,7 +572,7 @@ class LeadProvider:
                                "INS",
                                oplength,
                                seq=read.query_sequence[pos_read:pos_read + oplength] if oplength <= seq_cache_maxlen else None,
-                               hap=str(read_hap), phase_set=str(read_ps))
+                               hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary)
                 elif op == CDEL:
                     yield Lead(read_id,
                                qname,
@@ -586,7 +587,7 @@ class LeadProvider:
                                "INLINE",
                                "DEL",
                                -oplength,
-                               hap=str(read_hap), phase_set=str(read_ps))
+                               hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary)
                 elif use_clips and op == CSOFT_CLIP and oplength >= longinslen:
                     yield Lead(read_id,
                                qname,
@@ -602,7 +603,7 @@ class LeadProvider:
                                "INS",
                                None,
                                seq=None,
-                               hap=str(read_hap), phase_set=str(read_ps))
+                               hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary)
                 elif op in (pysam.CSOFT_CLIP, pysam.CHARD_CLIP):
                     yield Lead(read_id,
                                qname,
@@ -618,7 +619,7 @@ class LeadProvider:
                                "SINGLE_LEFT" if pos_ref == read.reference_start else "SINGLE_RIGHT",
                                0,
                                seq=None,
-                               hap=str(read_hap), phase_set=str(read_ps))
+                               hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary)
 
             pos_read += add_read * oplength
             pos_ref += add_ref * oplength

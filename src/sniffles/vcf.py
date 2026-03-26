@@ -164,6 +164,7 @@ class VCF:
         self.write_header_line('FILTER=<ID=SVLEN_MIN_MOSAIC,Description="SV length filter for mosaic SVs (min)">')
         self.write_header_line('FILTER=<ID=SVLEN_MAX_MOSAIC,Description="SV length filter for mosaic SVs (max)">')
         self.write_header_line('FILTER=<ID=SINGLE_BREAK,Description="A single break point was detected but not classified as an SV.">')
+        self.write_header_line('FILTER=<ID=INLINE_SA,Description="INLINE/CIGAR-based SV is mostly supported by SA reads">')
 
         self.write_header_line('INFO=<ID=PRECISE,Number=0,Type=Flag,Description="Structural variation with precise breakpoints">')
         self.write_header_line('INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description="Structural variation with imprecise breakpoints">')
@@ -313,7 +314,8 @@ class VCF:
             else:
                 if 'N' in call.ref and (pct_n := Counter(call.ref)['N'] / len(call.ref)) > self.config.max_unknown_pct:
                     # don't emit calls with too many N bases
-                    log.debug(f'Not emitting {call.id} (length {call.svlen}) due to {pct_n*100:.2f}% N bases in reference.')
+                    log.debug(f'Not emitting {call.id} in {call.contig}:{call.pos} (length {call.svlen}) due to '
+                              f'{pct_n*100:.2f}% N bases in reference.')
                     return 0
 
         if self.config.symbolic:

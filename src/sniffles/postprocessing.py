@@ -347,6 +347,25 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
             svcall.filter = "COV_CHANGE_INS"
             return False
 
+    # SA filter TODO: NM + number of SA?
+    if svcall.svtype in ["INS", "DEL"]:
+        min_reads = 5
+        sa_inline, sap_inline = svcall.postprocess.cluster.sa_counts
+        sa_split = svcall.info.get("SUPPORT_SA")
+        no_split_sa = sa_split == 0 or sa_split is None
+        if sa_inline > 1 and sa_split is not None:
+            if sa_split > 0:
+                log.debug(f'SA_FILTER" {svcall.id} {svcall.contig}:{svcall.pos}|{svcall.svlen} ({sa_inline}, {sap_inline}) '
+                          f'{svcall.filter}, {sa_split}')
+        if sap_inline > config.dev_inline_sa_support_max and sa_inline > min_reads and no_split_sa:
+            log.debug(f'SA_FILTER {svcall.id} {svcall.contig}:{svcall.pos}|{svcall.svlen} ({sa_inline}, {sap_inline}) '
+                      f'{svcall.filter}')
+            if config.dev_filter:
+                dev_sv_filter.append("INLINE_SA")
+            else:
+                svcall.filter = "INLINE_SA"
+                return False
+
     qc, val = svcall.qc_coverage_samples()
     svcall.set_info('COVERAGE_VAR', val)
     if not qc:
