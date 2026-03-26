@@ -439,6 +439,8 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-locasm-skip-mosaic", default=False, action="store_true", help=argparse.SUPPRESS)  # skip the MOSAIC_VAF filter, default use
         developer_args.add_argument("--dev-locasm-do", default=False, action="store_true", help=argparse.SUPPRESS)  # changed from skip to perform
         developer_args.add_argument("--dev-inline-sa-support-max", default=0.80, type=float, help=argparse.SUPPRESS)  # Maximum proportion of SA reads that can support a INLINE/CIGAR-based SV
+        developer_args.add_argument("--dev-min-close-edge-dist", default=500, type=int, help=argparse.SUPPRESS)  # Minimum distance from the read edge where a mosaic SV and not be filtered
+        developer_args.add_argument("--dev-min-read-close-edge-prop", default=0.75, type=float, help=argparse.SUPPRESS)  # Maximum proportion of support reads that a mosaic SV from near-edge-reads before being filtered
 
         # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 
