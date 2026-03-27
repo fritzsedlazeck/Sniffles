@@ -15,6 +15,7 @@ from sniffles import util
 from sniffles import consensus
 from sniffles.config import SnifflesConfig
 from sniffles.leadprov import LeadProvider
+from sniffles.leadprov import Lead
 from sniffles.sv import SVCall
 
 log = logging.getLogger('sniffles.postprocessing')
@@ -347,6 +348,25 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
             svcall.filter = "COV_CHANGE_INS"
             return False
 
+    # SA filter TODO: NM + number of SA?
+    if svcall.svtype in ["INS", "DEL"]:
+        min_reads = 5
+        sa_inline, sap_inline = svcall.postprocess.cluster.sa_counts
+        sa_split = svcall.info.get("SUPPORT_SA")
+        no_split_sa = sa_split == 0 or sa_split is None
+        if sa_inline > 1 and sa_split is not None:
+            if sa_split > 0:
+                log.debug(f'SA_FILTER" {svcall.id} {svcall.contig}:{svcall.pos}|{svcall.svlen} ({sa_inline}, {sap_inline}) '
+                          f'{svcall.filter}, {sa_split}')
+        if sap_inline > config.dev_inline_sa_support_max and sa_inline > min_reads and no_split_sa:
+            log.debug(f'SA_FILTER {svcall.id} {svcall.contig}:{svcall.pos}|{svcall.svlen} ({sa_inline}, {sap_inline}) '
+                      f'{svcall.filter}')
+            if config.dev_filter:
+                dev_sv_filter.append("INLINE_SA")
+            else:
+                svcall.filter = "INLINE_SA"
+                return False
+
     qc, val = svcall.qc_coverage_samples()
     svcall.set_info('COVERAGE_VAR', val)
     if not qc:
@@ -551,6 +571,19 @@ def qc_sv_post_annotate(svcall: SVCall, config: SnifflesConfig, coverage_average
             else:
                 svcall.filter = "NOT_MOSAIC_VAF"
                 return False
+        if sv_is_mosaic and svcall.svtype not in {"BND", "SINGLE_LEFT", "SINGLE_RIGHT"}:
+            # NOTE: prototype
+            ld: Lead
+            read_close_edge_count = 0
+            for sv_start_read, read_len in [(ld.qry_start, ld.read_len) for ld in svcall.postprocess.cluster.leads]:
+                if sv_start_read <= config.dev_min_close_edge_dist or abs(read_len - sv_start_read) <= config.dev_min_close_edge_dist:
+                    read_close_edge_count += 1
+            if float(read_close_edge_count)/svcall.support >= config.dev_min_read_close_edge_prop:
+                if config.dev_filter:
+                    dev_sv_filter.append("MOSAIC_SV_CLOSE_EDGE")
+                else:
+                    svcall.filter = "MOSAIC_SV_CLOSE_EDGE"
+                    return False
 
     if config.dev_filter:
         if len(dev_sv_filter) > 1:
@@ -580,7 +613,7 @@ def genotype_sv(svcall: SVCall, config, phase: tuple | None = None):
             hp, ps, hp_supp, ps_supp, hp_filt, ps_filt = phase_info.split(",")
             if "0" != hp:
                 hp_filt = "PASS"
-                phase = (hp, ps)
+                phase = (config.phase_identifiers.index(hp), ps if ps != "NULL" else None)
                 svcall.genotypes[0] = (a, b, gq, dr, dv, phase)
                 svcall.set_info("PHASE", f"{hp},{ps},{hp_supp},{ps_supp},{hp_filt},{ps_filt}")
     except KeyError:

@@ -19,7 +19,8 @@ from sniffles.utils.resmon import ResourceMonitor
 import sys
 
 if not sys.version_info >= (3, 10):
-    print(f"Error: Sniffles2 must be run with Python version 3.10 or above (detected Python version: {sys.version_info.major}.{sys.version_info.minor}). Exiting")
+    print(f"Error: Sniffles2 must be run with Python version 3.10 or above (detected Python version: "
+          f"{sys.version_info.major}.{sys.version_info.minor}). Exiting")
     exit(1)
 
 import math
@@ -90,7 +91,9 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
         multiprocessing.set_start_method("fork")
 
     if len(set(input_ext)) > 1:
-        util.fatal_error_main(f"Please specify either: A single .bam/.cram file - OR - one or more .snf files - OR - a single .tsv file containing a list of .snf files and optional sample ids as input. (supplied were: {list(set(input_ext))})")
+        util.fatal_error_main(f"Please specify either: A single .bam/.cram file - OR - one or more .snf files - OR - "
+                              f"a single .tsv file containing a list of .snf files and optional sample ids as input. "
+                              f"(supplied were: {list(set(input_ext))})")
 
     if "bam" in input_ext or "cram" in input_ext:
         if input_ext.count("bam") + input_ext.count("cram") > 1:
@@ -112,13 +115,16 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     elif "snf" in input_ext or "tsv" in input_ext:
         config.mode = "combine"
     else:
-        util.fatal_error_main(f"Failed to determine run mode from input. Please specify either: A single .bam file - OR - one or more .snf files - OR - a single .tsv file containing a list of .snf files and optional sample ids as input. (supplied were: {list(set(input_ext))})")
+        util.fatal_error_main(f"Failed to determine run mode from input. Please specify either: A single .bam file "
+                              f"- OR - one or more .snf files - OR - a single .tsv file containing a list of .snf "
+                              f"files and optional sample ids as input. (supplied were: {list(set(input_ext))})")
 
     if config.mode != "call_sample" and config.snf is not None:
         util.fatal_error_main(f"--snf cannot be used with run mode {config.mode}")
 
     if config.vcf is None and config.snf is None:
-        util.fatal_error_main("Please specify at least one of: --vcf or --snf for output (both may be used at the same time)")
+        util.fatal_error_main("Please specify at least one of: --vcf or --snf for output "
+                              "(both may be used at the same time)")
 
     log = logging.getLogger('sniffles.main')
     if config.dev_debug_log:
@@ -167,14 +173,17 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             if not has_index:
                 raise ValueError
         except ValueError:
-            util.fatal_error_main(f"Unable to load index for input file '{config.input}'. Please verify that your input file is sorted + indexed and that the index .bai file is valid and in the right location.")
+            util.fatal_error_main(f"Unable to load index for input file '{config.input}'. Please verify that your "
+                                  f"input file is sorted + indexed and that the index .bai file is valid and in the "
+                                  f"right location.")
 
         #
         # Load tandem repeat annotations
         #
         if config.tandem_repeats is not None:
             contig_tandem_repeats = util.load_tandem_repeats(config.tandem_repeats, config.tandem_repeat_region_pad)
-            log.info(f"Opening for reading: {config.tandem_repeats} (tandem repeat annotations for {len(contig_tandem_repeats)} contigs)")
+            log.info(f"Opening for reading: {config.tandem_repeats} (tandem repeat annotations for "
+                     f"{len(contig_tandem_repeats)} contigs)")
 
     #
     # genotype_vcf: Read SVs from VCF to be genotyped
@@ -227,7 +236,8 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             vcf_output_info_str = f"({', '.join(vcf_output_info)})"
 
         if os.path.exists(config.vcf) and not config.allow_overwrite:
-            util.fatal_error_main(f"Output file '{config.vcf}' already exists! Use --allow-overwrite to ignore this check and overwrite.")
+            util.fatal_error_main(f"Output file '{config.vcf}' already exists! Use --allow-overwrite to ignore "
+                                  f"this check and overwrite.")
 
         if config.vcf_output_bgz:
             if not config.sort:
@@ -253,7 +263,8 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
         log.info(f"Opening for writing: {config.snf}")
 
         if os.path.exists(config.snf) and not config.allow_overwrite:
-            util.fatal_error_main(f"Output file '{config.snf}' already exists! Use --allow-overwrite to ignore this check and overwrite.")
+            util.fatal_error_main(f"Output file '{config.snf}' already exists! Use --allow-overwrite to ignore "
+                                  f"this check and overwrite.")
         else:
             snf_out = snf.SNFile(config, open(config.snf, "wb"))
 
@@ -320,7 +331,8 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
                 endpos = min(contig_length - 1, startpos + task_length)
                 if config.genotype_vcf is not None:
                     if contig_str in genotype_contig_svs:
-                        genotype_svs = [target_sv for target_sv in genotype_contig_svs[contig_str] if target_sv.pos >= startpos and target_sv.pos < endpos]
+                        genotype_svs = [target_sv for target_sv in genotype_contig_svs[contig_str] if
+                                        startpos <= target_sv.pos < endpos]
                     else:
                         genotype_svs = []
                 else:
@@ -347,10 +359,14 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
         config.contig_lengths = contig_lengths
 
         if contigs_with_tr_annotations < len(contig_lengths) and config.tandem_repeats != None:
-            log.info(f"Info: {contigs_with_tr_annotations} of {len(contig_lengths)} contigs in the input sample have associated tandem repeat annotations.")
+            log.info(f"Info: {contigs_with_tr_annotations} of {len(contig_lengths)} contigs in the input sample have "
+                     f"associated tandem repeat annotations.")
 
             if contigs_with_tr_annotations == 0:
-                util.fatal_error_main("A tandem repeat annotations file was provided, but no matching annotations were found for any contig in the sample input file. Please check if the contig naming scheme in the tandem repeat annotations matches with the one in the input sample file.")
+                util.fatal_error_main("A tandem repeat annotations file was provided, but no matching "
+                                      "annotations were found for any contig in the sample input file. "
+                                      "Please check if the contig naming scheme in the tandem repeat "
+                                      "annotations matches with the one in the input sample file.")
 
     elif config.mode == "combine":
         #
@@ -377,12 +393,16 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
                         snf_filename = parts[0]
                         sample_id = parts[1]
                     else:
-                        util.fatal_error_main(f"Invalid sample list .tsv : {config.input[0]} : Line {line_index + 1} - expected either one or two columns (first column: .snf filename, second column: optional sample id to overrule the one specified in the .snf file)")
+                        util.fatal_error_main(f"Invalid sample list .tsv : {config.input[0]} : "
+                                              f"Line {line_index + 1} - expected either one or two columns "
+                                              f"(first column: .snf filename, second column: optional sample id to "
+                                              f"overrule the one specified in the .snf file)")
                     input_snfs_sample_ids.append((snf_filename, sample_id))
         elif input_ext[0] == "snf":
             input_snfs_sample_ids = [(item, None) for item in config.input]
         else:
-            util.fatal_error_main("Failed to determine .snf files to be combined. Please specify either one or more .snf files OR a single .tsv file as input for multi-calling.")
+            util.fatal_error_main("Failed to determine .snf files to be combined. Please specify either one or "
+                                  "more .snf files OR a single .tsv file as input for multi-calling.")
 
         log.info("The following samples will be processed in multi-calling:")
         for snf_internal_id, (input_filename, sample_id) in enumerate(input_snfs_sample_ids):
@@ -400,7 +420,8 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
                     sample_id = snf_in.header["config"]["sample_id"]
                 else:
                     sample_id, _ = os.path.splitext(os.path.basename(input_filename))
-            config.snf_input_info.append({"internal_id": snf_internal_id, "sample_id": sample_id, "filename": input_filename})
+            config.snf_input_info.append({"internal_id": snf_internal_id, "sample_id": sample_id,
+                                          "filename": input_filename})
             reqc_info = f' (Rerunning QC)' if snf_in.reqc else ''
             snf_in.close()
             log.info(f"    {input_filename} (sample ID in output VCF='{sample_id}'{reqc_info})")
@@ -514,7 +535,11 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     # It is possible that workers have all exited without finishing all work
     # Check the tasks deque is actually empty and explode accordingly if not
     if len(tasks) > 0:
-        util.fatal_error_main("All workers have exited but work remains to be done, it is possible that all workers have been killed by your system due to memory constraints.")
+        # util.fatal_error_main(f"All workers have exited but work remains to be done, it is possible that all workers "
+        #                        f"have been killed by your system due to memory constraints: <{tasks}>")
+        log.warning(f"All workers have exited but work remains to be done, it is possible that all workers have been "
+                    f"killed by your system due to memory constraints. Partial results will be written.")
+        log.debug(f"Missing tasks: {[(t.id, t.sv_id, t.contig, t.regions, t.result) for t in tasks]}")
 
     finished_tasks.sort(key=lambda task: task.id)
 
@@ -524,7 +549,8 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     if config.dev_output_candidates and config.mode == "call_sample":
         from shutil import copyfileobj
         with open(config.dev_output_candidates, "w") as csv:
-            csv.write('svtype,orientation_start,contig_start,pos_start,orientation_end,contig_end,pos_end,filter,support_inline,support_split,support_ref\n')
+            csv.write('svtype,orientation_start,contig_start,pos_start,orientation_end,contig_end,pos_end,'
+                      'filter,support_inline,support_split,support_ref\n')
             for t in finished_tasks:
                 tmpfile = t.result.candidate_filename  # noqa
                 with open(tmpfile, "r") as f:

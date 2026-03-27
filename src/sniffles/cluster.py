@@ -35,6 +35,7 @@ class Cluster:
     repeat: bool
     leads_long: Optional[list]
     hap_counts: tuple
+    sa_counts: tuple = (0, 0.0)  # count and proportion compared to all leads (including long)
 
     @property
     def span(self) -> Optional[int]:
@@ -73,6 +74,11 @@ class Cluster:
                 return None
         else:
             return None
+
+    def get_sa_count(self):
+        all_leads = self.leads + self.leads_long if self.leads_long is not None else self.leads
+        sa_count = sum([1 for lead in all_leads if lead.is_sa])
+        self.sa_counts = (sa_count, sa_count/float(len(all_leads)))
 
 
 def merge_inner(cluster, threshold):
@@ -139,7 +145,7 @@ def resplit(cluster, prop, binsize, merge_threshold_min, merge_threshold_frac):
         else:
             i += 1
 
-    log.debug(f"resplit: {cluster.id}|{len(cluster.leads)}|{initial_clust}|{len(new_clusters)}")
+    # log.debug(f"resplit: {cluster.id}|{len(cluster.leads)}|{initial_clust}|{len(new_clusters)}")
     for cluster_index in new_clusters:
         new_cluster = Cluster(id=cluster.id + f".{cluster_index}",
                               svtype=cluster.svtype,

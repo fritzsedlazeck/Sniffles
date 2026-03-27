@@ -144,7 +144,7 @@ class SnifflesConfig(argparse.Namespace):
     snf: str
     reference: str
     tandem_repeats: str
-    phase: bool
+    phase: bool = True
     threads: int
     contig: Optional[str]
     all_contigs: bool
@@ -177,7 +177,7 @@ class SnifflesConfig(argparse.Namespace):
         main_args.add_argument("-v", "--vcf", metavar="OUT.vcf", type=str, help=B("VCF output filename to write the called and refined SVs to. If the given filename ends with .gz, the VCF file will be automatically bgzipped and a .tbi index built for it."), required=False)
         main_args.add_argument("--snf", metavar="OUT.snf", type=str, help=B("Sniffles2 file (.snf) output filename to store candidates for later multi-sample calling"), required=False)
         main_args.add_argument("--reference", metavar="reference.fasta", type=str, help=B("(Optional) Reference sequence the reads were aligned against. To enable output of deletion SV sequences, this parameter must be set."), default=None)
-        main_args.add_argument("--phase", help=B("Determine phase for SV calls (requires the input alignments to be phased)"), default=False, action="store_true")
+        main_args.add_argument("--phase", help=B("Determine phase for SV calls (requires the input alignments to be phased)"), default=argparse.SUPPRESS, action="store_true")
         main_args.add_argument("-t", "--threads", metavar="N", type=int, help=B("Number of parallel threads to use (speed-up for multi-core CPUs)"), default=4)
         main_args.add_argument("-c", "--contig", default=None, type=str, help=B("(Optional) Only process the specified contigs. May be given more than once."), action="append")
         main_args.add_argument("--regions", metavar="REGIONS.bed", type=str, help=B("(Optional) Only process the specified regions."), default=None)
@@ -438,6 +438,9 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-maxsvlen-extra", default=10000, type=int, help=argparse.SUPPRESS)  # for both mosaic rescue for alellic imbalance SVs AND local assembly
         developer_args.add_argument("--dev-locasm-skip-mosaic", default=False, action="store_true", help=argparse.SUPPRESS)  # skip the MOSAIC_VAF filter, default use
         developer_args.add_argument("--dev-locasm-do", default=False, action="store_true", help=argparse.SUPPRESS)  # changed from skip to perform
+        developer_args.add_argument("--dev-inline-sa-support-max", default=0.80, type=float, help=argparse.SUPPRESS)  # Maximum proportion of SA reads that can support a INLINE/CIGAR-based SV
+        developer_args.add_argument("--dev-min-close-edge-dist", default=500, type=int, help=argparse.SUPPRESS)  # Minimum distance from the read edge where a mosaic SV and not be filtered
+        developer_args.add_argument("--dev-min-read-close-edge-prop", default=0.75, type=float, help=argparse.SUPPRESS)  # Maximum proportion of support reads that a mosaic SV from near-edge-reads before being filtered
 
         # developer_args.add_argument("--qc-strand", help="(DEV)", default=False, action="store_true")
 

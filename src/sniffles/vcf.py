@@ -42,7 +42,7 @@ def unpack_phase(phase, svid="") -> tuple:
         if phase is None:
             hp_i, ps = None, "."
         else:
-            log.warning(f"Single not 'None'-valued phase: {phase}|{svid}")
+            log.debug(f"Single not 'None'-valued phase: {phase}|{svid}")
             hp_i, ps = phase, "."
     ps = ps if (ps is not None and ps != "NULL") else "."
     return hp_i, ps
@@ -69,7 +69,7 @@ def format_genotype(gt, is_phased):
     else:
         a, b, qual, dr, dv, phase, svid = gt
         hp_i, ps = unpack_phase(phase, svid)
-        if hp_i is not None and (a, b) == [(0, 1), (1, 1)] and is_phased:
+        if hp_i is not None and (a, b) in [(0, 1), (1, 1)] and is_phased:
             gt_sep = "|"
             if hp_i == 0:
                 a, b = b, a
@@ -164,6 +164,8 @@ class VCF:
         self.write_header_line('FILTER=<ID=SVLEN_MIN_MOSAIC,Description="SV length filter for mosaic SVs (min)">')
         self.write_header_line('FILTER=<ID=SVLEN_MAX_MOSAIC,Description="SV length filter for mosaic SVs (max)">')
         self.write_header_line('FILTER=<ID=SINGLE_BREAK,Description="A single break point was detected but not classified as an SV.">')
+        self.write_header_line('FILTER=<ID=INLINE_SA,Description="INLINE/CIGAR-based SV is mostly supported by SA reads">')
+        self.write_header_line('FILTER=<ID=MOSAIC_SV_CLOSE_EDGE,Description="For mosaic SVs, the location is close to the end of the read (either end)">')
 
         self.write_header_line('INFO=<ID=PRECISE,Number=0,Type=Flag,Description="Structural variation with precise breakpoints">')
         self.write_header_line('INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description="Structural variation with imprecise breakpoints">')
@@ -195,6 +197,10 @@ class VCF:
         if self.config.combine_population:
             self.write_header_line('INFO=<ID=POPULATION_AF,Number=1,Type=Float,Description="Population Allele Frequency">')
             self.write_header_line('INFO=<ID=POPULATION_SIZE,Number=1,Type=Integer,Description="Size of genotyped population for this variant">')
+            if self.config.phase:
+                log.warning('Sniffles does not provide population phasing, it just displays the phasing information '
+                            'from each independent sample. Multi-sample phased genotypes may be inconsistent with '
+                            'population phasing')
 
         samples_header = "\t".join(sample_id for _, sample_id in self.config.sample_ids_vcf)
         self.write_raw(f"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{samples_header}")
@@ -309,7 +315,8 @@ class VCF:
             else:
                 if 'N' in call.ref and (pct_n := Counter(call.ref)['N'] / len(call.ref)) > self.config.max_unknown_pct:
                     # don't emit calls with too many N bases
-                    log.debug(f'Not emitting {call.id} (length {call.svlen}) due to {pct_n*100:.2f}% N bases in reference.')
+                    log.debug(f'Not emitting {call.id} in {call.contig}:{call.pos} (length {call.svlen}) due to '
+                              f'{pct_n*100:.2f}% N bases in reference.')
                     return 0
 
         if self.config.symbolic:
