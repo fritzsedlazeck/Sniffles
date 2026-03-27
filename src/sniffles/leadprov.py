@@ -80,9 +80,14 @@ class Lead:
         for sa in read.get_tag("SA").split(";"):
             if len(sa) > 0:
                 refname, pos, strand, cigar, mapq, nm = sa.split(",")
+                pos_org = pos
                 pos = int(pos) - 1  # position in SA tag is 1-based, convert to 0-based
                 # determine left/right on SA based on cigar string
-                left, right, refspan, readspan = CIGAR_analyze(cigar)
+                try:
+                    left, right, refspan, readspan = CIGAR_analyze(cigar)
+                except Exception as e:
+                    util.error(f"Malformed CIGAR '{cigar}' with pos {pos_org} of read '{read.query_name}' ({e}). Skipping.")
+                    return None
                 is_reverse = right > left
                 if is_reverse:
                     if is_first:
