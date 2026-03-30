@@ -9,6 +9,7 @@
 # Contact:     sniffles@romanek.at
 #
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
 import statistics
 import math
@@ -164,27 +165,27 @@ def resplit_bnd(cluster: 'Cluster', merge_threshold: int) -> Iterator['Cluster']
     """
     Takes an unrefined cluster (all events within a region) and groups them by mate contig and mate ref start, then merges groups that are close to each other.
     """
-    contigs_leads = {}
+    if len(cluster.leads) <= 1:  # Short-circuit if only one lead, yielding cluster as-is
+        yield cluster
+        return
+
+    contigs_leads = defaultdict(lambda: defaultdict(list))
 
     # Split by mate contig and mate ref start
     for lead in cluster.leads:
-        if not lead.bnd_info.mate_contig in contigs_leads:
-            contigs_leads[lead.bnd_info.mate_contig] = {}
-
+        ld_ident = (lead.bnd_info.mate_contig, lead.bnd_info.is_first)
         pos_bin = int(lead.bnd_info.mate_ref_start / merge_threshold) * merge_threshold if merge_threshold > 0 else 0
-        if not pos_bin in contigs_leads[lead.bnd_info.mate_contig]:
-            contigs_leads[lead.bnd_info.mate_contig][pos_bin] = [lead]
-        else:
-            contigs_leads[lead.bnd_info.mate_contig][pos_bin].append(lead)
+        contigs_leads[ld_ident][pos_bin].append(lead)
 
-    for contig in contigs_leads:
-        bins = sorted(contigs_leads[contig])
-        curr_leads = [] + contigs_leads[contig][bins[0]]
+    for ld_ident in contigs_leads:
+        contig, _ = ld_ident
+        bins = sorted(contigs_leads[ld_ident])
+        curr_leads = [] + contigs_leads[ld_ident][bins[0]]
         last_bin = bins[0]
         position_bin = 0
         for position_bin in bins[1:]:
             if position_bin - last_bin <= merge_threshold:
-                curr_leads.extend(contigs_leads[contig][position_bin])
+                curr_leads.extend(contigs_leads[ld_ident][position_bin])
             else:
                 if len(curr_leads):
                     new_cluster = Cluster(id=cluster.id + f".CHR2.{contig}.POS2.{position_bin}",
@@ -198,7 +199,7 @@ def resplit_bnd(cluster: 'Cluster', merge_threshold: int) -> Iterator['Cluster']
                                           leads_long=None,
                                           hap_counts=cluster.hap_counts)
                     yield new_cluster
-                curr_leads = [] + contigs_leads[contig][position_bin]
+                curr_leads = [] + contigs_leads[ld_ident][position_bin]
             last_bin = position_bin
         if len(curr_leads):
             new_cluster = Cluster(id=cluster.id + f".CHR2.{contig}.POS2.{position_bin}",
