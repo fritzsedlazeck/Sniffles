@@ -580,7 +580,7 @@ def genotype_sv(svcall: SVCall, config, phase: tuple | None = None):
             hp, ps, hp_supp, ps_supp, hp_filt, ps_filt = phase_info.split(",")
             if "0" != hp:
                 hp_filt = "PASS"
-                phase = (config.phase_identifiers.index(hp), ps if ps != "NULL" else None)
+                phase = (hp, ps)
                 svcall.genotypes[0] = (a, b, gq, dr, dv, phase)
                 svcall.set_info("PHASE", f"{hp},{ps},{hp_supp},{ps_supp},{hp_filt},{ps_filt}")
     except KeyError:
@@ -588,7 +588,7 @@ def genotype_sv(svcall: SVCall, config, phase: tuple | None = None):
 
 
 def phase_sv(svcall, config):
-    reads_phases = {lead.read_id: (lead.hap, lead.phase_set) for lead in svcall.postprocess.cluster.leads}
+    reads_phases = {lead.read_id[0]: (lead.read_id[1], lead.read_id[2]) for lead in svcall.postprocess.cluster.leads}
     hp_list = util.most_common(hp for hp, ps in reads_phases.values())
     ps_list = util.most_common(ps for hp, ps in reads_phases.values())
 
