@@ -58,20 +58,20 @@ def format_genotype(gt, is_phased):
     gt_multi_sample_fields = 6
     if len(gt) == gt_multi_sample_fields:
         a, b, qual, dr, dv, phase = gt
-        hp_i, ps = unpack_phase(phase)
-        if hp_i is not None and (a, b) in [(0, 1), (1, 1)] and is_phased:
+        hp, ps = unpack_phase(phase)
+        if hp is not None and (a, b) in [(0, 1), (1, 1)] and is_phased:
             gt_sep = "|"
-            if hp_i == 0:
+            if hp == "1":
                 a, b = b, a
         else:
             gt_sep = "/"
         return f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}:{ps}" if is_phased else f"{a}{gt_sep}{b}:{qual}:{dr}:{dv}"
     else:
         a, b, qual, dr, dv, phase, svid = gt
-        hp_i, ps = unpack_phase(phase, svid)
-        if hp_i is not None and (a, b) in [(0, 1), (1, 1)] and is_phased:
+        hp, ps = unpack_phase(phase, svid)
+        if hp is not None and (a, b) in [(0, 1), (1, 1)] and is_phased:
             gt_sep = "|"
-            if hp_i == 0:
+            if hp == "1":
                 a, b = b, a
         else:
             gt_sep = "/"
