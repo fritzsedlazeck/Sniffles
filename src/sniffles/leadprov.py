@@ -221,7 +221,7 @@ def get_cigar_indels(read: pysam.AlignedSegment, minoplen: int = 10) -> tuple[in
     return ins_sum, del_sum, large_ins_sum, large_del_sum
 
 
-def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps):
+def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps) -> Iterator[Lead]:
     """
     Iterate over supplementary alignments of a primary read
     """
@@ -421,21 +421,13 @@ class LeadProvider:
             self.covrtab_min_bin = int(self.start / self.config.coverage_binsize) * self.config.coverage_binsize
 
             for ld in self.iter_region(bam, region):
-                if isinstance(ld, Lead):
-                    ld_contig, ld_ref_start = ld.contig, ld.ref_start
+                ld_contig, ld_ref_start = ld.contig, ld.ref_start
 
-                    if region.contig == ld_contig and region.start <= ld_ref_start < region.end:
-                        pos_leadtab = int(ld_ref_start / ld_binsize) * ld_binsize
-                        self.record_lead(ld, pos_leadtab)
-                    else:
-                        externals.append(ld)
-                else:
-                    # we record counts for each lead-tab for all haplotype count appearances
-                    hap, ld_contig, ld_ref_start, ld_ref_end = ld
+                if region.contig == ld_contig and region.start <= ld_ref_start < region.end:
                     pos_leadtab = int(ld_ref_start / ld_binsize) * ld_binsize
-                    end_leadtab = int(ld_ref_end / ld_binsize) * ld_binsize
-                    if region.contig == ld_contig and region.start <= ld_ref_start < region.end:
-                        self.record_hap_ref(hap, pos_leadtab, end_leadtab, ld_binsize)
+                    self.record_lead(ld, pos_leadtab)
+                else:
+                    externals.append(ld)
 
         return externals
 
@@ -449,6 +441,7 @@ class LeadProvider:
         nm_sum = 0
         nm_count = 0
         trace_read = self.config.dev_trace_read
+        ld_binsize = self.config.cluster_binsize
         self.coverage = np.zeros(bam.get_reference_length(region.contig), dtype=np.uint16)
 
         read_mq20 = 0
@@ -531,7 +524,12 @@ class LeadProvider:
                         yield lead
                 read_mq20 += 1 if read.mapping_quality >= self.config.mapq else 0
 
-            yield hp, region.contig, read.reference_start, read.reference_end
+            # we record counts for each lead-tab for all haplotype count appearances
+            ld_ref_start, ld_ref_end = read.reference_start, read.reference_end
+            pos_leadtab = int(ld_ref_start / ld_binsize) * ld_binsize
+            end_leadtab = int(ld_ref_end / ld_binsize) * ld_binsize
+            if region.start <= ld_ref_start < region.end:
+                self.record_hap_ref(hp, pos_leadtab, end_leadtab, ld_binsize)
 
         log.debug(f'Processed {self.read_count} reads in region {region.contig}:{region.start}-{region.end}')
 
@@ -559,6 +557,7 @@ class LeadProvider:
 
         pos_read = 0
         pos_ref = read.reference_start
+        read_len = read.query_alignment_length  # or read.infer_read_length()
 
         for op, oplength in read.cigartuples:
             add_read, add_ref, event, dcov = OPLIST[op]
@@ -578,7 +577,7 @@ class LeadProvider:
                                "INS",
                                oplength,
                                seq=read.query_sequence[pos_read:pos_read + oplength] if oplength <= seq_cache_maxlen else None,
-                               hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary, read_len=read.infer_read_length())
+                               hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary, read_len=read_len)
                 elif op == CDEL:
                     yield Lead(read_id,
                                qname,
@@ -593,7 +592,7 @@ class LeadProvider:
                                "INLINE",
                                "DEL",
                                -oplength,
-                               hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary, read_len=read.infer_read_length())
+                               hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary, read_len=read_len)
                 elif use_clips and op == CSOFT_CLIP and oplength >= longinslen:
                     yield Lead(read_id,
                                qname,
@@ -609,7 +608,7 @@ class LeadProvider:
                                "INS",
                                None,
                                seq=None,
-                               hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary, read_len=read.infer_read_length())
+                               hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary, read_len=read_len)
                 elif op in (pysam.CSOFT_CLIP, pysam.CHARD_CLIP):
                     yield Lead(read_id,
                                qname,
@@ -625,7 +624,7 @@ class LeadProvider:
                                "SINGLE_LEFT" if pos_ref == read.reference_start else "SINGLE_RIGHT",
                                0,
                                seq=None,
-                               hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary, read_len=read.infer_read_length())
+                               hap=str(read_hap), phase_set=str(read_ps), is_sa=read.is_supplementary, read_len=read_len)
 
             pos_read += add_read * oplength
             pos_ref += add_ref * oplength
