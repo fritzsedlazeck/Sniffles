@@ -9,8 +9,8 @@
 # Contact:     sniffles@romanek.at
 #
 import logging
+import time
 from dataclasses import dataclass
-import itertools
 from typing import Optional, Iterator
 
 import numpy as np
@@ -356,7 +356,7 @@ def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps) -
 class LeadProvider:
     coverage: np.ndarray
 
-    def __init__(self, config, read_id_offset):
+    def __init__(self, config, read_id_offset, contig: str):
         self.config = config
 
         self.leadtab = {}
@@ -376,7 +376,7 @@ class LeadProvider:
         self.read_id = read_id_offset
         self.read_count = 0
 
-        self.contig = None
+        self.contig = contig
         self.start = None
         self.end = None
 
@@ -406,16 +406,43 @@ class LeadProvider:
             leadtab_hapc[pos_leadtab][hp_index] = 1
         self.leadcounts[ld.svtype] += 1
 
+    def _mask_N_coverage(self, regions: list[Region] = None) -> None:
+        """
+        Mask coverage with 0 for regions with N in the reference
+        """
+        if self.config.reference:
+            start = time.monotonic()
+            try:
+                fasta = pysam.FastaFile(self.config.reference)
+            except Exception as e:
+                logging.warning(f'Unable to mask N regions in coverage vector, reference could not be opened: {e}', exc_info=True)
+            else:
+                try:
+                    if regions is None:
+                        mask = np.frombuffer(fasta.fetch(self.contig).encode('ascii'), dtype=np.uint8)
+                    else:
+                        mask = np.zeros(len(self.coverage), dtype=np.uint8)
+                        for region in regions:
+                            region_mask = np.frombuffer(fasta.fetch(region.contig, region.start, region.end).encode('ascii'), dtype=np.uint8)
+                            mask[region.start:region.end] = region_mask
+                    self.coverage[mask == 78] = 0
+                except Exception as e:
+                    logging.warning(f'Unable to mask N regions in coverage vector, reference could not be fetched: {e}', exc_info=True)
+                else:
+                    log.debug(f'Masking coverage with {self.config.reference} reference (elapsed: {time.monotonic() - start:.2f}s)')
+
     def build_leadtab(self, regions: list[Region], bam):
-        assert (self.contig is None)
         assert (self.start is None)
         assert (self.end is None)
 
         externals = []
         ld_binsize = self.config.cluster_binsize
+        self.coverage = np.zeros(bam.get_reference_length(self.contig), dtype=np.uint16)
 
         for region in regions:
-            self.contig = region.contig
+            if self.contig != region.contig:
+                raise Exception(f"Region contig '{region.contig}' does not match LeadProvider contig '{self.contig}'")
+
             self.start = region.start if self.start is None else min(region.start, self.start)
             self.end = region.end if self.end is None else max(region.start, self.end)
             self.covrtab_min_bin = int(self.start / self.config.coverage_binsize) * self.config.coverage_binsize
@@ -428,6 +455,8 @@ class LeadProvider:
                     self.record_lead(ld, pos_leadtab)
                 else:
                     externals.append(ld)
+
+        self._mask_N_coverage(regions)
 
         return externals
 
@@ -442,7 +471,6 @@ class LeadProvider:
         nm_count = 0
         trace_read = self.config.dev_trace_read
         ld_binsize = self.config.cluster_binsize
-        self.coverage = np.zeros(bam.get_reference_length(region.contig), dtype=np.uint16)
 
         read_mq20 = 0
         read: pysam.AlignedSegment

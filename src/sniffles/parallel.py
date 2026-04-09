@@ -93,7 +93,8 @@ class Task:
             self.bam = pysam.AlignmentFile(config.input, config.input_mode, require_index=True, reference_filename=config.reference)
         else:
             self.bam = pysam.AlignmentFile(config.input, config.input_mode, require_index=True)
-        self.lead_provider = leadprov.LeadProvider(config, self.id * config.task_read_id_offset_mult)
+
+        self.lead_provider = leadprov.LeadProvider(config, self.id * config.task_read_id_offset_mult, self.contig)
         externals = self.lead_provider.build_leadtab(self.regions if self.regions else [Region(self.contig, self.start, self.end)], self.bam)
         return externals, self.lead_provider.read_count
 
