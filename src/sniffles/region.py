@@ -39,5 +39,19 @@ class Region:
             log.warning(f'Invalid region line: {line} ({ex})')
             return None
 
+    @classmethod
+    def from_string(cls, value: str) -> Optional['Region']:
+        try:
+            contig, pos = value.split(':')
+            start, end = map(int, pos.split('-'))
+            return Region(
+                contig=contig,
+                start=start,
+                end=end,
+            )
+        except ValueError as ex:
+            log.warning(f'Invalid region string: {value} ({ex})')
+            return None
+
     def __str__(self) -> str:
         return f'{self.contig}:{self.start}-{self.end}'

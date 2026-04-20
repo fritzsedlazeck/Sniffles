@@ -322,7 +322,7 @@ class VCF:
 
         if self.config.symbolic:
             call.ref = "N"
-            if call.svtype != "BND":  # don't replace BND ALT with symbolic representation as it contains the mate information
+            if call.svtype != "BND":  # always print real alt for BNDs
                 call.alt = f"<{call.svtype}>"
         else:
             if self.reference_handle is not None and call.ref == 'N':

@@ -181,6 +181,7 @@ class SnifflesConfig(argparse.Namespace):
         main_args.add_argument("-t", "--threads", metavar="N", type=int, help=B("Number of parallel threads to use (speed-up for multi-core CPUs)"), default=4)
         main_args.add_argument("-c", "--contig", default=None, type=str, help=B("(Optional) Only process the specified contigs. May be given more than once."), action="append")
         main_args.add_argument("--regions", metavar="REGIONS.bed", type=str, help=B("(Optional) Only process the specified regions."), default=None)
+        main_args.add_argument("--region", metavar="contig:start-stop", type=str, help=argparse.SUPPRESS, default=None, action='append')
         main_args.add_argument("--tmp-dir", type=str, help=B("(Optional) Directory where temporary files are written, must exist. If it doesn't, default path is used"), default="")
         main_args.add_argument("--all-contigs", help=B("(Optional) Process all contigs in the input file including small ones."), action="store_true", default=False)
 
@@ -493,6 +494,14 @@ class SnifflesConfig(argparse.Namespace):
             self.regions_by_contig = regions
         else:
             self.regions_by_contig = {}
+            if self.region:
+                for rstr in self.region:
+                    r = Region.from_string(rstr)
+                    if r is not None:
+                        if r.contig not in self.regions_by_contig:
+                            self.regions_by_contig[r.contig] = [r]
+                        else:
+                            self.regions_by_contig[r.contig].append(r)
 
         # "--minsvlen" parameter is for final output filtering
         # for intermediate steps, a lower threshold is used to account for sequencing, mapping imprecision
