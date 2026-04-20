@@ -321,7 +321,8 @@ class VCF:
 
         if self.config.symbolic:
             call.ref = "N"
-            call.alt = f"<{call.svtype}>"
+            if call.svtype != "BND":  # don't replace BND ALT with symbolic representation as it contains the mate information
+                call.alt = f"<{call.svtype}>"
         else:
             if self.reference_handle is not None and call.ref == 'N':
                 # Fetch the base before the SV
