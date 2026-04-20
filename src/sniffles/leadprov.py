@@ -240,7 +240,7 @@ def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps) -
         print(f"[DEV_TRACE_READ] [0c/4] [LeadProvider.read_itersplits] [{read.query_name}] passed max_splits check")
 
     if read.is_reverse:
-        qry_start = read.query_alignment_end
+        qry_start = read.query_length - read.query_alignment_end
     else:
         qry_start = read.query_alignment_start
 
