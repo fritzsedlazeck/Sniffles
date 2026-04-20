@@ -80,6 +80,9 @@ class Lead:
         for sa in read.get_tag("SA").split(";"):
             if len(sa) > 0:
                 refname, pos, strand, cigar, mapq, nm = sa.split(",")
+                if read_strand == strand:  # fall back to legacy break analysis
+                    return None
+
                 pos_org = pos
                 pos = int(pos) - 1  # position in SA tag is 1-based, convert to 0-based
                 # determine left/right on SA based on cigar string
