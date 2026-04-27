@@ -36,6 +36,9 @@ if TYPE_CHECKING:
     from sniffles.config import SnifflesConfig
 
 
+log = logging.getLogger(__name__)
+
+
 @dataclass
 class Task:
     """
@@ -175,7 +178,10 @@ class Task:
             phasing_rescue = (svcall.svtype not in ["BND"] and abs(svcall.svlen) <= config.dev_maxsvlen_extra and
                               svcall.support >= int(config.dev_minreads_extra*0.60))
             if self.config.phase and not svcall.qc and phasing_rescue:
-                _ = self.rescue_phasing(svcall)
+                try:
+                    self.rescue_phasing(svcall)
+                except Exception:  # noqa
+                    log.warning(f'Error while rescue phasing for {svcall}')
 
             skip_filters = ["PASS", "GT"] if not config.dev_locasm_skip_mosaic else ["PASS", "GT", "MOSAIC_VAF"]
             apply_to_svtypes = ["INS", "DEL"]

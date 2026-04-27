@@ -133,6 +133,8 @@ class Genotyper:
         try:
             coverage = self._calculate_coverage(support)
         except UnknownGenotypeError:
+            svcall.filter = 'GT_FAILED'
+            svcall.qc = False
             return
 
         if support > coverage:
