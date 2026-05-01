@@ -262,7 +262,6 @@ def read_itersplits(read_id, read, contig, config, read_nm, read_hap, read_ps) -
     # unterschied zu _bnd: alle supplementary alignments werden verarbeitet
     for refname, pos, strand, cigar, mapq, nm in supps:
         mapq = int(mapq)
-        nm = int(nm)
 
         is_rev = (strand == "-")
 
@@ -363,8 +362,8 @@ class LeadProvider:
         self.config = config
 
         self.leadtab = {}
-        self.leadcounts = {}
-        self.leadhapcount = {}
+        self.leadcounts: dict[str, int] = {}
+        self.leadhapcount: dict[str, dict[int, array.array]] = {}
 
         for svtype in sv.ALL_TYPES:
             self.leadtab[svtype] = {}
@@ -387,12 +386,15 @@ class LeadProvider:
         leadtab_hapc = self.leadhapcount["REF"]
         for this_pos in range(pos_leadtab, end_leadtab, step):
             if this_pos in leadtab_hapc:
-                leadtab_hapc[this_pos][hp_index] += 1
+                try:
+                    leadtab_hapc[this_pos][hp_index] += 1
+                except OverflowError:
+                    log.warning(f'Overflow for haplotype ref count at position {this_pos} for {hp_index}')
             else:
                 leadtab_hapc[this_pos] = array.array(UNSIGEND_SHORT, 3*[0])
                 leadtab_hapc[this_pos][hp_index] = 1
 
-    def record_lead(self, ld, pos_leadtab):
+    def record_lead(self, ld, pos_leadtab) -> None:
         leadtab_svtype = self.leadtab[ld.svtype]
         leadtab_hapc = self.leadhapcount[ld.svtype]
         hp_index = int(ld.hap)
@@ -401,10 +403,12 @@ class LeadProvider:
             lead_count = len(leadtab_svtype[pos_leadtab])
             if lead_count > self.config.consensus_max_reads_bin:
                 ld.seq = None
-            leadtab_hapc[pos_leadtab][hp_index] += 1
+            try:
+                leadtab_hapc[pos_leadtab][hp_index] += 1
+            except OverflowError:
+                log.warning(f'Overflow for haplotype lead count for lead svtype {ld.svtype} at position {pos_leadtab} for {hp_index}')
         else:
             leadtab_svtype[pos_leadtab] = [ld]
-            lead_count = 1
             leadtab_hapc[pos_leadtab] = array.array(UNSIGEND_SHORT, 3*[0])
             leadtab_hapc[pos_leadtab][hp_index] = 1
         self.leadcounts[ld.svtype] += 1
@@ -575,7 +579,6 @@ class LeadProvider:
         Extracts Leads from insertions/deletions.
         """
         config = self.config
-        coverage = self.coverage
         minsvlen = config.minsvlen_screen
         longinslen = config.long_ins_length / 2.0
         seq_cache_maxlen = config.dev_seq_cache_maxlen

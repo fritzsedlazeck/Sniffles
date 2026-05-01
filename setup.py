@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='sniffles',
-    version='2.8.0rc2',
+    version='2.8.0',
     packages=find_packages(),
     url='https://github.com/fritzsedlazeck/Sniffles',
     license='MIT',
