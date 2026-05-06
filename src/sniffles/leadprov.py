@@ -382,6 +382,8 @@ class LeadProvider:
         self.start = None
         self.end = None
 
+        self.overflow = 0
+
     def record_hap_ref(self, hp_index, pos_leadtab, end_leadtab, step):
         leadtab_hapc = self.leadhapcount["REF"]
         for this_pos in range(pos_leadtab, end_leadtab, step):
@@ -389,7 +391,8 @@ class LeadProvider:
                 try:
                     leadtab_hapc[this_pos][hp_index] += 1
                 except OverflowError:
-                    log.warning(f'Overflow for haplotype ref count at position {this_pos} for {hp_index}')
+                    self.overflow += 1
+                    log.debug(f'Overflow for haplotype ref count at position {this_pos} for {hp_index}')
             else:
                 leadtab_hapc[this_pos] = array.array(UNSIGEND_SHORT, 3*[0])
                 leadtab_hapc[this_pos][hp_index] = 1
@@ -406,7 +409,8 @@ class LeadProvider:
             try:
                 leadtab_hapc[pos_leadtab][hp_index] += 1
             except OverflowError:
-                log.warning(f'Overflow for haplotype lead count for lead svtype {ld.svtype} at position {pos_leadtab} for {hp_index}')
+                self.overflow += 1
+                log.debug(f'Overflow for haplotype lead count for lead svtype {ld.svtype} at position {pos_leadtab} for {hp_index}')
         else:
             leadtab_svtype[pos_leadtab] = [ld]
             leadtab_hapc[pos_leadtab] = array.array(UNSIGEND_SHORT, 3*[0])
@@ -567,6 +571,8 @@ class LeadProvider:
                 self.record_hap_ref(hp, pos_leadtab, end_leadtab, ld_binsize)
 
         log.debug(f'Processed {self.read_count} reads in region {region.contig}:{region.start}-{region.end}')
+        if self.overflow > 0:
+            log.warning(f'Overflow for haplotype counts occurred {self.overflow} times in contig {region.contig}')
 
         self.config.average_regional_nm = nm_sum / float(max(1, nm_count))
         self.config.qc_nm_threshold = self.config.average_regional_nm
