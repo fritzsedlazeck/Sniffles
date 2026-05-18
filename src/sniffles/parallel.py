@@ -329,6 +329,8 @@ class GenotypeTask(Task):
                 genotype_svs_svtypes_bins[genotype_sv.svtype][bin].append(genotype_sv)
 
         for cand in svcandidates:
+            if cand.svtype.startswith('SINGLE'):
+                continue
             bin = int(cand.pos / binsize) * binsize
             if bin not in genotype_svs_svtypes_bins[cand.svtype]:
                 continue
