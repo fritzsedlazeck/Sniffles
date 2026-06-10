@@ -18,7 +18,6 @@ from sniffles import sv
 from sniffles import util
 from sniffles.config import SnifflesConfig
 
-
 log = logging.getLogger(__name__)
 
 
@@ -104,6 +103,7 @@ class VCF:
 
         self.reference_handle = None
         self.header_str = ""
+        self.iupac_bases = {"R", "K", "W", "S"}
 
     def open_reference(self, generate_index: bool = True):
         if self.config.reference is None:
@@ -317,7 +317,7 @@ class VCF:
                 if 'N' in call.ref and (pct_n := Counter(call.ref)['N'] / len(call.ref)) > self.config.max_unknown_pct:
                     # don't emit calls with too many N bases
                     log.debug(f'Not emitting {call.id} in {call.contig}:{call.pos} (length {call.svlen}) due to '
-                              f'{pct_n*100:.2f}% N bases in reference.')
+                              f'{pct_n * 100:.2f}% N bases in reference.')
                     return 0
 
         if self.config.symbolic:
@@ -336,6 +336,24 @@ class VCF:
                         call.alt = call.ref + call.alt
                     elif call.svtype == 'BND' and call.alt != '<BND>':
                         call.alt = (call.ref + call.alt[1:]) if call.alt.startswith('N') else call.alt[:-1] + call.ref
+
+                # check for IUPAC bases, here we should have both ref and alt sequences
+                # REF
+                has_iupac_bases = False
+                for iupac_base in self.iupac_bases:
+                    if iupac_base in call.ref:
+                        has_iupac_bases = True
+                        break
+                if has_iupac_bases:
+                    call.ref = "".join([b if b not in {"R", "K", "W", "S"} else "N" for b in list(call.ref)])
+                # ALT
+                has_iupac_bases = False
+                for iupac_base in self.iupac_bases:
+                    if iupac_base in call.alt:
+                        has_iupac_bases = True
+                        break
+                if has_iupac_bases:
+                    call.alt = "".join([b if b not in {"R", "K", "W", "S"} else "N" for b in list(call.alt)])
 
         call.qual = max(0, min(60, call.qual)) if call.qual is not None else None
 
@@ -442,11 +460,11 @@ class VCF:
         # parts[4]=f"ALT_{len(parts[4])}"
         self.write_raw("\t".join(parts))
 
-    def rewrite_header_genotype(self,orig_header):
-        header_lines=orig_header.split("\n")
-        header_lines.insert(1,'##genotypeFileDate="'+self.config.start_date+'"')
-        header_lines.insert(1,'##genotypeCommand="'+self.config.command+'"')
-        header_lines.insert(1,f"##genotypeSource={self.config.version}_{self.config.build}")
+    def rewrite_header_genotype(self, orig_header):
+        header_lines = orig_header.split("\n")
+        header_lines.insert(1, '##genotypeFileDate="' + self.config.start_date + '"')
+        header_lines.insert(1, '##genotypeCommand="' + self.config.command + '"')
+        header_lines.insert(1, f"##genotypeSource={self.config.version}_{self.config.build}")
 
         # Fix missing genotype headers errors when reading input vcf in genotype mode.
         # This error will happen when input vcf does not have GT,GQ,DR,DV headers.
@@ -459,9 +477,9 @@ class VCF:
         }
         for header_line in header_lines:
             for gt in has_gt_headers.keys():
-                if "##FORMAT=<ID="+gt+"," in header_line:
+                if "##FORMAT=<ID=" + gt + "," in header_line:
                     has_gt_headers[gt] = True
-        
+
         if not has_gt_headers["GT"]:
             header_lines.insert(len(header_lines)-2, '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">')
         if not has_gt_headers["GQ"]:

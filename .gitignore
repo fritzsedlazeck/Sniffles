@@ -12,3 +12,4 @@ deploybcm.sh
 resultadoRsync.txt
 .github/
 .github/*
+deploybcman.sh

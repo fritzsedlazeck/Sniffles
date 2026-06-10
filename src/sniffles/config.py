@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 VERSION = "Sniffles2"
-BUILD = "2.8.0"
+BUILD = "2.8.1-dev"
 SNF_VERSION = "S2_rc4"
 
 
@@ -432,7 +432,7 @@ class SnifflesConfig(argparse.Namespace):
         developer_args.add_argument("--dev-single-break-count", default=3, type=int, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-single-break-dist", default=50, type=int, help=argparse.SUPPRESS)
         developer_args.add_argument("--dev-min-leads-cluster", default=-1, type=int, help=argparse.SUPPRESS)  # default is 2 for both gemrline and mosaic, noqc takes 1
-        developer_args.add_argument("--dev-min-dup-vaf", default=0.166666667, type=float, help=argparse.SUPPRESS)  # 1/2 of the expected value for 3x/2x DUP VAF which is 1/3 =~ 1/6
+        developer_args.add_argument("--dev-min-dup-vaf", default=1/6.0, type=float, help=argparse.SUPPRESS)  # 1/2 of the expected value for 3x/2x DUP VAF which is 1/3 =~ 1/6
         developer_args.add_argument("--dev-longer-del", default=200000, type=int, help=argparse.SUPPRESS)  # ignore COV_CHANGE_DEL for very long DUP ~4x long-del-length | need to be used as abs
         developer_args.add_argument("--dev-longer-dup", default=200000, type=int, help=argparse.SUPPRESS)  # ignore COV_CHANGE_DUP for very long DUP ~4x long-dup-length
         developer_args.add_argument("--dev-minreads-extra", default=5, type=int, help=argparse.SUPPRESS)  # for both mosaic rescue for alellic imbalance SVs AND local assembly
