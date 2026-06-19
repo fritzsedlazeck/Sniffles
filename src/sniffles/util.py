@@ -165,3 +165,6 @@ def should_process_contig(contig: str, length: int, config: 'SnifflesConfig') ->
 
 
 center = median_modes
+
+ambiguous_iupac_symbols = 'RYSWKMBDHV'
+ambiguity_cleanup_table = str.maketrans(ambiguous_iupac_symbols, 'N'*len(ambiguous_iupac_symbols))

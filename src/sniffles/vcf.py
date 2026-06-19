@@ -17,6 +17,7 @@ import os
 from sniffles import sv
 from sniffles import util
 from sniffles.config import SnifflesConfig
+from sniffles.util import ambiguity_cleanup_table
 
 log = logging.getLogger(__name__)
 
@@ -103,7 +104,6 @@ class VCF:
 
         self.reference_handle = None
         self.header_str = ""
-        self.iupac_bases = {"R", "K", "W", "S"}
 
     def open_reference(self, generate_index: bool = True):
         if self.config.reference is None:
@@ -338,22 +338,8 @@ class VCF:
                         call.alt = (call.ref + call.alt[1:]) if call.alt.startswith('N') else call.alt[:-1] + call.ref
 
                 # check for IUPAC bases, here we should have both ref and alt sequences
-                # REF
-                has_iupac_bases = False
-                for iupac_base in self.iupac_bases:
-                    if iupac_base in call.ref:
-                        has_iupac_bases = True
-                        break
-                if has_iupac_bases:
-                    call.ref = "".join([b if b not in {"R", "K", "W", "S"} else "N" for b in list(call.ref)])
-                # ALT
-                has_iupac_bases = False
-                for iupac_base in self.iupac_bases:
-                    if iupac_base in call.alt:
-                        has_iupac_bases = True
-                        break
-                if has_iupac_bases:
-                    call.alt = "".join([b if b not in {"R", "K", "W", "S"} else "N" for b in list(call.alt)])
+                call.ref = call.ref.translate(ambiguity_cleanup_table)
+                call.alt = call.alt.translate(ambiguity_cleanup_table)
 
         call.qual = max(0, min(60, call.qual)) if call.qual is not None else None
 
