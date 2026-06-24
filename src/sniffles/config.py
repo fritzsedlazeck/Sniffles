@@ -183,7 +183,7 @@ class SnifflesConfig(argparse.Namespace):
         main_args.add_argument("--regions", metavar="REGIONS.bed", type=str, help=B("(Optional) Only process the specified regions."), default=None)
         main_args.add_argument("--region", metavar="contig:start-stop", type=str, help=argparse.SUPPRESS, default=None, action='append')
         main_args.add_argument("--tmp-dir", type=str, help=B("(Optional) Directory where temporary files are written, must exist. If it doesn't, default path is used"), default="")
-        main_args.add_argument("--all-contigs", help=B("(Optional) Process all contigs in the input file including small ones."), action="store_true", default=False)
+        main_args.add_argument("--all-contigs", help=B("(Optional) Process all contigs in the input file including small ones (<1MB)."), action="store_true", default=False)
 
     minsupport: Union[str, int]
     minsupport_auto_mult: float

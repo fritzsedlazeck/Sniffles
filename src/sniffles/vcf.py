@@ -115,8 +115,8 @@ class VCF:
 
         try:
             self.reference_handle = pysam.FastaFile(self.config.reference)
-        except:
-            log.error(f'Unable to open reference file {self.config.reference}')
+        except Exception as e:
+            log.exception(f'Unable to open reference file {self.config.reference}: {e}')
 
     def write_header(self, contigs_lengths):
         self.write_header_line("fileformat=VCFv4.2")
@@ -167,6 +167,7 @@ class VCF:
         self.write_header_line('FILTER=<ID=INLINE_SA,Description="INLINE/CIGAR-based SV is mostly supported by SA reads">')
         self.write_header_line('FILTER=<ID=MOSAIC_SV_CLOSE_EDGE,Description="For mosaic SVs, the location is close to the end of the read (either end)">')
         self.write_header_line('FILTER=<ID=GT_FAILED,Description="Sniffles was unable to genotype this call.">')
+        self.write_header_line('FILTER=<ID=UNMAPPED_REGION,Description="Call is within an unmapped region.">')
 
         self.write_header_line('INFO=<ID=PRECISE,Number=0,Type=Flag,Description="Structural variation with precise breakpoints">')
         self.write_header_line('INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description="Structural variation with imprecise breakpoints">')

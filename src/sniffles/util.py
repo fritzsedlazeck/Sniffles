@@ -8,14 +8,18 @@
 # Maintainer:  Hermann Romanek
 # Contact:     sniffles@romanek.at
 #
-
+import bisect
+import re
 import statistics
 import sys
 import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from pysam import FastaFile
+
     from sniffles.config import SnifflesConfig
+    from sniffles.sv import SVCall
 
 
 class Sniffles2Exit(Exception):
@@ -168,3 +172,32 @@ center = median_modes
 
 ambiguous_iupac_symbols = 'RYSWKMBDHV'
 ambiguity_cleanup_table = str.maketrans(ambiguous_iupac_symbols, 'N'*len(ambiguous_iupac_symbols))
+
+
+class UnresolvedReferenceRegions:
+    def __init__(self, reference_file: 'FastaFile', contig: str):
+        self.contig = contig
+        ref = reference_file.fetch(contig)
+        self.regions: list[tuple[int, int]] = sorted(m.span() for m in re.finditer('N{100,}', ref))
+
+    def get_N_percentage(self, call: 'SVCall') -> float:
+        """
+        Calculate the percentage of bases of the given call being inside unresolved reference regions.
+        """
+        if not self.regions or call.end <= call.pos:
+            return 0.0
+
+        unresolved_bases = 0
+        idx = bisect.bisect_left(self.regions, (call.pos, call.end))
+
+        if idx > 0:
+            s, e = self.regions[idx - 1]
+            if e > call.pos:
+                unresolved_bases += min(call.end, e) - call.pos
+
+        for s, e in self.regions[idx:]:
+            if s >= call.end:
+                break
+            unresolved_bases += min(call.end, e) - max(call.pos, s)
+
+        return unresolved_bases / (call.end - call.pos) * 100
