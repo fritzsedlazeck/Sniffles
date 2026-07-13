@@ -76,7 +76,10 @@ class CallResult(Result):
 
     def store_candidates(self, candidates: list[SVCall]) -> None:
         if SnifflesConfig.GLOBAL.dev_output_candidates:  # self.task.output_candidates
-            self.candidate_filename = filename = f'candidates.tmp-{self.task_id}.csv'
+            self.candidate_filename = filename = os.path.join(
+                SnifflesConfig.GLOBAL.tmp_dir,
+                f'candidates.tmp-{self.run_id}-{self.task_id}.csv'
+            )
             with open(filename, "w") as f:
                 lines, single_break_lines = 0, 0
                 for cand in candidates:
