@@ -188,6 +188,7 @@ class SnifflesConfig(argparse.Namespace):
     minsupport: Union[str, int]
     minsupport_auto_mult: float
     minsvlen: int
+    minsvlen_hard_cap: bool
     minsvlen_screen_ratio: float
     mapq: int
     no_qc: bool
@@ -216,7 +217,7 @@ class SnifflesConfig(argparse.Namespace):
         filter_args = parser.add_argument_group("SV Filtering parameters")
         filter_args.add_argument("--minsupport", metavar="auto", type=str, help="Minimum number of supporting reads for a SV to be reported (default: automatically choose based on coverage)", default="3")
         filter_args.add_argument("--minsupport-auto-mult", metavar="0.1/0.025", type=float, help="Coverage based minimum support multiplier for germline mode (only for auto minsupport) ", default=None)
-        filter_args.add_argument("--minsvlen", metavar="N", type=int, help=B("Minimum SV length (in bp)"), default=50)
+        filter_args.add_argument("--minsvlen", metavar="N", type=str, help=B("Minimum SV length (in bp). May be prefixed with tilde (e.g. ~50) to allow for slightly smaller SVs if strongly supported."), default="~50")
         filter_args.add_argument("--minsvlen-screen-ratio", metavar="N", type=float, help="Minimum length for SV candidates (as fraction of --minsvlen)", default=0.9)
         filter_args.add_argument("--mapq", metavar="N", type=int, help=B("Alignments with mapping quality lower than this value will be ignored"), default=argparse.SUPPRESS)
         filter_args.add_argument("--no-qc", "--qc-output-all", help=B("Output all SV candidates, disregarding quality control steps."), default=False, action="store_true")
@@ -504,6 +505,14 @@ class SnifflesConfig(argparse.Namespace):
                             self.regions_by_contig[r.contig].append(r)
 
         # "--minsvlen" parameter is for final output filtering
+        minsvlen_param = str(self.minsvlen)
+        if minsvlen_param.startswith("~"):
+            self.minsvlen_hard_cap = False
+            self.minsvlen = int(self.minsvlen[1:])
+        else:
+            self.minsvlen_hard_cap = True
+            self.minsvlen = int(self.minsvlen)
+
         # for intermediate steps, a lower threshold is used to account for sequencing, mapping imprecision
         self.minsvlen_screen = int(self.minsvlen_screen_ratio * self.minsvlen)
         # config.minsupport_screen=max(1,int(0.333*config.minsupport*(config.cluster_binsize/100.0)))

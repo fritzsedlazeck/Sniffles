@@ -248,7 +248,7 @@ def qc_sv(svcall: SVCall, config: SnifflesConfig):
 
     support_overwrite_svlen = 10  # number of supporting reads above which we do not filter on SVLEN
     if abs(svcall.svlen) < config.minsvlen and svcall.svtype != 'BND':
-        if svcall.support < support_overwrite_svlen:
+        if svcall.support < support_overwrite_svlen or config.minsvlen_hard_cap:
             if config.dev_filter:
                 dev_sv_filter.append("SVLEN_MIN")
             else:
