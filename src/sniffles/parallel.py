@@ -34,6 +34,7 @@ from sniffles.local_asm import LocalAsm
 
 if TYPE_CHECKING:
     from sniffles.config import SnifflesConfig
+    from sniffles.util import UnresolvedReferenceRegions
 
 
 log = logging.getLogger(__name__)
@@ -252,6 +253,7 @@ class Task:
 class CallTask(Task):
     """
     """
+    urr: 'UnresolvedReferenceRegions' = None
 
     def execute(self, worker: 'SnifflesWorker' = None) -> CallResult:
         config = self.config
@@ -261,9 +263,29 @@ class CallTask(Task):
         else:
             qc = True
 
+        if config.reference and config.max_unknown_pct < 1.0:
+            try:
+                from sniffles.util import UnresolvedReferenceRegions
+                with pysam.FastaFile(config.reference) as ref:
+                    self.urr = UnresolvedReferenceRegions(ref, self.contig)
+            except Exception as e:
+                logging.getLogger('sniffles').error(f"Error occurred while initializing UnresolvedReferenceRegions: {e}")
+
         _, read_count = self.build_leadtab()
         svcandidates = self.call_candidates(qc, config)
         svcalls = self.finalize_candidates(svcandidates, not qc, config)
+
+        # pre 2.9 inclusion of DEL filter in gap regions
+        if self.urr is not None:
+            for call in svcalls:
+                if call.svtype == 'DEL':
+                    if self.urr.get_N_percentage(call) > config.max_unknown_pct:
+                        if not config.dev_filter or call.filter == 'PASS':
+                            call.filter = 'UNRESOLVED'
+                        else:
+                            call.filter += ';UNRESOLVED'
+                        call.qc = False
+
         if not config.no_qc:
             svcalls = [s for s in svcalls if s.qc]
 
