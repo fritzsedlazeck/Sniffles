@@ -339,8 +339,10 @@ class VCF:
                         call.alt = (call.ref + call.alt[1:]) if call.alt.startswith('N') else call.alt[:-1] + call.ref
 
                 # check for IUPAC bases, here we should have both ref and alt sequences
-                call.ref = call.ref.translate(ambiguity_cleanup_table)
-                call.alt = call.alt.translate(ambiguity_cleanup_table)
+                if not call.ref.startswith('<'):
+                    call.ref = call.ref.translate(ambiguity_cleanup_table)
+                if not call.alt.startswith('<'):
+                    call.alt = call.alt.translate(ambiguity_cleanup_table)
 
         call.qual = max(0, min(60, call.qual)) if call.qual is not None else None
 
