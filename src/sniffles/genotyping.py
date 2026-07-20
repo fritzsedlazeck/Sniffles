@@ -11,12 +11,18 @@
 """
 Genotyping
 """
+import logging
 import math
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional, TYPE_CHECKING
 
-from sniffles.postprocessing import rescale_support
 from sniffles.sv import SVCall
+
+if TYPE_CHECKING:
+    from sniffles.parallel import Task
+
+
+log = logging.getLogger(__name__)
 
 
 class UnknownGenotypeError(Exception):
@@ -66,10 +72,11 @@ class Genotyper:
     _support: int
     _coverage: float
 
-    def __init__(self, svcall: SVCall, config, phase: tuple | None):
+    def __init__(self, svcall: SVCall, config, phase: tuple | None, task: Optional['Task'] = None):
         self.svcall = svcall
         self.config = config
         self.phase = phase if phase is not None else self._get_phase()
+        self.task = task
 
     def _get_phase(self) -> tuple | None:
         """
@@ -201,6 +208,30 @@ class DuplicationGenotyper(Genotyper):
     def _calculate_coverage(self, support: int) -> float:
         svcall = self.svcall
         return self._get_coverage_from_list([svcall.coverage_upstream, svcall.coverage_downstream])
+
+    def _calculate_support(self) -> int:
+        """
+        Try to find additional support for this DUP in insertion leads, if we have a minimal number of support already.
+        """
+        ins_support = 0
+        if self.task is not None and self.svcall.support >= self.config.minsupport_const:
+            log.debug("Trying to find additional support for %s", self.svcall.id)
+            svcall = self.svcall
+            lower_size = svcall.svlen * 0.9
+            upper_size = svcall.svlen * 1.1
+
+            for i in range(svcall.pos // 100 * 100, svcall.end + 100, 100):
+                leadtab = self.task.lead_provider.leadtab['INS']
+                if i in leadtab:
+                    for lead in leadtab[i]:
+                        if lead.svlen is not None and lower_size < lead.svlen < upper_size:
+                            ins_support += 1
+
+            if ins_support > 0:
+                self.svcall.info['SUPPORT_INLINE'] = ins_support
+                self.svcall.support += ins_support
+
+        return self.svcall.support
 
 
 class InversionGenotyper(Genotyper):

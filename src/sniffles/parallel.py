@@ -143,7 +143,7 @@ class Task:
                 pass  # does nothing
                 # continue
 
-            postprocessing.annotate_sv(svcall, config)
+            postprocessing.annotate_sv(svcall, config, self)
 
             svcall.qc = svcall.qc and postprocessing.qc_sv_post_annotate(svcall, config, self.coverage_average_total)
 

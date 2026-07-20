@@ -187,6 +187,7 @@ class SnifflesConfig(argparse.Namespace):
 
     minsupport: Union[str, int]
     minsupport_auto_mult: float
+    minsupport_const: int
     minsvlen: int
     minsvlen_hard_cap: bool
     minsvlen_screen_ratio: float
@@ -519,6 +520,9 @@ class SnifflesConfig(argparse.Namespace):
 
         if self.minsupport != "auto":
             self.minsupport = int(self.minsupport)
+            self.minsupport_const = self.minsupport
+        else:
+            self.minsupport_const = 3
 
         if self.dev_no_qc:
             self.no_qc = True

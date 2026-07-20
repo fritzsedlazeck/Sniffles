@@ -10,6 +10,7 @@
 #
 import math
 import logging
+from typing import TYPE_CHECKING
 
 from sniffles import util
 from sniffles import consensus
@@ -18,17 +19,21 @@ from sniffles.leadprov import LeadProvider
 from sniffles.leadprov import Lead
 from sniffles.sv import SVCall
 
+if TYPE_CHECKING:
+    from sniffles.parallel import Task
+
+
 log = logging.getLogger('sniffles.postprocessing')
 ACCEPTED_SVTYPES = ["INS", "DEL", "DUP", "INV", "BND"]
 
 
-def annotate_sv(svcall: SVCall, config):
+def annotate_sv(svcall: SVCall, config, task: 'Task'):
     if config.phase:
         phase = phase_sv(svcall, config)
     else:
         phase = (None, None)
 
-    genotype_sv(svcall, config, phase)
+    genotype_sv(svcall, config, phase, task)
 
     if svcall.svtype == "INS" and not config.symbolic:
         merged_leads = [lead for lead in svcall.postprocess.cluster.leads if lead.seq is not None]
@@ -604,10 +609,10 @@ def binomial_coef(n, k):
     return math.factorial(n) / (math.factorial(k) * math.factorial(n - k))
 
 
-def genotype_sv(svcall: SVCall, config, phase: tuple | None = None):
+def genotype_sv(svcall: SVCall, config, phase: tuple | None = None, task: 'Task' = None):
     from sniffles.genotyping import GENOTYPER_BY_TYPE, Genotyper
 
-    GENOTYPER_BY_TYPE.get(svcall.svtype, Genotyper)(svcall, config, phase).calculate()
+    GENOTYPER_BY_TYPE.get(svcall.svtype, Genotyper)(svcall, config, phase, task).calculate()
 
     # post haplotype assessment for genotype, hom-alt should skip hp_filter, but gt is after phase
     try:
