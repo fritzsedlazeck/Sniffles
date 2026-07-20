@@ -199,14 +199,8 @@ class InsertionGenotyper(Genotyper):
 
 class DuplicationGenotyper(Genotyper):
     def _calculate_coverage(self, support: int) -> float:
-        # Experimental other coverage calculation?
-        # if False and svcall.coverage_start != 0 and svcall.coverage_end != 0:
-        #     if svcall.coverage_start > svcall.coverage_end:
-        #         coverage_list = [svcall.coverage_end]
-        #     else:
-        #         coverage_list = [svcall.coverage_start]
         svcall = self.svcall
-        return self._get_coverage_from_list([svcall.coverage_start, svcall.coverage_end]) + round(support * 0.75)
+        return self._get_coverage_from_list([svcall.coverage_upstream, svcall.coverage_downstream])
 
 
 class InversionGenotyper(Genotyper):
