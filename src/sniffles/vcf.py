@@ -181,6 +181,7 @@ class VCF:
         self.write_header_line('INFO=<ID=SUPPORT_INLINE,Number=1,Type=Integer,Description="Number of reads supporting an INS/DEL SV (non-split events only), or reads for a DUP SV reported as INS by the mapper.">')
         self.write_header_line('INFO=<ID=SUPPORT_SA,Number=1,Type=Integer,Description="Number of reads supporting a DEL SV through supplementary alignments (split events)">')
         self.write_header_line('INFO=<ID=SUPPORT_LONG,Number=1,Type=Integer,Description="Number of soft-clipped reads putatively supporting the long insertion SV">')
+        self.write_header_line('INFO=<ID=SUPPORT_UNSCALED,Number=1,Type=Float,Description="Base support for long insertions, before adjustment">')
         self.write_header_line('INFO=<ID=END,Number=1,Type=Integer,Description="End position of structural variation">')
         self.write_header_line('INFO=<ID=STDEV_POS,Number=1,Type=Float,Description="Standard deviation of structural variation start position">')
         self.write_header_line('INFO=<ID=STDEV_LEN,Number=1,Type=Float,Description="Standard deviation of structural variation length">')

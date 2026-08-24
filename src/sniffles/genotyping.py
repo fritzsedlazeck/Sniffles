@@ -16,6 +16,7 @@ import math
 from dataclasses import dataclass
 from typing import Any, Optional, TYPE_CHECKING
 
+from sniffles.postprocessing import rescale_support
 from sniffles.sv import SVCall
 
 if TYPE_CHECKING:
@@ -191,6 +192,13 @@ class Genotyper:
 
 
 class InsertionGenotyper(Genotyper):
+    def _calculate_support(self):
+        """
+        Rescale support for long insertions. This skews our support way higher than the number of reads we have!
+        """
+        self.svcall.set_info('SUPPORT_UNSCALED', self.svcall.support)
+        return rescale_support(self.svcall, self.config)
+
     def _calculate_coverage(self, coverage_list: list = None) -> float:
         return self._get_coverage_from_list([self.svcall.coverage_center])
 

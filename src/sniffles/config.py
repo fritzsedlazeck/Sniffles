@@ -557,8 +557,10 @@ class SnifflesConfig(argparse.Namespace):
         self.consensus_low_threshold = 0.0  # 0.15
 
         # Large INS
-        self.long_ins_rescale_base = 1.66
-        self.long_ins_rescale_mult = 0.33
+        self.long_ins_rescale_base = 1.66  # baseline number of reads supporting a large insertion we assume to have been lost and not show up
+        self.long_ins_rescale_mult = 0.33  # additional factor of reads, scaling by sv length, with minimum read length long-ins-length (2.5kb default)
+                                           # bumping the ratio to 1:2, so we assume half the reads of long insertions don't show support for an event.
+                                           # This means for every 2.5kb of a long insertion event we add .33 percent of support.
 
         # LArge DUP
         self.dev_longer_dup = min(self.long_dup_length * 4, self.dev_longer_dup)
