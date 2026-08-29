@@ -93,6 +93,7 @@ def coverage(calls: list[SVCall], lead_provider: 'LeadProvider') -> float:
         elif svcall.svtype == "BND":
             if svcall.bnd_info.is_first:
                 start -= 1
+            end = start + 1
         else:
             end = svcall.pos + abs(svcall.svlen)
 
