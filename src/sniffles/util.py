@@ -91,6 +91,10 @@ def trim(nums, pct=25):
     else:
         return nums
 
+def optional_value(val):
+    if val is None:
+        return '.'
+    return str(val)
 
 def most_common(nums):
     counts = {}
