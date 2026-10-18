@@ -336,14 +336,16 @@ class VCF:
                 else:
                     if call.svtype == "INS" and call.alt != '<INS>':
                         call.alt = call.ref + call.alt
-                    elif call.svtype == 'BND' and call.alt != '<BND>':
-                        call.alt = (call.ref + call.alt[1:]) if call.alt.startswith('N') else call.alt[:-1] + call.ref
 
                 # check for IUPAC bases, here we should have both ref and alt sequences
                 if not call.ref.startswith('<'):
                     call.ref = call.ref.translate(ambiguity_cleanup_table)
                 if not call.alt.startswith('<'):
-                    call.alt = call.alt.translate(ambiguity_cleanup_table)
+                    if call.svtype == 'BND':
+                        # replace BND anchor in ALT with translated REF base, while preserving contig name
+                        call.alt = call.ref + call.alt[1:] if call.alt[0] not in '[]' else call.alt[:-1] + call.ref
+                    else:
+                        call.alt = call.alt.translate(ambiguity_cleanup_table)
 
         call.qual = max(0, min(60, call.qual)) if call.qual is not None else None
 
