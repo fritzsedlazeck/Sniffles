@@ -207,19 +207,13 @@ def get_cigar_indels(read: pysam.AlignedSegment, minoplen: int = 10) -> tuple[in
     large_ins_sum = 0
     large_del_sum = 0
 
-    pos_read = 0
-    pos_ref = read.reference_start
     for op, oplength in read.cigartuples:
-        add_read, add_ref, event, _ = OPLIST[op]
-        if event:
-            if op == cins:
-                ins_sum += oplength
-                large_ins_sum += oplength if oplength > minoplen else 0
-            elif op == cdel:
-                del_sum += oplength
-                large_del_sum += oplength if oplength > minoplen else 0
-        pos_read += add_read * oplength
-        pos_ref += add_ref * oplength
+        if op == cins:
+            ins_sum += oplength
+            large_ins_sum += oplength if oplength > minoplen else 0
+        elif op == cdel:
+            del_sum += oplength
+            large_del_sum += oplength if oplength > minoplen else 0
 
     return ins_sum, del_sum, large_ins_sum, large_del_sum
 
@@ -383,19 +377,31 @@ class LeadProvider:
         self.end = None
 
         self.overflow = 0
+        self.hap_ref_events = {}
 
     def record_hap_ref(self, hp_index, pos_leadtab, end_leadtab, step):
+        if pos_leadtab >= end_leadtab:
+            return
+        for pos, change in ((pos_leadtab, 1), (end_leadtab, -1)):
+            if pos not in self.hap_ref_events:
+                self.hap_ref_events[pos] = [0, 0, 0]
+            self.hap_ref_events[pos][hp_index] += change
+
+    def finalize_hap_ref(self):
+        # Each read changes the count only at its first and last bin.
+        positions = sorted(self.hap_ref_events)
+        counts = [0, 0, 0]
+        step = self.config.cluster_binsize
         leadtab_hapc = self.leadhapcount["REF"]
-        for this_pos in range(pos_leadtab, end_leadtab, step):
-            if this_pos in leadtab_hapc:
-                try:
-                    leadtab_hapc[this_pos][hp_index] += 1
-                except OverflowError:
-                    self.overflow += 1
-                    log.debug(f'Overflow for haplotype ref count at position {this_pos} for {hp_index}')
-            else:
-                leadtab_hapc[this_pos] = array.array(UNSIGEND_SHORT, 3*[0])
-                leadtab_hapc[this_pos][hp_index] = 1
+        for start, end in zip(positions, positions[1:]):
+            counts = [count + change for count, change in zip(counts, self.hap_ref_events[start])]
+            if not any(counts):
+                continue
+            capped = array.array(UNSIGEND_SHORT, (min(count, 65535) for count in counts))
+            self.overflow += sum(max(0, count - 65535) for count in counts) * ((end - start) // step)
+            for pos in range(start, end, step):
+                leadtab_hapc[pos] = capped[:]
+        self.hap_ref_events.clear()
 
     def record_lead(self, ld, pos_leadtab) -> None:
         leadtab_svtype = self.leadtab[ld.svtype]
@@ -467,6 +473,9 @@ class LeadProvider:
                 else:
                     externals.append(ld)
 
+        self.finalize_hap_ref()
+        if self.overflow > 0:
+            log.warning(f'Overflow for haplotype counts occurred {self.overflow} times in contig {self.contig}')
         self._mask_N_coverage(regions)
 
         return externals
@@ -571,9 +580,6 @@ class LeadProvider:
                 self.record_hap_ref(hp, pos_leadtab, end_leadtab, ld_binsize)
 
         log.debug(f'Processed {self.read_count} reads in region {region.contig}:{region.start}-{region.end}')
-        if self.overflow > 0:
-            log.warning(f'Overflow for haplotype counts occurred {self.overflow} times in contig {region.contig}')
-
         self.config.average_regional_nm = nm_sum / float(max(1, nm_count))
         self.config.qc_nm_threshold = self.config.average_regional_nm
 
