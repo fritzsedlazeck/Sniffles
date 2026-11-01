@@ -13,7 +13,7 @@ import re
 import statistics
 import sys
 import time
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pysam import FastaFile
@@ -124,6 +124,31 @@ def fatal_error(msg):
 def fatal_error_main(msg):
     error(msg + " (Fatal error, exiting.)")
     raise Sniffles2Exit
+
+
+def ensure_open_file_limit(required: int) -> tuple[bool, Optional[int], bool]:
+    """
+    Make sure the soft limit for open file descriptors (RLIMIT_NOFILE) is at least `required`, raising it
+    towards the hard limit if necessary. Child processes started afterwards inherit the new limit.
+    Returns a tuple (sufficient, soft limit in effect, whether it was raised). If the limit can not be
+    determined (e.g. on platforms without the resource module), (True, None, False) is returned.
+    """
+    try:
+        import resource
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    except (ImportError, OSError, ValueError):
+        return True, None, False
+
+    if soft == resource.RLIM_INFINITY or soft >= required:
+        return True, soft, False
+
+    new_soft = required if hard == resource.RLIM_INFINITY else min(required, hard)
+    try:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (new_soft, hard))
+    except (OSError, ValueError):
+        return False, soft, False
+
+    return new_soft >= required, new_soft, new_soft > soft
 
 
 def load_tandem_repeats(filename, padding):

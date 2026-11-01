@@ -465,10 +465,18 @@ class CombineTask(Task):
 
     def execute(self, worker: 'SnifflesWorker' = None):
         samples_headers_snf = {}
+        try:
+            return self._execute(samples_headers_snf)
+        finally:
+            # Release all input file handles, also when an error occurred
+            for snf_in in samples_headers_snf.values():
+                snf_in.close()
+
+    def _execute(self, samples_headers_snf: dict[int, snf.SNFile]):
         for snf_info in self.config.snf_input_info:
             snf_in = snf.SNFile(self.config, open(snf_info["filename"], "rb"), filename=snf_info["filename"])
-            snf_in.read_header()
             samples_headers_snf[snf_info["internal_id"]] = snf_in
+            snf_in.read_header()
 
             if self.config.combine_close_handles:
                 snf_in.close()
@@ -771,7 +779,7 @@ class SnifflesWorker:
                 self._shutdown.set()
             except Exception as e:
                 self._logger.exception(msg := f'Error in worker process while executing {task}')
-                self.pipe_worker.send(ErrorResult(msg))
+                self.pipe_worker.send(ErrorResult(f'{msg}: {type(e).__name__}: {e}'))
             else:
                 self._logger.debug(f'Worker {self.id} finished executing {task}, sending back result...')
 
