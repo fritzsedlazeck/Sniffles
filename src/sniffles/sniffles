@@ -61,6 +61,32 @@ if DEV_MONITOR_MEM:
             return total / (1000.0 * 1000.0)
 
 
+def discard_outputs(config: SnifflesConfig, finished_tasks: list[parallel.Task], vcf_out, snf_out, psnf_out):
+    """
+    Close and remove (partially written) output files and temporary task results after a failed run.
+    """
+    for t in finished_tasks:
+        if t.success:
+            if cleanup := getattr(t.result, "cleanup", None):
+                cleanup()
+            for tmp_filename in (getattr(t.result, "snf_filename", None), getattr(t.result, "candidate_filename", None)):
+                if tmp_filename and os.path.exists(tmp_filename):
+                    os.remove(tmp_filename)
+
+    for out, filename in ((vcf_out, config.uncompressed_vcf_name if config.vcf is not None else None),
+                          (snf_out, config.snf),
+                          (psnf_out, config.dev_population_snf)):
+        if out is None:
+            continue
+        try:
+            out.close()
+        except:  # noqa
+            ...
+        if filename and os.path.exists(filename):
+            os.remove(filename)
+            logging.getLogger('sniffles.main').info(f"Removed incomplete output file {filename}")
+
+
 def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
     #
     # Determine Sniffles2 run mode
@@ -430,6 +456,18 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
             for info in config.snf_input_info:
                 config.sample_ids_vcf.append((info["internal_id"], info["sample_id"]))
 
+        if not config.combine_close_handles:
+            # Without --combine-close-handles, each worker keeps all input .snf files open while working on a task,
+            # in addition to inherited pipes (4 per worker) and other files (std streams, reference, output, ...)
+            required_fds = len(config.snf_input_info) + 4 * max(1, config.threads) + 64
+            sufficient, fd_limit, raised = util.ensure_open_file_limit(required_fds)
+            if not sufficient:
+                log.warning(f"Open file limit ({fd_limit}) is too low to keep {len(config.snf_input_info)} .snf files open "
+                            f"per worker - enabling --combine-close-handles.")
+                config.combine_close_handles = True
+            elif raised:
+                log.info(f"Raised open file limit to {fd_limit} to allow keeping {len(config.snf_input_info)} .snf files open per worker.")
+
         if snfp_filename := config.combine_population:
             from sniffles.snfp import PopulationSNF
             snfp = PopulationSNF.open(snfp_filename)
@@ -542,6 +580,17 @@ def Sniffles2_Main(processes: list[parallel.SnifflesWorker]):
         log.debug(f"Missing tasks: {[(t.id, t.sv_id, t.contig, t.regions, t.result) for t in tasks]}")
 
     finished_tasks.sort(key=lambda task: task.id)
+
+    # Any failed task means the output would be incomplete, so we must not write it and report success
+    if failed_tasks := [t for t in finished_tasks if not t.success]:
+        for t in failed_tasks:
+            log.error(f"Task #{t.id} failed: {t.result}")
+        discard_outputs(config, finished_tasks, vcf_out, snf_out, psnf_out)
+        hint = ""
+        if any("Too many open files" in str(t.result) for t in failed_tasks):
+            hint = (" The limit for open files was reached; raise it (ulimit -n) or use --combine-close-handles.")
+        util.fatal_error_main(f"{len(failed_tasks)} of {len(finished_tasks)} tasks failed, no output was written "
+                              f"(see errors above).{hint}")
 
     for t in finished_tasks:
         t.result.emit(vcf_out=vcf_out, snf_out=snf_out, **rkwargs)
