@@ -691,7 +691,7 @@ def classify_splits(read: 'AlignedSegment', leads: list['Lead'], config: 'Sniffl
                     svstart = last.ref_start
                     svlen = (curr.qry_start - last.qry_end)
                     if svlen <= config.dev_seq_cache_maxlen:
-                        curr.seq = read.query_sequence[last.qry_end:curr.qry_start]
+                        curr.seq = read.query_sequence[(read.query_length - curr.qry_start):(read.query_length - last.qry_end)]
                     else:
                         curr.seq = None
                     curr.svtypes_starts_lens.append(("INS", svstart, svlen))
